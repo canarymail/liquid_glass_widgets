@@ -148,8 +148,15 @@ class AdaptiveGlass extends StatelessWidget {
     // _FrostedFallback: ClipPath(ShapeBorderClipper) + BackdropFilter + tint.
     // ClipPath correctly clips ALL shape types (oval, superellipse, rect).
     // Zero fragment shader cost on any device.
+    //
+    // NOTE: the no-blur check uses the *configured* `blur`, not `effectiveBlur`
+    // (blur × visibility). A visibility-driven fade drives effectiveBlur toward
+    // 0, but it must stay on the premium path so the surface (and its child,
+    // faded via `visibility` in LiquidGlass) dissolves smoothly to nothing —
+    // flipping to the frosted fallback at visibility 0 makes the contents pop
+    // back to full opacity. Only a genuinely zero configured blur flips here.
     // --------------------------------------------------------------------------
-    if (quality == GlassQuality.minimal || baseSettings.effectiveBlur == 0) {
+    if (quality == GlassQuality.minimal || baseSettings.blur == 0) {
       return _wrapWithLightModeShadow(
         context,
         baseSettings,
@@ -682,7 +689,22 @@ class _FrostedFallback extends StatelessWidget {
         // Text and contents MUST be strictly clipped to corner radii.
         // Same ClipRRect-over-ClipPath rationale as the blur body
         // above — see the [_ShapeClip] doc comment.
-        _ShapeClip(shape: shape, child: child),
+        //
+        // Fade the child by `visibility` to match the premium path (which fades
+        // it via the Opacity in LiquidGlass). Without this, a visibility-driven
+        // dissolve on the frosted path (web / minimal / accessibility) leaves
+        // the contents fully opaque while the surface fades — a visible "pop".
+        // Opacity here is safe: the child is not a backdrop sampler, and at
+        // opacity 0/1 Flutter skips the save-layer entirely.
+        _ShapeClip(
+          shape: shape,
+          child: settings.visibility >= 1.0
+              ? child
+              : Opacity(
+                  opacity: settings.visibility.clamp(0.0, 1.0),
+                  child: child,
+                ),
+        ),
 
         // Specular Rim: drawn as a pure native overlay vector perfectly on top.
         // Wrapped in _ShapeClip because canvas.drawPath draws a center-aligned
