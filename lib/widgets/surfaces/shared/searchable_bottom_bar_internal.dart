@@ -911,6 +911,15 @@ class SearchPillState extends State<SearchPill> {
 
   Widget _buildExpanded(Color iconColor, Color micColor) {
     final config = widget.config;
+
+    // Full-interior override: the caller renders the entire expanded pill
+    // content (custom field, inline chips/tokens, its own leading icon and
+    // trailing affordances). The detached cancel pill is rendered separately
+    // by the outer bar and is unaffected.
+    if (config.expandedFieldBuilder != null) {
+      return config.expandedFieldBuilder!(context);
+    }
+
     final textColor =
         config.textColor ?? CupertinoColors.label.resolveFrom(context);
 

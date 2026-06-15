@@ -53,6 +53,7 @@ class GlassSearchBarConfig {
     this.onSearchFocusChanged,
     this.onSearchFieldTap,
     this.onCancelTap,
+    this.expandedFieldBuilder,
   });
 
   /// Called with `true` when search is activated, `false` when dismissed.
@@ -316,4 +317,22 @@ class GlassSearchBarConfig {
   ///
   /// When null (the default), the standard dismiss behaviour runs unchanged.
   final VoidCallback? onCancelTap;
+
+  /// Builds the entire interior of the expanded search pill, replacing the
+  /// built-in `[search icon] [CupertinoTextField] [trailing]` row.
+  ///
+  /// Use this when the search field needs richer content than a plain text
+  /// field — e.g. inline removable term chips/tokens, a scrolling chip strip,
+  /// or a fully custom field widget. The caller is responsible for rendering
+  /// its own field (typically wired to [controller] / [focusNode] so the bar's
+  /// expand/collapse and `_hasText` logic still track the same text), its own
+  /// leading icon, and any trailing affordances.
+  ///
+  /// The detached cancel/dismiss pill (see [showsCancelButton]) is unaffected —
+  /// it lives outside this slot, so callers keep the iOS-26 close button for
+  /// free.
+  ///
+  /// When null (the default), the standard built-in field is used and
+  /// [trailingBuilder] / [onChanged] / [onSubmitted] / etc. apply as normal.
+  final WidgetBuilder? expandedFieldBuilder;
 }
