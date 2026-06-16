@@ -111,6 +111,7 @@ class GlassButtonGroup extends StatelessWidget {
     this.showDividers = true,
     this.iconSize = 22.0,
     this.itemPadding = const EdgeInsets.all(12),
+    this.height = 56.0,
   }) : items = null;
 
   /// Creates a group of glass buttons from lightweight [GlassGroupItem]s.
@@ -133,6 +134,7 @@ class GlassButtonGroup extends StatelessWidget {
     this.showDividers = false,
     this.iconSize = 22.0,
     this.itemPadding = const EdgeInsets.all(12),
+    this.height = 56.0,
   }) : children = const [];
 
   /// The buttons to display in the group (widget children mode).
@@ -183,6 +185,14 @@ class GlassButtonGroup extends StatelessWidget {
   /// Defaults to `EdgeInsets.all(12)`.
   final EdgeInsetsGeometry itemPadding;
 
+  /// Height of the glass pill in [GlassButtonGroup.icons] mode.
+  ///
+  /// Forwarded to the underlying [GlassButton.custom] (whose own default is
+  /// 56). Set this to match the height of adjacent single glass buttons — e.g.
+  /// 44 for an iOS-26 toolbar group. Ignored in widget-children mode, where the
+  /// group sizes to its content.
+  final double height;
+
   @override
   Widget build(BuildContext context) {
     final effectiveQuality = GlassThemeHelpers.resolveQuality(
@@ -210,6 +220,7 @@ class GlassButtonGroup extends StatelessWidget {
         useOwnLayer: useOwnLayer,
         quality: effectiveQuality,
         width: null, // Size to content
+        height: height,
         // Reduce stretch for grouped buttons — full stretch looks too dramatic
         // on a wide pill. This matches iOS 26 toolbar feel.
         stretch: 0.15,
