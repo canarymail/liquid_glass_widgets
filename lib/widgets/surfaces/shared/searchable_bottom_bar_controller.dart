@@ -324,6 +324,7 @@ class SearchableBottomBarController extends ChangeNotifier {
     required bool extraCollapsesOnSearch,
     required bool isKeyboardActive,
     required double keyboardH,
+    double keyboardSpacing = 0.0,
     required int tabCount,
     required double? perTabWidth,
   }) {
@@ -373,8 +374,15 @@ class SearchableBottomBarController extends ChangeNotifier {
       maxAvailable: maxTabW,
     );
 
-    final targetTabW =
-        !searching ? naturalTabW : (collapsedTabWidth ?? targetH);
+    // On focus (keyboard active) the collapsed tab pill collapses to zero width
+    // so the search field takes the full bar and the leading button disappears
+    // entirely — the Apple News "stage 3" focus layout. Off-focus (search open
+    // but not focused) keeps the collapsed circle.
+    final targetTabW = !searching
+        ? naturalTabW
+        : isKeyboardActive
+            ? 0.0
+            : (collapsedTabWidth ?? targetH);
 
     // ── Search pill ────────────────────────────────────────────────────────
     final centeredTab = tabPillAnchor == GlassTabPillAnchor.center;
@@ -395,7 +403,11 @@ class SearchableBottomBarController extends ChangeNotifier {
             (dismissVisible ? dismissReserve : 0.0);
 
     // ── Keyboard float ─────────────────────────────────────────────────────
-    final floatY = (_searchFocused && keyboardH > 0) ? keyboardH : 0.0;
+    // Lift the pills to sit [keyboardSpacing] above the keyboard instead of
+    // flush against it.
+    final floatY = (_searchFocused && keyboardH > 0)
+        ? keyboardH + keyboardSpacing
+        : 0.0;
 
     return SearchablePillLayout(
       targetTabW: targetTabW,

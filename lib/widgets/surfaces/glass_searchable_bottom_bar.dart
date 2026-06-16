@@ -105,6 +105,7 @@ class GlassSearchableBottomBar extends StatefulWidget {
     this.whitenBottomThreshold = 45.0,
     this.whitenAtBottomTarget = 1.0,
     this.scrollController,
+    this.keyboardSpacing = 0.0,
     // ── Content-aware brightness ─────────────────────────────────────────────
     this.adaptiveBrightness = false,
     this.onBrightnessChanged,
@@ -261,6 +262,12 @@ class GlassSearchableBottomBar extends StatefulWidget {
   /// disables the whiten-at-bottom effect — there is no scroll position to
   /// watch.
   final ScrollController? scrollController;
+
+  /// Extra vertical gap between the bar and the keyboard when the search field
+  /// is focused. The bar floats up by `keyboardHeight + keyboardSpacing`, so a
+  /// non-zero value keeps it from sitting flush against the keyboard. Defaults
+  /// to `0`.
+  final double keyboardSpacing;
 
   // ── Content-aware brightness ────────────────────────────────────────────────
   /// Whether the bar adapts its light/dark appearance to the content
@@ -753,6 +760,7 @@ class _GlassSearchableBottomBarState extends State<GlassSearchableBottomBar>
                   extraCollapsesOnSearch: extraCollapsesOnSearch,
                   isKeyboardActive: isKeyboardActive,
                   keyboardH: keyboardH,
+                  keyboardSpacing: widget.keyboardSpacing,
                   tabCount: widget.tabs.length,
                   perTabWidth: widget.tabWidth,
                 );
