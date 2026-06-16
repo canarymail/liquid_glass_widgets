@@ -106,6 +106,7 @@ class GlassSearchableBottomBar extends StatefulWidget {
     this.whitenAtBottomTarget = 1.0,
     this.scrollController,
     this.keyboardSpacing = 0.0,
+    this.searchHasContent = false,
     // ── Content-aware brightness ─────────────────────────────────────────────
     this.adaptiveBrightness = false,
     this.onBrightnessChanged,
@@ -268,6 +269,14 @@ class GlassSearchableBottomBar extends StatefulWidget {
   /// non-zero value keeps it from sitting flush against the keyboard. Defaults
   /// to `0`.
   final double keyboardSpacing;
+
+  /// Whether the search field currently holds content (typed text or a
+  /// submitted query/tokens). When `true`, the cancel/dismiss pill stays
+  /// visible even while the field is unfocused (keyboard down), so a submitted
+  /// search keeps its clear affordance. The caller is responsible for computing
+  /// this — for custom fields the package can't see the content directly.
+  /// Defaults to `false`.
+  final bool searchHasContent;
 
   // ── Content-aware brightness ────────────────────────────────────────────────
   /// Whether the bar adapts its light/dark appearance to the content
@@ -742,10 +751,14 @@ class _GlassSearchableBottomBarState extends State<GlassSearchableBottomBar>
                 final hasDismiss = widget.searchConfig.showsCancelButton;
                 final isKeyboardActive =
                     _controller.searchFocused && keyboardPresent;
+                // Show the cancel pill while focused (keyboard up), and also
+                // whenever the field is non-empty even when unfocused — so a
+                // submitted query keeps its clear affordance after the keyboard
+                // is dismissed (Apple News behaviour).
                 final dismissVisible = searching &&
-                    _controller.searchFocused &&
                     hasDismiss &&
-                    keyboardPresent;
+                    ((_controller.searchFocused && keyboardPresent) ||
+                        widget.searchHasContent);
 
                 final extraPos = widget.extraButton?.position ??
                     ExtraButtonPosition.beforeSearch;
