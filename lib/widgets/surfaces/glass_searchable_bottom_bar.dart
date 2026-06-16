@@ -727,8 +727,18 @@ class _GlassSearchableBottomBarState extends State<GlassSearchableBottomBar>
                 final totalW = constraints.maxWidth;
 
                 // ── Keyboard & dismiss state ──────────────────────────────────
+                // Local inset — 0 when an ancestor Scaffold with
+                // resizeToAvoidBottomInset has consumed it for its body.
                 final keyboardH = MediaQuery.viewInsetsOf(context).bottom;
-                final keyboardPresent = keyboardH > 0;
+                // Real keyboard height from the root view, bypassing any ancestor
+                // MediaQuery that consumed the inset. The bar may be hosted inside
+                // a Scaffold that zeroes viewInsets for its body, which would
+                // otherwise make the bar unable to detect the keyboard (no
+                // focus-stage layout, no dismiss pill). This always reflects the
+                // true keyboard height.
+                final rawKeyboardH =
+                    MediaQueryData.fromView(View.of(context)).viewInsets.bottom;
+                final keyboardPresent = rawKeyboardH > 0;
                 final hasDismiss = widget.searchConfig.showsCancelButton;
                 final isKeyboardActive =
                     _controller.searchFocused && keyboardPresent;
@@ -760,6 +770,7 @@ class _GlassSearchableBottomBarState extends State<GlassSearchableBottomBar>
                   extraCollapsesOnSearch: extraCollapsesOnSearch,
                   isKeyboardActive: isKeyboardActive,
                   keyboardH: keyboardH,
+                  rawKeyboardH: rawKeyboardH,
                   keyboardSpacing: widget.keyboardSpacing,
                   tabCount: widget.tabs.length,
                   perTabWidth: widget.tabWidth,

@@ -324,6 +324,7 @@ class SearchableBottomBarController extends ChangeNotifier {
     required bool extraCollapsesOnSearch,
     required bool isKeyboardActive,
     required double keyboardH,
+    double rawKeyboardH = 0.0,
     double keyboardSpacing = 0.0,
     required int tabCount,
     required double? perTabWidth,
@@ -403,10 +404,17 @@ class SearchableBottomBarController extends ChangeNotifier {
             (dismissVisible ? dismissReserve : 0.0);
 
     // ── Keyboard float ─────────────────────────────────────────────────────
-    // Lift the pills to sit [keyboardSpacing] above the keyboard instead of
-    // flush against it.
-    final floatY = (_searchFocused && keyboardH > 0)
-        ? keyboardH + keyboardSpacing
+    // Lift the pills to sit [keyboardSpacing] above the keyboard. Two cases:
+    //  • Local inset present ([keyboardH] > 0): the bar is laid out at the
+    //    screen bottom, so lift by the full keyboard height + spacing.
+    //  • Local inset consumed but the keyboard is up ([rawKeyboardH] > 0 while
+    //    [keyboardH] == 0): an ancestor Scaffold already lifted the bar to the
+    //    keyboard top, so lift by just the spacing for the gap.
+    // [rawKeyboardH] defaults to 0, so callers that don't pass it keep the
+    // original local-inset behaviour.
+    final keyboardUp = rawKeyboardH > 0 || keyboardH > 0;
+    final floatY = (_searchFocused && keyboardUp)
+        ? (keyboardH > 0 ? keyboardH + keyboardSpacing : keyboardSpacing)
         : 0.0;
 
     return SearchablePillLayout(
