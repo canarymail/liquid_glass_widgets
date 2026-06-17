@@ -6,6 +6,7 @@ import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
 import '../../theme/glass_theme_data.dart';
 import '../../types/glass_quality.dart';
+import '../../utils/accessibility_config.dart' as glass_config;
 import '../../utils/glass_performance_monitor.dart';
 import 'glass_isolation_scope.dart';
 import 'inherited_liquid_glass.dart';
@@ -165,7 +166,9 @@ class _AdaptiveLiquidGlassLayerState extends State<AdaptiveLiquidGlassLayer> {
     // Resolve shadow for SDF rendering. Shadows only apply in light mode.
     final bool isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
     final List<BoxShadow> resolvedShadows =
-        isDark ? const <BoxShadow>[] : effectiveSettings.effectiveShadow;
+        (isDark && !glass_config.shadowInDarkMode)
+            ? const <BoxShadow>[]
+            : effectiveSettings.effectiveShadow;
 
     // Keep the child subtree's element identity stable across the wrapper toggle
     // below (see [_contentKey]) so its animation controllers survive.
