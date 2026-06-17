@@ -5,6 +5,7 @@ import '../../src/renderer/liquid_glass_renderer.dart';
 
 import '../../theme/glass_theme_data.dart';
 import '../../types/glass_quality.dart';
+import '../../utils/accessibility_config.dart' as glass_config;
 import '../../utils/glass_performance_monitor.dart';
 import 'glass_isolation_scope.dart';
 import 'inherited_liquid_glass.dart';
@@ -138,7 +139,9 @@ class AdaptiveLiquidGlassLayer extends StatelessWidget {
     final bool isDark =
         CupertinoTheme.of(context).brightness == Brightness.dark;
     final List<BoxShadow> resolvedShadows =
-        isDark ? const <BoxShadow>[] : effectiveSettings.effectiveShadow;
+        (isDark && !glass_config.shadowInDarkMode)
+            ? const <BoxShadow>[]
+            : effectiveSettings.effectiveShadow;
 
     // On Skia/Web, we want to provide a single BackdropFilter for the whole layer
     // to avoid each child doing its own expensive blur.

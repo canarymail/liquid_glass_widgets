@@ -7,6 +7,7 @@ import '../../src/renderer/liquid_glass_renderer.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../types/glass_quality.dart';
+import '../../utils/accessibility_config.dart' as glass_config;
 import '../../utils/glass_performance_monitor.dart';
 import 'glass_accessibility_scope.dart';
 import 'glass_isolation_scope.dart';
@@ -349,7 +350,8 @@ class AdaptiveGlass extends StatelessWidget {
     if (effectiveUseOwnLayer) {
       // Resolve shadows for the GPU cutout method
       final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
-      final shadows = (isDark || _FrostedFallback._isFlatEdge(shape))
+      final shadows = ((isDark && !glass_config.shadowInDarkMode) ||
+              _FrostedFallback._isFlatEdge(shape))
           ? const <BoxShadow>[]
           : baseSettings.effectiveShadow;
 
@@ -404,8 +406,10 @@ class AdaptiveGlass extends StatelessWidget {
       BuildContext context, LiquidGlassSettings baseSettings, Widget glass) {
     final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
 
-    // Skip shadow in dark mode or for flat-edge shapes (bars, full-width surfaces).
-    if (isDark || _FrostedFallback._isFlatEdge(shape)) {
+    // Skip shadow in dark mode (unless shadowInDarkMode is enabled for apps with
+    // a lighter dark background) or for flat-edge shapes (bars, full-width).
+    if ((isDark && !glass_config.shadowInDarkMode) ||
+        _FrostedFallback._isFlatEdge(shape)) {
       return glass;
     }
 
@@ -727,6 +731,28 @@ class _FrostedFallback extends StatelessWidget {
               ),
             ),
           ),
+
+        // Solid-tier hairline border (opt-in via solidSurfaceBorder). An opaque
+        // surface has no refraction to lift it off the background, so stroke a
+        // uniform brightness-aware edge on top. Clipped to the inner half by
+        // _ShapeClip so the visible line stays crisp at ~1px and never bleeds.
+        if (glass_config.solidSurfaceBorder)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _ShapeClip(
+                shape: shape,
+                child: CustomPaint(
+                  painter: _HairlineBorderPainter(
+                    shape: shape,
+                    color: CupertinoTheme.brightnessOf(context) ==
+                            Brightness.dark
+                        ? const Color(0x24FFFFFF) // white ~14%
+                        : const Color(0x1A000000), // black ~10%
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -850,6 +876,37 @@ class _SpecularRimPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SpecularRimPainter old) =>
       old.settings != settings || old.shape != shape;
+}
+
+// ---------------------------------------------------------------------------
+// _HairlineBorderPainter — uniform 1px edge for the solid (no-blur) tier.
+//
+// Strokes the exact shape outline with a flat colour. Wrapped in _ShapeClip by
+// the caller, which removes the outer half of the centred stroke, so the
+// visible line is crisp and ~1px wide. No gradient or blend tricks — just a
+// plain separator, the way Material/iOS outline flat cards.
+// ---------------------------------------------------------------------------
+class _HairlineBorderPainter extends CustomPainter {
+  const _HairlineBorderPainter({required this.shape, required this.color});
+
+  final LiquidShape shape;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPath(
+      shape.getOuterPath(Offset.zero & size),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        // Doubled: _ShapeClip clips the outer half, leaving ~1px visible.
+        ..strokeWidth = 2.0,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HairlineBorderPainter old) =>
+      old.shape != shape || old.color != color;
 }
 
 /// Wraps [child] in [ClipRRect] when the shape resolves to a

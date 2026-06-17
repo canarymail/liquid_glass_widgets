@@ -50,6 +50,24 @@ class LiquidGlassWidgets {
   static set respectSystemAccessibility(bool value) =>
       glass_config.respectSystemAccessibility = value;
 
+  /// Whether the built-in light-mode drop shadow also renders in dark mode.
+  ///
+  /// Defaults to `false` (iOS 26 behaviour — a shadow is invisible on a black
+  /// background). Set to `true` when the app's dark background is a lighter
+  /// grey, so flat/solid glass surfaces still read with depth in dark mode.
+  static bool get shadowInDarkMode => glass_config.shadowInDarkMode;
+  static set shadowInDarkMode(bool value) =>
+      glass_config.shadowInDarkMode = value;
+
+  /// Whether shader-free frosted/solid surfaces draw a uniform hairline border.
+  ///
+  /// Defaults to `false`. Enable it for the no-blur "solid" tier so the opaque
+  /// surfaces get a crisp, brightness-aware edge that separates them from the
+  /// background (which the refraction/shadow would otherwise provide).
+  static bool get solidSurfaceBorder => glass_config.solidSurfaceBorder;
+  static set solidSurfaceBorder(bool value) =>
+      glass_config.solidSurfaceBorder = value;
+
   /// Deprecated — use [respectSystemAccessibility] instead.
   ///
   /// Retained for discoverability (the two-word form reads naturally as a
