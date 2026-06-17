@@ -837,6 +837,9 @@ class _FrostedFallback extends StatelessWidget {
                     color: GlassTheme.brightnessOf(context) == Brightness.dark
                         ? const Color(0x24FFFFFF) // white ~14%
                         : const Color(0x1A000000), // black ~10%
+                    // Dissolve with the rest of the surface during the
+                    // scroll-hide fade (visibility scales every glass layer).
+                    visibility: settings.visibility,
                   ),
                 ),
               ),
@@ -976,17 +979,27 @@ class _SpecularRimPainter extends CustomPainter {
 // plain separator, the way Material/iOS outline flat cards.
 // ---------------------------------------------------------------------------
 class _HairlineBorderPainter extends CustomPainter {
-  const _HairlineBorderPainter({required this.shape, required this.color});
+  const _HairlineBorderPainter({
+    required this.shape,
+    required this.color,
+    this.visibility = 1.0,
+  });
 
   final LiquidShape shape;
   final Color color;
 
+  /// Scroll-hide fade position (1 = visible, 0 = gone). Scales the stroke alpha
+  /// so the border dissolves in lockstep with the glass material.
+  final double visibility;
+
   @override
   void paint(Canvas canvas, Size size) {
+    final v = visibility.clamp(0.0, 1.0);
+    if (v <= 0) return;
     canvas.drawPath(
       shape.getOuterPath(Offset.zero & size),
       Paint()
-        ..color = color
+        ..color = color.withValues(alpha: color.a * v)
         ..style = PaintingStyle.stroke
         // Doubled: _ShapeClip clips the outer half, leaving ~1px visible.
         ..strokeWidth = 2.0,
@@ -995,7 +1008,7 @@ class _HairlineBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_HairlineBorderPainter old) =>
-      old.shape != shape || old.color != color;
+      old.shape != shape || old.color != color || old.visibility != visibility;
 }
 
 /// Wraps [child] in [ClipRRect] when the shape resolves to a
