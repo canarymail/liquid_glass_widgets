@@ -1020,78 +1020,87 @@ class _GlassSearchableBottomBarState extends State<GlassSearchableBottomBar>
                       // Internal refraction layers (unselected icons → indicator
                       // → selected icons) are self-contained within the
                       // SearchableTabIndicator — unaffected by Stack order.
-                      Positioned(
-                        left: curTabLeft,
-                        bottom: 0,
-                        width: math.max(0.01, curTabW),
-                        height: animH,
-                        child: SearchableTabIndicator(
-                          quality: effectiveQuality,
-                          visible: widget.showIndicator && !searching,
-                          tabIndex: widget.selectedIndex,
-                          tabCount: widget.tabs.length,
-                          onTabChanged: widget.onTabSelected,
-                          barHeight: animH,
-                          barBorderRadius: widget.barBorderRadius,
-                          tabPadding: widget.tabPadding,
-                          maskingQuality: widget.maskingQuality,
-                          magnification: widget.magnification,
-                          innerBlur: widget.innerBlur,
-                          indicatorColor: widget.indicatorColor,
-                          indicatorExpansion: widget.indicatorExpansion,
-                          indicatorSettings: widget.indicatorSettings,
-                          backgroundKey: widget.backgroundKey,
-                          platformViewBackdrop: widget.platformViewBackdrop,
-                          isSearchActive: searching,
-                          interactionGlowColor:
-                              widget.interactionBehavior.hasGlow
-                                  ? effectiveInteractionGlowColor
-                                  : const Color(0x00000000),
-                          interactionGlowRadius: widget.interactionGlowRadius,
-                          interactionGlowBlurRadius: effectiveGlowBlurRadius,
-                          interactionGlowSpreadRadius:
-                              effectiveGlowSpreadRadius,
-                          interactionGlowOpacity: effectiveGlowOpacity,
-                          enableBackgroundAnimation:
-                              widget.interactionBehavior.hasScale,
-                          backgroundPressScale: widget.pressScale,
-                          collapsedLogoBuilder:
-                              widget.searchConfig.collapsedLogoBuilder ??
-                                  (context) {
-                                    final currentTab =
-                                        widget.tabs[widget.selectedIndex];
-                                    return Center(
-                                      child: IconTheme(
-                                        data: IconThemeData(
-                                          color: widget.unselectedIconColor,
-                                          size: widget.iconSize,
+                      //
+                      // Skip rendering entirely once the tab pill has collapsed
+                      // (curTabW → 0 while searching). The Positioned below
+                      // forces a min width of 0.01px, but the glass body still
+                      // paints its superellipse at full bar height — a degenerate
+                      // near-zero-width slab that pokes a distorted notch out the
+                      // leading edge of the expanded search field. Gating on a
+                      // small threshold removes that sliver.
+                      if (curTabW > 1.0)
+                        Positioned(
+                          left: curTabLeft,
+                          bottom: 0,
+                          width: math.max(0.01, curTabW),
+                          height: animH,
+                          child: SearchableTabIndicator(
+                            quality: effectiveQuality,
+                            visible: widget.showIndicator && !searching,
+                            tabIndex: widget.selectedIndex,
+                            tabCount: widget.tabs.length,
+                            onTabChanged: widget.onTabSelected,
+                            barHeight: animH,
+                            barBorderRadius: widget.barBorderRadius,
+                            tabPadding: widget.tabPadding,
+                            maskingQuality: widget.maskingQuality,
+                            magnification: widget.magnification,
+                            innerBlur: widget.innerBlur,
+                            indicatorColor: widget.indicatorColor,
+                            indicatorExpansion: widget.indicatorExpansion,
+                            indicatorSettings: widget.indicatorSettings,
+                            backgroundKey: widget.backgroundKey,
+                            platformViewBackdrop: widget.platformViewBackdrop,
+                            isSearchActive: searching,
+                            interactionGlowColor:
+                                widget.interactionBehavior.hasGlow
+                                    ? effectiveInteractionGlowColor
+                                    : const Color(0x00000000),
+                            interactionGlowRadius: widget.interactionGlowRadius,
+                            interactionGlowBlurRadius: effectiveGlowBlurRadius,
+                            interactionGlowSpreadRadius:
+                                effectiveGlowSpreadRadius,
+                            interactionGlowOpacity: effectiveGlowOpacity,
+                            enableBackgroundAnimation:
+                                widget.interactionBehavior.hasScale,
+                            backgroundPressScale: widget.pressScale,
+                            collapsedLogoBuilder:
+                                widget.searchConfig.collapsedLogoBuilder ??
+                                    (context) {
+                                      final currentTab =
+                                          widget.tabs[widget.selectedIndex];
+                                      return Center(
+                                        child: IconTheme(
+                                          data: IconThemeData(
+                                            color: widget.unselectedIconColor,
+                                            size: widget.iconSize,
+                                          ),
+                                          child: currentTab.activeIcon ??
+                                              currentTab.icon,
                                         ),
-                                        child: currentTab.activeIcon ??
-                                            currentTab.icon,
-                                      ),
-                                    );
-                                  },
-                          onDismissSearch: () =>
-                              widget.searchConfig.onSearchToggle(false),
-                          childUnselected: _buildTabRow(
-                            selected: false,
-                            resolvedSelectedIconColor:
-                                resolvedSelectedIconColor,
-                            resolvedUnselectedIconColor:
-                                resolvedUnselectedIconColor,
-                          ),
-                          selectedTabBuilder: (ctx, intensity, alignment) =>
-                              _buildTabRow(
-                            selected: true,
-                            intensity: intensity,
-                            alignment: alignment,
-                            resolvedSelectedIconColor:
-                                resolvedSelectedIconColor,
-                            resolvedUnselectedIconColor:
-                                resolvedUnselectedIconColor,
+                                      );
+                                    },
+                            onDismissSearch: () =>
+                                widget.searchConfig.onSearchToggle(false),
+                            childUnselected: _buildTabRow(
+                              selected: false,
+                              resolvedSelectedIconColor:
+                                  resolvedSelectedIconColor,
+                              resolvedUnselectedIconColor:
+                                  resolvedUnselectedIconColor,
+                            ),
+                            selectedTabBuilder: (ctx, intensity, alignment) =>
+                                _buildTabRow(
+                              selected: true,
+                              intensity: intensity,
+                              alignment: alignment,
+                              resolvedSelectedIconColor:
+                                  resolvedSelectedIconColor,
+                              resolvedUnselectedIconColor:
+                                  resolvedUnselectedIconColor,
+                            ),
                           ),
                         ),
-                      ),
 
                       // ── 4. Dismiss × pill (in-stack, shared glass layer) ────────
                       // Lives in the same AdaptiveLiquidGlassLayer as the search
