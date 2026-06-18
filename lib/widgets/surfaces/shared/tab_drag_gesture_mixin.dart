@@ -171,7 +171,16 @@ mixin TabDragGestureMixin<T extends StatefulWidget> on State<T> {
     setState(() {
       tabIsDragging = false;
       tabIsDown = false;
-      tabXAlign = computeTabAlignment(target);
+      // Snap to the AUTHORITATIVE selection (tabIndex), not the optimistic
+      // drag target. When notifyTabChanged actually moves tabIndex (a real
+      // segmented selection), didUpdateWidget → updateTabAlignIfNeeded
+      // animates the indicator to it. But when these tabs are used for
+      // NAVIGATION — notifyTabChanged pushes a screen and leaves tabIndex
+      // unchanged — parking tabXAlign on `target` would strand the indicator
+      // on the dragged tab forever (updateTabAlignIfNeeded's
+      // oldTabIndex != tabIndex resync never fires). Resetting to tabIndex
+      // keeps it truthful in both cases.
+      tabXAlign = computeTabAlignment(tabIndex);
       barSwayOffset = 0.0; // spring back to center
     });
     notifyTabChanged(target);
@@ -186,7 +195,9 @@ mixin TabDragGestureMixin<T extends StatefulWidget> on State<T> {
       setState(() {
         tabIsDragging = false;
         tabIsDown = false;
-        tabXAlign = computeTabAlignment(target);
+        // Same as onBarDragEnd: reset to the authoritative selection so a
+        // navigation tab (tabIndex unchanged) doesn't strand the indicator.
+        tabXAlign = computeTabAlignment(tabIndex);
         barSwayOffset = 0.0; // spring back to center
       });
       notifyTabChanged(target);
