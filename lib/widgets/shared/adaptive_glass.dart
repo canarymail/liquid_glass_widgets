@@ -934,7 +934,13 @@ class _FrostedFallback extends StatelessWidget {
         : settings.bodyMode == GlassBodyMode.clear
             ? tint.a.clamp(0.0, 1.0)
             : tint.a.clamp(0.05, 1.0);
-    final frostedColor = tint.withValues(alpha: frostedAlpha);
+    // Accessibility: desaturate tint to neutral so a colored tint (e.g. the
+    // light-mode blue-white) doesn't bleed visibly when alpha is boosted from
+    // ~12% to ~46%. Normal glass rendering is unaffected.
+    final Color baseTint = isAccessibilityFallback
+        ? HSLColor.fromColor(tint).withSaturation(0.0).toColor()
+        : tint;
+    final frostedColor = baseTint.withValues(alpha: frostedAlpha);
 
     final sat = settings.effectiveSaturation;
     final bool needsSaturation = (sat - 1.0).abs() > 0.01;
