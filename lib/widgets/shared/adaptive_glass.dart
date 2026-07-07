@@ -742,7 +742,13 @@ class _FrostedFallback extends StatelessWidget {
         // surface has no refraction to lift it off the background, so stroke a
         // uniform brightness-aware edge on top. Clipped to the inner half by
         // _ShapeClip so the visible line stays crisp at ~1px and never bleeds.
-        if (glass_config.solidSurfaceBorder)
+        //
+        // Suppressed when the surface carries a specular (lightIntensity > 0):
+        // the directional specular rim already defines the edge, so a uniform
+        // hairline on top of it would read as a heavy double border. A specular
+        // rim replaces the hairline; flat solids (lightIntensity 0) keep it.
+        if (glass_config.solidSurfaceBorder &&
+            settings.effectiveLightIntensity == 0)
           Positioned.fill(
             child: IgnorePointer(
               child: _ShapeClip(
@@ -797,6 +803,12 @@ class _FrostedFallback extends StatelessWidget {
 // Pure Canvas drawing: two gradient strokes with BlendMode.hardLight and
 // BlendMode.overlay. Zero GPU shader cost on any platform.
 // ---------------------------------------------------------------------------
+
+/// Brightness of the opposite-corner "kick" highlight relative to the key,
+/// mirroring the GLSL dual-highlight model (`kKickIntensity` in the .frag
+/// shaders) so the hand-drawn rim matches the premium glass surfaces.
+const double _kSpecularKickIntensity = 0.4;
+
 class _SpecularRimPainter extends CustomPainter {
   const _SpecularRimPainter({
     required this.shape,
@@ -843,10 +855,15 @@ class _SpecularRimPainter extends CustomPainter {
 
     final gradient = LinearGradient(
       colors: [
+        // Key highlight: full brightness on the light-side corner (begin).
         white,
         white.withValues(alpha: ambientStrength),
         white.withValues(alpha: ambientStrength),
-        white,
+        // Kick highlight: the opposite corner (end), dimmed to match the premium
+        // / GLSL dual-highlight model (kKickIntensity = 0.4). Without this the two
+        // corners glow equally, which reads as a different light direction than
+        // the premium glass surfaces (whose kick is faint).
+        white.withValues(alpha: white.a * _kSpecularKickIntensity),
       ],
       stops: [inset, secondInset, 1 - secondInset, 1 - inset],
       begin: Alignment(x, y),
@@ -871,12 +888,17 @@ class _SpecularRimPainter extends CustomPainter {
 
     // Pass 2: sharp inner rim.
     // Doubled width since it is clipped to the inner half.
+    // BlendMode.hardLight (per this painter's documented design) makes the sharp
+    // highlight read brighter than a plain overlay — needed on opaque solid
+    // surfaces (the frosted fallback), where overlay alone lands dimmer than the
+    // premium glass rim. Scaled by the gradient alpha, so `lightIntensity` still
+    // dials the peak: lower it for a softer highlight.
     canvas.drawPath(
       path,
       Paint()
         ..shader = gradient
         ..color = white.withValues(alpha: white.a * 0.6)
-        ..blendMode = BlendMode.overlay
+        ..blendMode = BlendMode.hardLight
         ..style = PaintingStyle.stroke
         ..strokeWidth = (settings.effectiveThickness / 20).clamp(0.5, 2.0),
     );
