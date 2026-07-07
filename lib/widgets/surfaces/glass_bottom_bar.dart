@@ -688,6 +688,9 @@ class _GlassBottomBarState extends State<GlassBottomBar> {
                               iconColor: widget.extraButton!.iconColor ??
                                   resolvedUnselectedIconColor,
                               enableBlend: widget.enableBlend,
+                              // Match the bar's surface (e.g. blur-0 solid over a
+                              // platform view) instead of the ambient theme.
+                              settings: widget.settings,
                               borderRadius: widget.barBorderRadius ==
                                       GlassBottomBar._defaultBarBorderRadius
                                   ? null

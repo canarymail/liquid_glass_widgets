@@ -279,6 +279,7 @@ class BottomBarExtraBtn extends StatelessWidget {
     required this.iconColor,
     this.enableBlend = false,
     this.borderRadius,
+    this.settings,
     super.key,
   });
 
@@ -287,6 +288,12 @@ class BottomBarExtraBtn extends StatelessWidget {
   final Color iconColor;
   final bool enableBlend;
   final double? borderRadius;
+
+  /// Explicit glass settings for the button surface. When null the button
+  /// inherits the ambient GlassTheme. Pass the parent bar's settings so the
+  /// extra button matches it — e.g. a blur-0 solid over a platform view, where
+  /// the inherited (translucent) theme would render wrong.
+  final LiquidGlassSettings? settings;
 
   @override
   Widget build(BuildContext context) {
@@ -302,6 +309,7 @@ class BottomBarExtraBtn extends StatelessWidget {
       height: config.size,
       quality: quality,
       iconColor: iconColor,
+      settings: settings,
       useOwnLayer: !enableBlend, // When blending, share the parent's layer
       shape: effectiveShape,
     );
