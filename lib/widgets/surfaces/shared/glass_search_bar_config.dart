@@ -46,6 +46,7 @@ class GlassSearchBarConfig {
     this.onTapOutside,
     this.autoFocusOnExpand = false,
     this.expandWhenActive = true,
+    this.hideTabsWhenActive = false,
     this.showsCancelButton = true,
     this.cancelButtonColor,
     this.cancelIcon,
@@ -249,6 +250,15 @@ class GlassSearchBarConfig {
   /// search pill to remain a compact circular button on the right side when
   /// active, creating an empty gap in the center of the bar.
   final bool expandWhenActive;
+
+  /// Whether the tab pill hides for the whole active-search session.
+  ///
+  /// By default the tab pill only collapses to zero while the keyboard is up
+  /// (Apple News "stage 3"); off-focus it keeps a compact circle. When `true`
+  /// the pill is gone the moment search activates, so the search field spans
+  /// the full bar in every active state — for bars whose tabs live elsewhere
+  /// (e.g. a dock layout) and shouldn't reappear behind the search card.
+  final bool hideTabsWhenActive;
 
   /// Whether to show a cancel/dismiss button when the search bar is focused.
   ///

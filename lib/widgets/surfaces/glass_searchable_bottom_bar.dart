@@ -777,6 +777,7 @@ class _GlassSearchableBottomBarState extends State<GlassSearchableBottomBar>
                   hasDismiss: hasDismiss,
                   dismissVisible: dismissVisible,
                   collapsedTabWidth: widget.searchConfig.collapsedTabWidth,
+                  hideTabsWhenActive: widget.searchConfig.hideTabsWhenActive,
                   tabPillAnchor: widget.tabPillAnchor,
                   extraFullW: extraFullW,
                   extraPos: extraPos,

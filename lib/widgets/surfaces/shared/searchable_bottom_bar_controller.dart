@@ -328,6 +328,7 @@ class SearchableBottomBarController extends ChangeNotifier {
     double keyboardSpacing = 0.0,
     required int tabCount,
     required double? perTabWidth,
+    bool hideTabsWhenActive = false,
   }) {
     final targetH = searching ? searchBarHeight : barHeight;
 
@@ -378,10 +379,12 @@ class SearchableBottomBarController extends ChangeNotifier {
     // On focus (keyboard active) the collapsed tab pill collapses to zero width
     // so the search field takes the full bar and the leading button disappears
     // entirely — the Apple News "stage 3" focus layout. Off-focus (search open
-    // but not focused) keeps the collapsed circle.
+    // but not focused) keeps the collapsed circle — unless [hideTabsWhenActive]
+    // hides the pill for the whole active session (full-width search card).
+    final tabsHidden = searching && (isKeyboardActive || hideTabsWhenActive);
     final targetTabW = !searching
         ? naturalTabW
-        : isKeyboardActive
+        : tabsHidden
             ? 0.0
             : (collapsedTabWidth ?? targetH);
 
@@ -390,7 +393,7 @@ class SearchableBottomBarController extends ChangeNotifier {
 
     final targetSearchLeft = !searching || !expandWhenActive
         ? totalW - targetCompactW - extraWRight
-        : isKeyboardActive
+        : tabsHidden
             ? curExtraWLeft
             : centeredTab
                 ? (maxTabW + targetTabW) / 2 + curExtraWLeft + spacing
