@@ -48,6 +48,7 @@ class GlassThemeSettings {
   const GlassThemeSettings({
     this.visibility,
     this.glassColor,
+    this.platformViewFallbackColor,
     this.thickness,
     this.blur,
     this.frost,
@@ -131,6 +132,9 @@ class GlassThemeSettings {
   /// See [LiquidGlassSettings.glassColor].
   final Color? glassColor;
 
+  /// See [LiquidGlassSettings.platformViewFallbackColor].
+  final Color? platformViewFallbackColor;
+
   /// See [LiquidGlassSettings.thickness].
   final double? thickness;
 
@@ -208,6 +212,8 @@ class GlassThemeSettings {
     return LiquidGlassSettings(
       visibility: visibility ?? base.visibility,
       glassColor: glassColor ?? base.glassColor,
+      platformViewFallbackColor:
+          platformViewFallbackColor ?? base.platformViewFallbackColor,
       thickness: thickness ?? base.thickness,
       blur: blur ?? base.blur,
       frost: frost ?? base.frost,
@@ -237,7 +243,6 @@ class GlassThemeSettings {
       frostWeight: frostWeight ?? base.frostWeight,
       blurWeight: blurWeight ?? base.blurWeight,
       backerColor: base.backerColor,
-      platformViewFallbackColor: base.platformViewFallbackColor,
     );
   }
 
@@ -269,6 +274,11 @@ class GlassThemeSettings {
     return GlassThemeSettings(
       visibility: _lerpDoubleField(a.visibility, b.visibility, t),
       glassColor: _lerpColorField(a.glassColor, b.glassColor, t),
+      platformViewFallbackColor: _lerpColorField(
+        a.platformViewFallbackColor,
+        b.platformViewFallbackColor,
+        t,
+      ),
       thickness: _lerpDoubleField(a.thickness, b.thickness, t),
       blur: _lerpDoubleField(a.blur, b.blur, t),
       frost: _lerpDoubleField(a.frost, b.frost, t),
@@ -316,6 +326,7 @@ class GlassThemeSettings {
   GlassThemeSettings copyWith({
     double? visibility,
     Color? glassColor,
+    Color? platformViewFallbackColor,
     double? thickness,
     double? blur,
     double? frost,
@@ -343,6 +354,8 @@ class GlassThemeSettings {
     return GlassThemeSettings(
       visibility: visibility ?? this.visibility,
       glassColor: glassColor ?? this.glassColor,
+      platformViewFallbackColor:
+          platformViewFallbackColor ?? this.platformViewFallbackColor,
       thickness: thickness ?? this.thickness,
       blur: blur ?? this.blur,
       frost: frost ?? this.frost,
@@ -376,6 +389,7 @@ class GlassThemeSettings {
           runtimeType == other.runtimeType &&
           visibility == other.visibility &&
           glassColor == other.glassColor &&
+          platformViewFallbackColor == other.platformViewFallbackColor &&
           thickness == other.thickness &&
           blur == other.blur &&
           frost == other.frost &&
@@ -404,6 +418,7 @@ class GlassThemeSettings {
   int get hashCode => Object.hashAll([
         visibility,
         glassColor,
+        platformViewFallbackColor,
         thickness,
         blur,
         frost,
@@ -435,6 +450,7 @@ class GlassThemeSettings {
       'thickness: $thickness, '
       'blur: $blur, '
       'glassColor: $glassColor, '
-      'edgeAbsorption: $edgeAbsorption'
+      'edgeAbsorption: $edgeAbsorption, '
+      'platformViewFallbackColor: $platformViewFallbackColor'
       ')';
 }
