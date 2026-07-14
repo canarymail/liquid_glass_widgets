@@ -158,7 +158,7 @@ class AdaptiveGlass extends StatelessWidget {
     // the "live BackdropFilter path" the canUsePremiumShader comment promises.
     // --------------------------------------------------------------------------
     if (quality == GlassQuality.minimal ||
-        baseSettings.effectiveBlur == 0 ||
+        baseSettings.blur == 0 ||
         platformViewBackdrop) {
       return _wrapWithDecorations(
         context,
@@ -786,7 +786,12 @@ class _FrostedFallback extends StatelessWidget {
         _ShapeClip(
           shape: shape,
           platformViewBackdrop: platformViewBackdrop,
-          child: child,
+          child: settings.visibility >= 1.0
+              ? child
+              : Opacity(
+                  opacity: settings.visibility.clamp(0.0, 1.0),
+                  child: child,
+                ),
         ),
 
         // Specular Rim: drawn as a pure native overlay vector perfectly on top.

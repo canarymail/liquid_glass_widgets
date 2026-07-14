@@ -261,11 +261,18 @@ class LiquidGlassSettings extends Equatable {
 
   /// Returns the effective shadow list for light-mode rendering.
   ///
-  /// Resolves [shadow] (full override) vs [shadowElevation] (scalar).
+  /// Resolves [shadow] (full override) vs [shadowElevation] (scalar), then
+  /// scales each shadow's opacity by [visibility] so a visibility-driven
+  /// dissolve fades the drop shadow in lockstep with the glass material.
   /// Returns an empty list when the shadow is effectively disabled.
   List<BoxShadow> get effectiveShadow {
-    if (shadow != null) return shadow!;
-    return GlassShadow.scaled(shadowElevation);
+    final base = shadow ?? GlassShadow.scaled(shadowElevation);
+    if (visibility >= 1.0) return base;
+    final v = visibility.clamp(0.0, 1.0);
+    return [
+      for (final item in base)
+        item.copyWith(color: item.color.withValues(alpha: item.color.a * v)),
+    ];
   }
 
   /// Light-mode whitening ("legibility veil") amount, from 0 to 1.
