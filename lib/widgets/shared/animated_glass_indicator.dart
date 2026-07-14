@@ -254,6 +254,13 @@ class AnimatedGlassIndicator extends StatelessWidget {
       backerColor: override.backerColor != _settingsDefaults.backerColor
           ? override.backerColor
           : null,
+      // Keep the premium PlatformView stand-in on the indicator as well as the
+      // surrounding bar. Otherwise the bar body is fixed while the moving lens
+      // still samples transparent black.
+      platformViewFallbackColor: override.platformViewFallbackColor !=
+              _settingsDefaults.platformViewFallbackColor
+          ? override.platformViewFallbackColor
+          : null,
     );
   }
 

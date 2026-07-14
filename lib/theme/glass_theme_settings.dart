@@ -47,6 +47,7 @@ class GlassThemeSettings {
   const GlassThemeSettings({
     this.visibility,
     this.glassColor,
+    this.platformViewFallbackColor,
     this.thickness,
     this.blur,
     this.chromaticAberration,
@@ -63,6 +64,9 @@ class GlassThemeSettings {
 
   /// See [LiquidGlassSettings.glassColor].
   final Color? glassColor;
+
+  /// See [LiquidGlassSettings.platformViewFallbackColor].
+  final Color? platformViewFallbackColor;
 
   /// See [LiquidGlassSettings.thickness].
   final double? thickness;
@@ -99,6 +103,8 @@ class GlassThemeSettings {
     return LiquidGlassSettings(
       visibility: visibility ?? base.visibility,
       glassColor: glassColor ?? base.glassColor,
+      platformViewFallbackColor:
+          platformViewFallbackColor ?? base.platformViewFallbackColor,
       thickness: thickness ?? base.thickness,
       blur: blur ?? base.blur,
       chromaticAberration: chromaticAberration ?? base.chromaticAberration,
@@ -138,6 +144,11 @@ class GlassThemeSettings {
     return GlassThemeSettings(
       visibility: _lerpDoubleField(a.visibility, b.visibility, t),
       glassColor: _lerpColorField(a.glassColor, b.glassColor, t),
+      platformViewFallbackColor: _lerpColorField(
+        a.platformViewFallbackColor,
+        b.platformViewFallbackColor,
+        t,
+      ),
       thickness: _lerpDoubleField(a.thickness, b.thickness, t),
       blur: _lerpDoubleField(a.blur, b.blur, t),
       chromaticAberration:
@@ -167,6 +178,7 @@ class GlassThemeSettings {
   GlassThemeSettings copyWith({
     double? visibility,
     Color? glassColor,
+    Color? platformViewFallbackColor,
     double? thickness,
     double? blur,
     double? chromaticAberration,
@@ -180,6 +192,8 @@ class GlassThemeSettings {
     return GlassThemeSettings(
       visibility: visibility ?? this.visibility,
       glassColor: glassColor ?? this.glassColor,
+      platformViewFallbackColor:
+          platformViewFallbackColor ?? this.platformViewFallbackColor,
       thickness: thickness ?? this.thickness,
       blur: blur ?? this.blur,
       chromaticAberration: chromaticAberration ?? this.chromaticAberration,
@@ -199,6 +213,7 @@ class GlassThemeSettings {
           runtimeType == other.runtimeType &&
           visibility == other.visibility &&
           glassColor == other.glassColor &&
+          platformViewFallbackColor == other.platformViewFallbackColor &&
           thickness == other.thickness &&
           blur == other.blur &&
           chromaticAberration == other.chromaticAberration &&
@@ -213,6 +228,7 @@ class GlassThemeSettings {
   int get hashCode => Object.hash(
         visibility,
         glassColor,
+        platformViewFallbackColor,
         thickness,
         blur,
         chromaticAberration,
@@ -229,6 +245,7 @@ class GlassThemeSettings {
       'visibility: $visibility, '
       'thickness: $thickness, '
       'blur: $blur, '
-      'glassColor: $glassColor'
+      'glassColor: $glassColor, '
+      'platformViewFallbackColor: $platformViewFallbackColor'
       ')';
 }

@@ -9,6 +9,7 @@ void main() {
         thickness: 10.0,
         blur: 15.0,
         glassColor: Color(0x33FFFFFF),
+        platformViewFallbackColor: Color(0xFFF5F5F5),
         lightIntensity: 0.5,
         ambientStrength: 0.2,
       );
@@ -19,6 +20,8 @@ void main() {
       expect(merged.thickness, equals(base.thickness));
       expect(merged.blur, equals(base.blur));
       expect(merged.glassColor, equals(base.glassColor));
+      expect(merged.platformViewFallbackColor,
+          equals(base.platformViewFallbackColor));
       expect(merged.lightIntensity, equals(base.lightIntensity));
       expect(merged.ambientStrength, equals(base.ambientStrength));
     });
@@ -35,6 +38,7 @@ void main() {
       const themeOverride = GlassThemeSettings(
         thickness: 50.0,
         glassColor: Color(0x88FF0000),
+        platformViewFallbackColor: Color(0xFF112233),
       );
 
       final merged = themeOverride.applyTo(base);
@@ -42,6 +46,7 @@ void main() {
       // Overwritten fields
       expect(merged.thickness, equals(50.0));
       expect(merged.glassColor, equals(const Color(0x88FF0000)));
+      expect(merged.platformViewFallbackColor, equals(const Color(0xFF112233)));
 
       // Preserved fields
       expect(merged.blur, equals(15.0));
@@ -71,12 +76,15 @@ void main() {
       const initial = GlassThemeSettings(
         thickness: 30.0,
         blur: 10.0,
+        platformViewFallbackColor: Color(0xFF112233),
       );
 
       final updated = initial.copyWith(thickness: 50.0);
 
       expect(updated.thickness, equals(50.0));
       expect(updated.blur, equals(10.0));
+      expect(
+          updated.platformViewFallbackColor, equals(const Color(0xFF112233)));
     });
 
     test('equality checks all fields', () {

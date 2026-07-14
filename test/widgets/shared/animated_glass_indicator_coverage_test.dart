@@ -149,6 +149,21 @@ void main() {
       expect(glass.settings.backerColor, backer);
     });
 
+    testWidgets(
+        'non-default platformViewFallbackColor survives onto the built glass',
+        (tester) async {
+      const fallback = Color(0xFFF5F5F5);
+      await tester.pumpWidget(_wrap(_make(
+        thickness: 0.5,
+        settings:
+            const LiquidGlassSettings(platformViewFallbackColor: fallback),
+      )));
+      await tester.pump();
+
+      final glass = tester.widget<GlassEffect>(find.byType(GlassEffect).first);
+      expect(glass.settings.platformViewFallbackColor, fallback);
+    });
+
     testWidgets('non-default thickness exercises thickness branch',
         (tester) async {
       await tester.pumpWidget(_wrap(_make(
