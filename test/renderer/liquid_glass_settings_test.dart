@@ -105,6 +105,31 @@ void main() {
           () => expect(s.effectiveAmbientStrength, closeTo(0.2, 1e-10)));
     });
 
+    group('effectiveShadow scales with visibility', () {
+      const shadow = BoxShadow(color: Color(0x80000000), blurRadius: 8);
+
+      test('preserves the configured shadow at full visibility', () {
+        const settings = LiquidGlassSettings(shadow: [shadow]);
+        expect(settings.effectiveShadow, [shadow]);
+      });
+
+      test('scales shadow alpha at partial visibility', () {
+        const settings = LiquidGlassSettings(
+          visibility: 0.5,
+          shadow: [shadow],
+        );
+        expect(settings.effectiveShadow.single.color.a, closeTo(0.25, 0.01));
+      });
+
+      test('removes shadow alpha at zero visibility', () {
+        const settings = LiquidGlassSettings(
+          visibility: 0,
+          shadow: [shadow],
+        );
+        expect(settings.effectiveShadow.single.color.a, 0);
+      });
+    });
+
     // ─── effectiveSaturation formula ─────────────────────────────────────────
 
     group('effectiveSaturation formula: 1 + (saturation - 1) * visibility', () {
