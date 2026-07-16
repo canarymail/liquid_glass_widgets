@@ -14,7 +14,6 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
   bool _hasStretched =
       false; // Prevents closing if we moved into stretch territory
   double _initialScrollOffset = 0.0;
-  Offset _initialLocalPosition = Offset.zero;
   double _horizontalOffset = 0.0;
   double _verticalOffset = 0.0;
 
@@ -705,7 +704,6 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
                             _isDragging = true;
                             _isDraggingNotifier.value = true;
                             _hasStretched = false;
-                            _initialLocalPosition = event.localPosition;
                             _initialScrollOffset = _scrollController.hasClients
                                 ? _scrollController.offset
                                 : 0.0;
@@ -723,14 +721,18 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
                                   : 0.0;
                               final scrollDisplacement =
                                   (currentOffset - _initialScrollOffset).abs();
-                              final dragDisplacement =
-                                  (event.localPosition - _initialLocalPosition)
-                                      .distance;
 
-                              // Slide-to-select tap logic (only for non-scrollable menus)
-                              if (scrollDisplacement < 10 &&
-                                  dragDisplacement < 10 &&
-                                  !_isScrollable) {
+                              // Release-to-select (non-scrollable menus only):
+                              // whichever row is hovered when the finger lifts
+                              // wins, no matter how far the drag travelled to
+                              // get there — that's the whole point of
+                              // slide-to-select. Gating this on drag distance
+                              // (as before) meant only a near-stationary
+                              // tap ever actually selected anything; sliding
+                              // from one row to another and releasing did
+                              // nothing. Only bail if the list itself
+                              // scrolled under the finger instead.
+                              if (scrollDisplacement < 10 && !_isScrollable) {
                                 final indexToTap = _hoveredIndex ??
                                     _calculateIndexFromPosition(
                                         event.localPosition, context);
@@ -973,6 +975,13 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
     // Only calculate hover selection for non-scrollable menus (slide-to-select).
     if (!_isScrollable) {
       detectedIndex = _calculateIndexFromPosition(localPosition, context);
+    }
+
+    // Tick as the drag lands on a new row — mirrors the native iOS
+    // press-and-drag menu selection feel. Only fires on a genuine switch to a
+    // (different) selectable row, not on leaving the last one.
+    if (detectedIndex != null && detectedIndex != _hoveredIndex) {
+      unawaited(HapticFeedback.selectionClick());
     }
 
     _hoveredIndex = detectedIndex;
