@@ -2033,7 +2033,8 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
                   _initialScrollOffset = _scrollController.hasClients
                       ? _scrollController.offset
                       : 0.0;
-                  _updateHoveredIndex(event.localPosition);
+                  _updateHoveredIndex(event.localPosition,
+                      isInitialTouch: true);
                 },
                 onPointerMove: (event) {
                   if (!mounted) return;
@@ -2244,7 +2245,8 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
     return null;
   }
 
-  void _updateHoveredIndex(Offset localPosition) {
+  void _updateHoveredIndex(Offset localPosition,
+      {bool isInitialTouch = false}) {
     // Detect if we've moved into "stretch territory" (outside visible menu bounds)
     final visibleHeight = _activeHeight;
     final x = localPosition.dx;
@@ -2266,6 +2268,17 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
     // Only calculate hover selection for non-scrollable menus (slide-to-select).
     if (!_isScrollable) {
       detectedIndex = _calculateIndexFromPosition(localPosition, context);
+    }
+
+    // Tick as the drag lands on a new row — mirrors the native iOS
+    // press-and-drag menu selection feel. Only fires on a genuine switch to a
+    // (different) selectable row mid-drag: not on leaving the last one, and
+    // not on the initial touch-down — a plain tap would otherwise tick here
+    // and again from the item's own onTap feedback.
+    if (!isInitialTouch &&
+        detectedIndex != null &&
+        detectedIndex != _hoveredIndex) {
+      HapticFeedback.selectionClick();
     }
 
     _hoveredIndex = detectedIndex;
