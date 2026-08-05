@@ -58,6 +58,10 @@ class LiquidGlassBlendGroup extends StatefulWidget {
   State<LiquidGlassBlendGroup> createState() => _LiquidGlassBlendGroupState();
 }
 
+/// Debug-only latch so the missing-render-link notice is logged once per run
+/// instead of once per frame.
+bool _missingRenderLinkWarned = false;
+
 class _LiquidGlassBlendGroupState extends State<LiquidGlassBlendGroup> {
   late final GlassGroupLink _geometryLink = GlassGroupLink();
 
@@ -84,29 +88,34 @@ class _LiquidGlassBlendGroupState extends State<LiquidGlassBlendGroup> {
         (context, shader, child) {
           final renderLink = InheritedGeometryRenderLink.of(context);
 
-          assert(
-            renderLink != null,
-            '\n'
-            '[liquid_glass_widgets] LiquidGlassBlendGroup could not find an '
-            'InheritedGeometryRenderLink in the widget tree.\n\n'
-            'This happens when GlassQuality.premium is used outside of a '
-            'LiquidGlassLayer (or AdaptiveLiquidGlassLayer).\n\n'
-            'To fix this, either:\n'
-            '  • Wrap the widget in a LiquidGlassLayer / AdaptiveLiquidGlassLayer, OR\n'
-            '  • Set useOwnLayer: true on your GlassButton / AdaptiveGlass, which '
-            'provisions its own layer automatically.\n\n'
-            'Example:\n'
-            '  GlassButton(\n'
-            '    quality: GlassQuality.premium,\n'
-            '    useOwnLayer: true, // ← add this\n'
-            '    ...\n'
-            '  )\n',
-          );
-
-          // In release builds, if no render link is available, fall back
-          // gracefully by rendering the child without the glass blend effect
-          // rather than crashing the app.
-          if (renderLink == null) return child!;
+          // A missing render link is a supported configuration, not misuse.
+          // [AdaptiveLiquidGlassLayer] skips the [LiquidGlassLayer] entirely on
+          // two documented paths — GlassQuality.minimal, and
+          // platformViewBackdrop (glass over a UIKitView) — so a blend group
+          // nested under it legitimately finds no link on either. Neither path
+          // is platform-specific. This used to assert and take the whole frame
+          // down with a red error screen in debug (and flood crash reporting),
+          // even though the fall-back below already handled it correctly in
+          // release. Degrade the same way in both, and warn once so genuine
+          // misuse stays discoverable.
+          if (renderLink == null) {
+            assert(() {
+              if (!_missingRenderLinkWarned) {
+                _missingRenderLinkWarned = true;
+                debugPrint(
+                  '[liquid_glass_widgets] LiquidGlassBlendGroup found no '
+                  'InheritedGeometryRenderLink; rendering without the glass '
+                  'blend effect.\n'
+                  'Expected when quality resolves below GlassQuality.premium. '
+                  'If you did expect premium glass here, wrap the widget in a '
+                  'LiquidGlassLayer / AdaptiveLiquidGlassLayer, or set '
+                  'useOwnLayer: true on your GlassButton / AdaptiveGlass.',
+                );
+              }
+              return true;
+            }());
+            return child!;
+          }
 
           return _RawLiquidGlassBlendGroup(
             blend: widget.blend,
