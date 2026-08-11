@@ -1067,6 +1067,7 @@ class _FrostedFallback extends StatelessWidget {
                   painter: _SpecularRimPainter(
                     shape: shape,
                     settings: settings,
+                    surfaceColor: frostedColor,
                   ),
                 ),
               ),
@@ -1135,10 +1136,43 @@ class _SpecularRimPainter extends CustomPainter {
   const _SpecularRimPainter({
     required this.shape,
     required this.settings,
+    this.surfaceColor,
   });
 
   final LiquidShape shape;
   final LiquidGlassSettings settings;
+
+  /// The frosted fill painted directly beneath this rim, when there is one.
+  ///
+  /// Only its opacity is used, to decide whether the rim may blend against the
+  /// destination — see [_blendsWithBackdrop].
+  final Color? surfaceColor;
+
+  /// Whether the rim's two passes may use destination-dependent blend modes.
+  ///
+  /// [BlendMode.overlay] and [BlendMode.hardLight] compute their result from
+  /// the pixels already in the layer, which is exactly what a translucent
+  /// glass rim wants: the highlight then reacts to whatever shows through.
+  ///
+  /// An OPAQUE fill has no backdrop to react to — and asking for one there is
+  /// actively harmful in two ways:
+  ///
+  /// 1. On a dark fill `overlay` resolves to `2 * dst * src`, which for a dark
+  ///    destination is near-black, while `hardLight` with a white source
+  ///    resolves to a screen and clips to white. One pass all but vanishes and
+  ///    the other saturates, leaving a narrow, harsh transition that bands
+  ///    visibly instead of reading as a lit edge. A light fill escapes this
+  ///    only because it lands on `overlay`'s other branch.
+  ///
+  /// 2. "The pixels already in the layer" is not something the widget
+  ///    controls. Over a PlatformView the engine composites Flutter content
+  ///    into overlay surfaces, so what sits beneath the rim can differ between
+  ///    frames — and the rim's brightness then flickers with it, with no state
+  ///    changing anywhere in the widget tree.
+  ///
+  /// So an opaque surface draws the rim with [BlendMode.srcOver]: a plain
+  /// alpha ramp over a known colour. Deterministic, and smooth.
+  bool get _blendsWithBackdrop => (surfaceColor?.a ?? 0.0) < 1.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1198,6 +1232,12 @@ class _SpecularRimPainter extends CustomPainter {
     // Pass 2: sharp inner rim (visible width 0.25 to 1.0 px)
     final w2 = (settings.effectiveThickness / 40).clamp(0.25, 1.0);
 
+    // Pass 1: soft base stroke.
+    // Doubled width since it is now clipped to the inner half.
+    // BlendMode.overlay ensures the highlight reacts organically to the
+    // background color underneath, rather than looking like a flat white line
+    // — but only where there IS a background to react to; see
+    // [_blendsWithBackdrop].
     // Draw strokes along deflated paths so the stroke outer edge coincides
     // with the shape boundary and stays strictly inside bounds. This eliminates
     // coincident-edge anti-aliasing conflict with _ShapeClip during scaling/transforms.
@@ -1211,7 +1251,8 @@ class _SpecularRimPainter extends CustomPainter {
       Paint()
         ..shader = gradient
         ..color = white.withValues(alpha: white.a * 0.4)
-        ..blendMode = BlendMode.overlay
+        ..blendMode =
+            _blendsWithBackdrop ? BlendMode.overlay : BlendMode.srcOver
         ..style = PaintingStyle.stroke
         ..strokeWidth = w1,
     );
@@ -1224,16 +1265,22 @@ class _SpecularRimPainter extends CustomPainter {
     // Pass 2: sharp inner rim.
     // Doubled width since it is clipped to the inner half.
     // BlendMode.hardLight (per this painter's documented design) makes the sharp
-    // highlight read brighter than a plain overlay — needed on opaque solid
-    // surfaces (the frosted fallback), where overlay alone lands dimmer than the
-    // premium glass rim. Scaled by the gradient alpha, so `lightIntensity` still
-    // dials the peak: lower it for a softer highlight.
+    // highlight read brighter than a plain overlay — needed on TRANSLUCENT
+    // surfaces, where overlay alone lands dimmer than the premium glass rim.
+    // Scaled by the gradient alpha, so `lightIntensity` still dials the peak:
+    // lower it for a softer highlight.
+    //
+    // Opaque surfaces take srcOver instead. hardLight with a white source is a
+    // screen, so it clipped this pass to pure white regardless of the fill —
+    // brightness the rim could not dial back, and one half of the banding on a
+    // dark surface. See [_blendsWithBackdrop].
     canvas.drawPath(
       path2,
       Paint()
         ..shader = gradient
         ..color = white.withValues(alpha: white.a * 0.6)
-        ..blendMode = BlendMode.hardLight
+        ..blendMode =
+            _blendsWithBackdrop ? BlendMode.hardLight : BlendMode.srcOver
         ..style = PaintingStyle.stroke
         ..strokeWidth = w2,
     );
@@ -1241,7 +1288,11 @@ class _SpecularRimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SpecularRimPainter old) =>
-      old.settings != settings || old.shape != shape;
+      old.settings != settings ||
+      old.shape != shape ||
+      // Its opacity selects the blend modes, and its value is the colour the
+      // rim is now composited over — a theme/brightness change moves both.
+      old.surfaceColor != surfaceColor;
 }
 
 // ---------------------------------------------------------------------------
