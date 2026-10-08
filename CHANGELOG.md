@@ -1,3 +1,13 @@
+# Unreleased
+
+## Features
+
+- **Swipe actions (`.swipeActions()`) via `GlassSwipeActions` and `GlassSwipeActionScope`:** Adds authentic iOS-style swipe gestures to list tiles and containers with underdamped spring physics (`GlassSpring.snappy()`), rubber-band damping, and full-swipe execution.
+  - `GlassSwipeAction`: Configurable action button data class defining icon, label, background color, destructive styling, flex, and callbacks.
+  - `GlassSwipeActions`: Container widget that wraps any row with smooth horizontal pan disambiguation, proportional reveal platters with subtle liquid glass specular sheens, and full-swipe threshold triggering haptic feedback and automatic execution on release.
+  - `GlassSwipeActionScope`: Inherited widget providing single-open row mutual exclusivity (opening row B automatically springs row A closed) and auto-dismissal upon scrolling.
+  - `GlassListTile` first-class integration: Added `leadingSwipeActions` and `trailingSwipeActions` parameters directly on both grouped and standalone `GlassListTile` constructors.
+
 # 1.11.0
 
 ## Features

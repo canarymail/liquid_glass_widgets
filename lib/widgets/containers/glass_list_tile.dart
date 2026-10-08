@@ -4,6 +4,7 @@ import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
 import '../../types/glass_quality.dart';
 import 'glass_container.dart';
+import 'glass_swipe_actions.dart';
 import '../shared/glass_focus_region.dart';
 import '../shared/glass_interaction_state_mixin.dart';
 
@@ -65,6 +66,13 @@ class GlassListTile extends StatefulWidget {
     this.leadingIconColor,
     this.titleStyle,
     this.subtitleStyle,
+    this.leadingSwipeActions,
+    this.trailingSwipeActions,
+    this.allowsFullSwipe = true,
+    this.fullSwipeThreshold = 0.65,
+    this.swipeActionWidth = 74.0,
+    this.swipeController,
+    this.onSwipeStateChanged,
   })  : _useOwnLayer = false,
         _settings = null,
         _quality = null;
@@ -87,6 +95,13 @@ class GlassListTile extends StatefulWidget {
     this.leadingIconColor,
     this.titleStyle,
     this.subtitleStyle,
+    this.leadingSwipeActions,
+    this.trailingSwipeActions,
+    this.allowsFullSwipe = true,
+    this.fullSwipeThreshold = 0.65,
+    this.swipeActionWidth = 74.0,
+    this.swipeController,
+    this.onSwipeStateChanged,
     LiquidGlassSettings? settings,
     GlassQuality? quality,
   })  : _useOwnLayer = true,
@@ -122,6 +137,38 @@ class GlassListTile extends StatefulWidget {
 
   /// Called when the user long-presses the tile.
   final VoidCallback? onLongPress;
+
+  // ===========================================================================
+  // Swipe Actions Properties
+  // ===========================================================================
+
+  /// Actions revealed when swiping from the leading edge (left in LTR).
+  final List<GlassSwipeAction>? leadingSwipeActions;
+
+  /// Actions revealed when swiping from the trailing edge (right in LTR).
+  final List<GlassSwipeAction>? trailingSwipeActions;
+
+  /// Whether pulling past [fullSwipeThreshold] automatically executes the
+  /// outermost action on release.
+  ///
+  /// Defaults to `true`.
+  final bool allowsFullSwipe;
+
+  /// Proportion of tile width required to prime full-swipe execution.
+  ///
+  /// Defaults to `0.65` (65%).
+  final double fullSwipeThreshold;
+
+  /// Base width allocated for each swipe action button.
+  ///
+  /// Defaults to `74.0`.
+  final double swipeActionWidth;
+
+  /// Optional external controller for inspecting or triggering swipe actions.
+  final GlassSwipeController? swipeController;
+
+  /// Callback fired when the swipe state changes.
+  final ValueChanged<GlassSwipeState>? onSwipeStateChanged;
 
   // ===========================================================================
   // Styling Properties
@@ -184,14 +231,35 @@ class _GlassListTileState extends State<GlassListTile>
 
   @override
   Widget build(BuildContext context) {
-    final content = _buildContent(context);
+    Widget content = _buildContent(context);
 
     if (widget._useOwnLayer) {
-      return GlassContainer(
+      content = GlassContainer(
         shape: const LiquidRoundedSuperellipse(borderRadius: 12),
         settings: widget._settings,
         quality: widget._quality,
         padding: EdgeInsets.zero,
+        child: content,
+      );
+    }
+
+    final hasSwipeActions = (widget.leadingSwipeActions != null &&
+            widget.leadingSwipeActions!.isNotEmpty) ||
+        (widget.trailingSwipeActions != null &&
+            widget.trailingSwipeActions!.isNotEmpty);
+
+    if (hasSwipeActions) {
+      content = GlassSwipeActions(
+        leadingActions: widget.leadingSwipeActions ?? const [],
+        trailingActions: widget.trailingSwipeActions ?? const [],
+        allowsFullSwipe: widget.allowsFullSwipe,
+        fullSwipeThreshold: widget.fullSwipeThreshold,
+        actionWidth: widget.swipeActionWidth,
+        controller: widget.swipeController,
+        onSwipeStateChanged: widget.onSwipeStateChanged,
+        borderRadius: widget._useOwnLayer
+            ? const BorderRadius.all(Radius.circular(12))
+            : null,
         child: content,
       );
     }

@@ -50,6 +50,7 @@ export 'widgets/shared/glass_content_aware_scope.dart'; // GlassContentAwareScop
 export 'widgets/shared/glass_page.dart' show GlassPage, GlassStatusBarStyle;
 export 'widgets/shared/glass_motion_scope.dart';
 export 'widgets/shared/glass_scroll_edge_effect.dart';
+export 'widgets/shared/glass_swipe_action_scope.dart';
 export 'widgets/shared/inherited_liquid_glass.dart';
 export 'widgets/shared/lightweight_liquid_glass.dart';
 
@@ -72,6 +73,7 @@ export 'widgets/containers/glass_divider.dart';
 export 'widgets/containers/glass_grouped_section.dart';
 export 'widgets/containers/glass_list_tile.dart';
 export 'widgets/containers/glass_stepper.dart';
+export 'widgets/containers/glass_swipe_actions.dart';
 // Widgets - Input
 export 'widgets/input/glass_form_field.dart';
 export 'widgets/input/glass_password_field.dart';
