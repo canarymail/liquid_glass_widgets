@@ -105,6 +105,7 @@ export 'widgets/feedback/glass_progress_indicator.dart';
 export 'widgets/overlays/glass_action_sheet.dart';
 export 'widgets/overlays/glass_context_menu.dart';
 export 'widgets/overlays/glass_dialog.dart';
+export 'widgets/overlays/glass_full_screen_cover.dart';
 export 'widgets/overlays/glass_menu.dart';
 export 'widgets/overlays/glass_menu_item.dart';
 export 'widgets/overlays/glass_sheet.dart';

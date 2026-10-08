@@ -746,6 +746,107 @@ class _SwipeAndDisclosureDemoPageState
             ),
           ),
         ),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GlassListTile(
+            leading: const Icon(
+              CupertinoIcons.fullscreen,
+              color: CupertinoColors.activeBlue,
+            ),
+            title: const Text('Open Full-Screen Profile Cover'),
+            subtitle:
+                const Text('SwiftUI .fullScreenCover with swipe-to-dismiss'),
+            trailing: const Icon(
+              CupertinoIcons.arrow_up_right_square,
+              size: 16,
+              color: CupertinoColors.secondaryLabel,
+            ),
+            onTap: () {
+              showGlassFullScreenCover(
+                context: context,
+                builder: (coverContext) => GlassFullScreenCover(
+                  title: const Text('Contact Details'),
+                  closeButtonLabel: 'Done',
+                  onDismiss: () {
+                    setState(() {
+                      _lastActionStatus = 'Dismissed full-screen cover';
+                    });
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      const Center(
+                        child: Column(
+                          children: [
+                            SizedBox(height: 20),
+                            CircleAvatar(
+                              radius: 48,
+                              backgroundColor: CupertinoColors.activeBlue,
+                              child: Icon(
+                                CupertinoIcons.person_fill,
+                                size: 54,
+                                color: CupertinoColors.white,
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Craig Federighi',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'Senior Vice President, Software Engineering\nApple Inc.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: CupertinoColors.secondaryLabel,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      const GlassGroupedSection(
+                        header: Text('COMMUNICATION'),
+                        children: [
+                          GlassListTile(
+                            leading: Icon(CupertinoIcons.phone_fill,
+                                color: CupertinoColors.systemGreen),
+                            title: Text('Phone'),
+                            subtitle: Text('+1 (408) 996-1010'),
+                            trailing: Icon(CupertinoIcons.phone),
+                          ),
+                          GlassListTile(
+                            leading: Icon(CupertinoIcons.mail_solid,
+                                color: CupertinoColors.systemBlue),
+                            title: Text('Email'),
+                            subtitle: Text('craig@apple.com'),
+                            trailing: Icon(CupertinoIcons.envelope),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Center(
+                        child: Text(
+                          'Drag down anywhere or tap "Done" to dismiss.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: CupertinoColors.tertiaryLabel
+                                .resolveFrom(coverContext),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }

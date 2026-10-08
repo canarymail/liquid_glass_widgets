@@ -34,6 +34,15 @@
   - Imperative and extension APIs: Presented via `GlassContextMenu(child: ..., actions: [...])`, `widget.glassContextMenu(actions: [...])`, or imperatively via `showGlassContextMenu(context: context, targetRect: rect, actions: [...])`.
   - Added live context menu demonstration on contact rows and a dedicated VIP preview card in `SwipeAndDisclosureDemoPage`.
 
+- **Full-Screen Covers (`.fullScreenCover()`) via `GlassFullScreenCover`, `showGlassFullScreenCover`, and `GlassFullScreenCoverBar`:** Provides 100% parity with SwiftUI's `.fullScreenCover(isPresented:onDismiss:content:)` and UIKit's `.overFullScreen` modal presentation style.
+  - Dedicated full-viewport modal presentation filling the entire screen edge-to-edge.
+  - Spring-animated vertical slide-up transition from the bottom edge (`Offset(0, 1.0) -> Offset.zero`) with ease-out cubic velocity curves.
+  - Interactive swipe-down to dismiss: Users can pull down anywhere on the top bar or header to interactively dismiss the cover.
+  - Dynamic corner radius morphing: Top corners smoothly round (0 to 44pt) during downward pull-down gestures mirroring iOS card presentation dynamics.
+  - Damped elastic rubber-band resistance when dragged upward beyond the top screen edge ($y_{\text{damped}} = \frac{\Delta y}{1 + |\Delta y| / 200}$).
+  - `GlassFullScreenCoverBar`: Native iOS 26/27 top navigation bar featuring circular frosted glass close pill buttons (`CupertinoIcons.xmark`), textual "Done"/"Cancel" labels, centered titles, and integrated drag indicators.
+  - Declarative and imperative APIs: Supports both imperative `showGlassFullScreenCover(context: ..., builder: ...)` and declarative `.glassFullScreenCover(isPresented: ..., onDismiss: ..., content: ...)` widget extension.
+
 # 1.11.0
 
 ## Features
