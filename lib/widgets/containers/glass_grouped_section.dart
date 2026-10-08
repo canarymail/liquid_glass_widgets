@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
 import 'glass_card.dart';
+import 'glass_disclosure_group.dart';
 import 'glass_divider.dart';
 import 'glass_list_tile.dart';
 
@@ -167,7 +168,9 @@ class GlassGroupedSection extends StatelessWidget {
 
         // Compute indent based on whether the current tile has a leading widget.
         final double indent =
-            (currentChild is GlassListTile && currentChild.leading != null)
+            ((currentChild is GlassListTile && currentChild.leading != null) ||
+                    (currentChild is GlassDisclosureGroup &&
+                        currentChild.leading != null))
                 ? 56.0
                 : 16.0;
         processedChildren.add(GlassDivider(indent: indent));

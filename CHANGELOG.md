@@ -5,8 +5,16 @@
 - **Swipe actions (`.swipeActions()`) via `GlassSwipeActions` and `GlassSwipeActionScope`:** Adds authentic iOS-style swipe gestures to list tiles and containers with underdamped spring physics (`GlassSpring.snappy()`), rubber-band damping, and full-swipe execution.
   - `GlassSwipeAction`: Configurable action button data class defining icon, label, background color, destructive styling, flex, and callbacks.
   - `GlassSwipeActions`: Container widget that wraps any row with smooth horizontal pan disambiguation, proportional reveal platters with subtle liquid glass specular sheens, and full-swipe threshold triggering haptic feedback and automatic execution on release.
+  - `GlassSwipeActionStyle`: Added `tintedGlass` (iOS 26/27 liquid glass with specular sheen and top border rim highlight) and `solidVibrancy` (classic opaque table view platter) material styles.
   - `GlassSwipeActionScope`: Inherited widget providing single-open row mutual exclusivity (opening row B automatically springs row A closed) and auto-dismissal upon scrolling.
-  - `GlassListTile` first-class integration: Added `leadingSwipeActions` and `trailingSwipeActions` parameters directly on both grouped and standalone `GlassListTile` constructors.
+  - `GlassListTile` first-class integration: Added `leadingSwipeActions`, `trailingSwipeActions`, `swipeActionStyle`, and `onDismissed` (animated row height collapse) parameters directly on both grouped and standalone constructors.
+
+- **Disclosure accordion sections (`DisclosureGroup`) via `GlassDisclosureGroup`:** Provides direct parity with SwiftUI's `DisclosureGroup` within liquid glass surfaces.
+  - Interactive header with title, subtitle, leading icon, and smoothly rotating chevron ($\frac{\pi}{2}$ radians) driven by spring curves.
+  - Spring-animated expansion and collapse with zero jank using `SizeTransition(curve: Curves.easeInOutCubic)`.
+  - Automatic divider interleaving with smart 56px / 16px indentation when nested inside `GlassGroupedSection`.
+  - Standalone mode via `GlassDisclosureGroup.standalone` providing an independent superellipse glass container.
+  - Added interactive `SwipeAndDisclosureDemoPage` in the example app showcasing Mail inbox full-swipe deletion, material toggles, and nested privacy/security disclosure accordions.
 
 # 1.11.0
 

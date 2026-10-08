@@ -45,22 +45,24 @@ For historical version notes, see [`CHANGELOG.md`](../CHANGELOG.md).
 
 Addressing the **High-Priority SwiftUI / Apple HIG feature gaps** from Google's upstream gap analysis (Tong Mu / `@dkwingsmt`, benchmarked against the stock iOS Contacts app):
 
-### GlassSwipeActions (`.swipeActions()`) 🔨 In Progress
+### GlassSwipeActions (`.swipeActions()`) ✅ Complete
 
 Swipe gestures on list tiles and containers with authentic iOS spring physics, revealed platter, and full-swipe execution.
 - **Data Model:** `GlassSwipeAction` with icon, optional label, callback, background tint, destructive style, and flex.
 - **Container Widget:** `GlassSwipeActions` wrapping any tile/child with horizontal pan gesture recognition (velocity-based, disambiguated with vertical scrolling via `dx.abs() > dy.abs() * 1.5`).
-- **Platter Aesthetic:** `AdaptiveGlass.vibrancy()` / frosted platter with specular edge rim, properly clipped to `GlassGroupedSection`'s superellipse corners.
-- **Mechanics:** Underdamped spring return, rubber-band damping beyond action width, full-swipe threshold at 65% with haptic tick and automatic execution.
+- **Platter Aesthetic:** `GlassSwipeActionStyle.tintedGlass` (iOS 26/27 liquid glass with specular rim and surface gradient) & `GlassSwipeActionStyle.solidVibrancy`.
+- **Mechanics:** Underdamped spring return, rubber-band damping beyond action width, full-swipe threshold at 65% with haptic tick and automatic execution on release.
 - **Mutual Exclusivity:** `GlassSwipeActionScope` ensuring only one row can be open at a time; auto-closes on scroll.
-- **First-Class Integration:** `GlassListTile(leadingSwipeActions: [...], trailingSwipeActions: [...])`.
+- **First-Class Integration:** `GlassListTile(leadingSwipeActions: [...], trailingSwipeActions: [...], onDismissed: ...)`.
 
-### GlassDisclosureGroup (`DisclosureGroup`) ⬜ Next
+### GlassDisclosureGroup (`DisclosureGroup`) ✅ Complete
 
-Collapsible accordion / disclosure section within `GlassGroupedSection`.
-- Spring-animated expansion/collapse of child rows.
-- Chevron rotation with native iOS timing.
-- Composable directly within `GlassGroupedSection`.
+Collapsible accordion / disclosure section within `GlassGroupedSection` and standalone containers.
+- Spring-animated expansion/collapse of child rows with `SizeTransition(curve: Curves.easeInOutCubic)`.
+- Smooth rotating chevron ($\frac{\pi}{2}$ radians) matching native iOS timing.
+- Composable directly within `GlassGroupedSection` with smart divider indentation (56px with leading, 16px without).
+- Programmatic control via `isExpanded` prop or `GlobalKey<GlassDisclosureGroupState>`.
+- Standalone mode with `GlassDisclosureGroup.standalone`.
 
 ---
 
@@ -74,8 +76,8 @@ Features appearing in standard iOS system flows (e.g. stock Contacts app) priori
 
 | SwiftUI Feature | Proposed Liquid Glass API | Status | Description |
 |---|---|---|---|
-| `.swipeActions()` | `GlassSwipeActions` / `GlassListTile.swipeActions` | 🔨 In Progress | Swipe-to-delete, call, message actions on list items and grouped rows (1.12.0). |
-| `DisclosureGroup` | `GlassDisclosureGroup` / `GlassCollapsibleSection` | ⬜ Planned | Collapsible accordion / disclosure section within `GlassGroupedSection` (1.12.0). |
+| `.swipeActions()` | `GlassSwipeActions` / `GlassListTile.swipeActions` | ✅ Complete | Swipe-to-delete, call, message actions on list items and grouped rows (1.12.0). |
+| `DisclosureGroup` | `GlassDisclosureGroup` / `GlassCollapsibleSection` | ✅ Complete | Collapsible accordion / disclosure section within `GlassGroupedSection` (1.12.0). |
 | `EditButton` + `ForEach` | `GlassEditableList` / `GlassListTile.editing` | ⬜ Planned | Edit mode with red delete badges, reorder drag handles, and row insertion. |
 | `.contextMenu()` | `GlassContextMenu` | ⬜ Planned | Context menu triggered by long-press / secondary click with haptic surface lift and action stack. |
 | `.fullScreenCover()` | `showGlassFullScreenCover` | ⬜ Planned | Dedicated full-viewport modal presentation (distinct from bottom sheets). |

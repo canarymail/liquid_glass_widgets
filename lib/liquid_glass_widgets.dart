@@ -70,6 +70,7 @@ export 'utils/glass_performance_monitor.dart'
 export 'widgets/containers/glass_card.dart';
 export 'widgets/containers/glass_container.dart';
 export 'widgets/containers/glass_divider.dart';
+export 'widgets/containers/glass_disclosure_group.dart';
 export 'widgets/containers/glass_grouped_section.dart';
 export 'widgets/containers/glass_list_tile.dart';
 export 'widgets/containers/glass_stepper.dart';

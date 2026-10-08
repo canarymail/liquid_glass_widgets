@@ -33,6 +33,8 @@ import 'package:liquid_glass_widgets_example/demos/color_fidelity_demo.dart'
     show ColorFidelityDemoPage;
 import 'package:liquid_glass_widgets_example/demos/tab_bar_menu_demo.dart'
     show TabBarMenuDemoPage;
+import 'package:liquid_glass_widgets_example/demos/swipe_and_disclosure_demo.dart'
+    show SwipeAndDisclosureDemoPage;
 import 'package:liquid_glass_widgets_example/pages/containers_page.dart';
 import 'package:liquid_glass_widgets_example/pages/feedback_page.dart';
 import 'package:liquid_glass_widgets_example/pages/input_page.dart';
@@ -750,6 +752,20 @@ class _ExamplesTab extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  SizedBox(height: 14),
+
+                  // Large card: Swipe & Disclosure
+                  _LargeDemoCard(
+                    title: 'Swipe & Disclosure',
+                    subtitle:
+                        'iOS 26/27 swipeActions, full-swipe dismiss & DisclosureGroup accordions',
+                    icon: CupertinoIcons.hand_draw_fill,
+                    gradient: const [
+                      Color(0xFF0D253F),
+                      Color(0xFF1D4E89),
+                    ],
+                    destination: const SwipeAndDisclosureDemoPage(),
                   ),
                   SizedBox(height: 14),
 
