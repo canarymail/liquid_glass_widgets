@@ -356,9 +356,14 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       );
     }
 
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final chevronTurns = isRtl
+        ? Tween<double>(begin: 0.0, end: -0.25).animate(_heightFactor)
+        : _chevronTurns;
+
     Widget trailingWidget = widget.trailing ??
         RotationTransition(
-          turns: _chevronTurns,
+          turns: chevronTurns,
           child: const Icon(
             CupertinoIcons.chevron_forward,
             color: CupertinoColors.systemGrey,

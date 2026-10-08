@@ -645,6 +645,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
                 i, actions.length, revealWidth, totalStandardWidth),
             isOutermost: i == 0,
             isFullSwipe: isFullSwipe && i == 0,
+            isTrailing: false,
           ),
         ],
       ],
@@ -675,6 +676,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
                   revealWidth, totalStandardWidth),
               isOutermost: isOutermost,
               isFullSwipe: isFullSwipe && isOutermost,
+              isTrailing: true,
             );
           }(),
         ],
@@ -712,6 +714,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     required double width,
     required bool isOutermost,
     required bool isFullSwipe,
+    required bool isTrailing,
   }) {
     if (width <= 0.0) return const SizedBox.shrink();
 
@@ -719,7 +722,9 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       action: action,
       width: width,
       standardWidth: widget.actionWidth,
+      isOutermost: isOutermost,
       isFullSwipe: isFullSwipe,
+      isTrailing: isTrailing,
       style: widget.style,
       onPressed: () {
         action.onTap();
@@ -737,7 +742,9 @@ class _GlassSwipeActionButton extends StatefulWidget {
     required this.width,
     required this.standardWidth,
     required this.onPressed,
+    this.isOutermost = false,
     this.isFullSwipe = false,
+    this.isTrailing = true,
     this.style = GlassSwipeActionStyle.tintedGlass,
   });
 
@@ -745,7 +752,9 @@ class _GlassSwipeActionButton extends StatefulWidget {
   final double width;
   final double standardWidth;
   final VoidCallback onPressed;
+  final bool isOutermost;
   final bool isFullSwipe;
+  final bool isTrailing;
   final GlassSwipeActionStyle style;
 
   @override
@@ -810,6 +819,16 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
       );
     }
 
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final Alignment effectiveAlignment;
+    if (!widget.isOutermost) {
+      effectiveAlignment = Alignment.center;
+    } else if (widget.isTrailing) {
+      effectiveAlignment = isRtl ? Alignment.centerLeft : Alignment.centerRight;
+    } else {
+      effectiveAlignment = isRtl ? Alignment.centerRight : Alignment.centerLeft;
+    }
+
     return SizedBox(
       width: widget.width,
       child: Semantics(
@@ -824,14 +843,13 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
           onTap: widget.onPressed,
           child: Container(
             decoration: decoration,
-            alignment: Alignment.center,
-            child: ClipRect(
-              child: OverflowBox(
-                minWidth: widget.standardWidth,
-                maxWidth: widget.width > widget.standardWidth
-                    ? widget.width
-                    : widget.standardWidth,
-                alignment: Alignment.center,
+            alignment: effectiveAlignment,
+            child: SizedBox(
+              width: widget.standardWidth,
+              child: AnimatedScale(
+                scale: widget.isFullSwipe ? 1.08 : 1.0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
                 child: IconTheme(
                   data: IconThemeData(
                     color: effectiveFgColor,

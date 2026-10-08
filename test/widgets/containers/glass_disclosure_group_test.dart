@@ -236,5 +236,33 @@ void main() {
       // Verifies GlassDividers are injected
       expect(find.byType(GlassDivider), findsWidgets);
     });
+
+    testWidgets('chevron rotates properly in RTL text direction',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: GlassDisclosureGroup(
+              title: Text('Arabic or Hebrew Title'),
+              initiallyExpanded: true,
+              children: [
+                Text('RTL Child'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Arabic or Hebrew Title'), findsOneWidget);
+      final rotationFinder = find.descendant(
+        of: find.byType(GlassDisclosureGroup),
+        matching: find.byType(RotationTransition),
+      );
+      expect(rotationFinder, findsOneWidget);
+      final rotation = tester.widget<RotationTransition>(rotationFinder);
+      // In RTL, turns is -0.25 (counter-clockwise 90 deg) to point down
+      expect(rotation.turns.value, -0.25);
+    });
   });
 }
