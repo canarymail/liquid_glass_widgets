@@ -138,6 +138,7 @@ export 'widgets/surfaces/glass_navigation_shell.dart'
         GlassNavigationShell,
         GlassNavigationShellState,
         GlassNavBarRegistration;
+export 'widgets/surfaces/glass_navigation_stack.dart';
 // Geometry a bar that is not a GlassAppBar aligns its in-route chrome to.
 export 'widgets/surfaces/shared/glass_nav_pinned_host.dart'
     show GlassNavPinnedMetrics;

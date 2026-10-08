@@ -54,6 +54,13 @@
   - Range constraints: Enforces `minimumDate`, `maximumDate`, and `minuteInterval`.
   - Imperative modal presentation via `showGlassDatePicker(context: ..., mode: ..., style: ...)`.
 
+- **Declarative Navigation Stacks (`NavigationStack` & `NavigationLink`) via `GlassNavigationStack`, `GlassNavigationLink`, and `GlassNavigationPath`:** Provides 100% parity with modern SwiftUI declarative typed routing and Apple HIG navigation patterns.
+  - `GlassNavigationStack`: Modern declarative navigation container integrating directly with `GlassNavigationShell` for automatic pinned chrome synchronization, materializing transitions, and back button coordination.
+  - `GlassNavigationPath`: Observable type-safe path stack (`append()`, `pop()`, `popToRoot()`, `clear()`) driving dynamic route stacks.
+  - `GlassNavigationLink`: Authentic iOS navigation row with leading icon, title, subtitle, and trailing chevron (`CupertinoIcons.chevron_right`). Supports both direct `destination` builders and typed `value` dispatching to the stack's destination map.
+  - Custom link targets: Wrap any custom button, card, or pill in `GlassNavigationLink` to push destinations on tap.
+  - Added `.navigationTitle(...)` widget extension for declarative accessibility header semantics.
+
 # 1.11.0
 
 ## Features
