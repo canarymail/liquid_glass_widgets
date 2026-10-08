@@ -22,6 +22,18 @@
   - `GlassListTile` editing parity: Added `isEditing`, `canDelete`, `onDelete`, `canInsert`, `onInsert`, `canReorder`, `reorderIndex`, `canSelect`, `isSelected`, and `onSelectedChanged`. Features circular red minus delete badges with 90° rotation into an inline slide-in "Delete" confirmation pill, green plus insertion badges, Cupertino selection checkmarks, and 3-bar reorder drag handles (`CupertinoIcons.bars`). Automatically suppresses swipe actions during edit mode to eliminate gesture collisions.
   - Added interactive Contacts reordering and deletion section to `SwipeAndDisclosureDemoPage` in the example app with live edit button toggling.
 
+- **Context Menus (`.contextMenu()`) via `GlassContextMenu` and `GlassContextMenuAction`:** Provides 100% parity with Apple Human Interface Guidelines, UIKit's `UIContextMenuInteraction`, and SwiftUI's `.contextMenu(menuItems:preview:)` rendered with authentic liquid glass materials.
+  - Authentic touch compression: Child gently compresses to 0.96× scale on initial touch-down with immediate spring response.
+  - Haptic surface lift: Long-press threshold (~350ms) triggers `HapticFeedback.mediumImpact()` as the child lifts and expands to 1.02× with a soft elevated shadow (`BoxShadow(color: black.withAlpha(0.35), blurRadius: 28, offset: Offset(0, 10))`) and superellipse corner clip.
+  - Defocused liquid glass backdrop: Progressive Gaussian blur (`backdropBlur: 20.0`) and subtle modal dimming barrier.
+  - Liquid glass action platter: Actions render in an elevated superellipse platter (`LiquidRoundedSuperellipse`) with specular rim highlights, subtle inner borders, and smart auto-positioning above or below the target clamped within screen safe margins.
+  - `GlassContextMenuAction`: Standard 44pt touch target height, trailing icon glyph alignment by default (`GlassContextMenuIconPosition.trailing`), destructive red styling, selection checkmark (`isSelected`), keyboard accessibility via `GlassFocusRegion`, and haptic ticks.
+  - Continuous glide-to-select: Seamlessly drag finger from the long-press gesture across open menu items with `HapticFeedback.selectionClick()` ticks; releasing over any item activates it immediately.
+  - Desktop / secondary-click parity: Right-click on macOS/desktop instantly presents the context menu without long-press delay.
+  - Custom preview support: Supply `previewBuilder` to render rich, expanded preview cards (e.g. VIP contact cards, media previews) upon surface lift.
+  - Imperative and extension APIs: Presented via `GlassContextMenu(child: ..., actions: [...])`, `widget.glassContextMenu(actions: [...])`, or imperatively via `showGlassContextMenu(context: context, targetRect: rect, actions: [...])`.
+  - Added live context menu demonstration on contact rows and a dedicated VIP preview card in `SwipeAndDisclosureDemoPage`.
+
 # 1.11.0
 
 ## Features

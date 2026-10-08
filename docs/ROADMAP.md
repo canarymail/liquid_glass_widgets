@@ -92,7 +92,7 @@ Features appearing in standard iOS system flows (e.g. stock Contacts app) priori
 | `.swipeActions()` | `GlassSwipeActions` / `GlassListTile.swipeActions` | ✅ Complete | Swipe-to-delete, call, message actions on list items and grouped rows (1.12.0). |
 | `DisclosureGroup` | `GlassDisclosureGroup` / `GlassCollapsibleSection` | ✅ Complete | Collapsible accordion / disclosure section within `GlassGroupedSection` (1.12.0). |
 | `EditButton` + `ForEach` | `GlassEditScope` / `GlassEditButton` / `GlassReorderableList` / `GlassListTile.editing` | ✅ Complete | Full edit mode with ambient scope, delete confirmation badges, reorder handles, and grouped lists (1.12.0). |
-| `.contextMenu()` | `GlassContextMenu` | ⬜ Planned | Context menu triggered by long-press / secondary click with haptic surface lift and action stack. |
+| `.contextMenu()` | `GlassContextMenu` / `GlassContextMenuAction` | ✅ Complete | Long-press / secondary click with 0.96× compression, haptic surface lift, progressive backdrop blur, elevated specular platter, glide selection, and preview builder (1.12.0). |
 | `.fullScreenCover()` | `showGlassFullScreenCover` | ⬜ Planned | Dedicated full-viewport modal presentation (distinct from bottom sheets). |
 | `DatePicker` / `MultiDatePicker` | `GlassDatePicker` | ⬜ Planned | Liquid glass date/time picker (compact, inline, and wheel/graphical modes). |
 | `NavigationStack` + `Link` + `Title` | `GlassNavigationStack` / `GlassNavigationLink` | ⬜ Planned | Declarative typed-route navigation stack. Requires `GlassNavigationLink` as a typed destination link and a `Navigator 2.0`-style route stack manager — meaningfully more than just renaming `GlassNavigationShell`. |

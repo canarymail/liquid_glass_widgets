@@ -508,28 +508,74 @@ class _SwipeAndDisclosureDemoPageState
   // ===========================================================================
 
   Widget _buildReorderableSection() {
+    final isEditing = GlassEditScope.isEditing(context);
+
     return Column(
       children: [
         GlassReorderableList.grouped(
-          header: const Text('CONTACTS (EDIT MODE & REORDERING)'),
+          header: const Text('CONTACTS (EDIT MODE, REORDER & CONTEXT MENU)'),
           footer: const Text(
             'Tap "Edit" in the top-right toolbar to reveal red deletion badges and drag handles.\n'
-            'Items elevate with liquid glass specular shadows and haptic feedback during reordering.',
+            'Items elevate with liquid glass specular shadows and haptic feedback during reordering.\n'
+            'Long-press or secondary click any contact to reveal native liquid glass context menu.',
           ),
           itemCount: _contactItems.length,
           itemBuilder: (context, index) {
             final name = _contactItems[index];
-            return GlassListTile(
+            return GlassContextMenu(
               key: ValueKey(name),
-              leading: const Icon(CupertinoIcons.person_crop_circle),
-              title: Text(name),
-              canReorder: true,
-              reorderIndex: index,
-              onDelete: () {
-                setState(() {
-                  _contactItems.removeAt(index);
-                });
-              },
+              enabled: !isEditing,
+              actions: [
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.chat_bubble_fill),
+                  child: const Text('Message'),
+                  onPressed: () {
+                    setState(() {
+                      _lastActionStatus = 'Messaged $name';
+                    });
+                  },
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.phone_fill),
+                  child: const Text('Voice Call'),
+                  onPressed: () {
+                    setState(() {
+                      _lastActionStatus = 'Calling $name';
+                    });
+                  },
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.share),
+                  child: const Text('Share Contact'),
+                  onPressed: () {
+                    setState(() {
+                      _lastActionStatus = 'Shared $name';
+                    });
+                  },
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.trash_fill),
+                  isDestructive: true,
+                  child: const Text('Delete Contact'),
+                  onPressed: () {
+                    setState(() {
+                      _contactItems.removeAt(index);
+                      _lastActionStatus = 'Deleted $name via context menu';
+                    });
+                  },
+                ),
+              ],
+              child: GlassListTile(
+                leading: const Icon(CupertinoIcons.person_crop_circle),
+                title: Text(name),
+                canReorder: true,
+                reorderIndex: index,
+                onDelete: () {
+                  setState(() {
+                    _contactItems.removeAt(index);
+                  });
+                },
+              ),
             );
           },
           onReorder: (oldIndex, newIndex) {
@@ -557,6 +603,147 @@ class _SwipeAndDisclosureDemoPageState
                 _contactItems.add('New Contact #${_contactItems.length + 1}');
               });
             },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GlassContextMenu(
+            previewBuilder: (context) {
+              return Container(
+                width: 280,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: CupertinoColors.systemBackground.resolveFrom(context),
+                  border: Border.all(
+                    color: CupertinoColors.white.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: CupertinoColors.activeBlue,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.person_fill,
+                        size: 36,
+                        color: CupertinoColors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Craig Federighi',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'SVP Software Engineering',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: CupertinoColors.secondaryLabel,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+            actions: [
+              GlassContextMenuAction(
+                icon: const Icon(CupertinoIcons.chat_bubble_2_fill),
+                child: const Text('Send iMessage'),
+                onPressed: () {
+                  setState(() {
+                    _lastActionStatus = 'Messaged Craig Federighi';
+                  });
+                },
+              ),
+              GlassContextMenuAction(
+                icon: const Icon(CupertinoIcons.videocam_fill),
+                child: const Text('FaceTime HD'),
+                onPressed: () {
+                  setState(() {
+                    _lastActionStatus = 'FaceTiming Craig Federighi';
+                  });
+                },
+              ),
+              GlassContextMenuAction(
+                icon: const Icon(CupertinoIcons.bookmark_fill),
+                isSelected: true,
+                child: const Text('VIP Contact'),
+                onPressed: () {
+                  setState(() {
+                    _lastActionStatus = 'Toggled VIP status';
+                  });
+                },
+              ),
+              GlassContextMenuAction(
+                icon: const Icon(CupertinoIcons.trash_fill),
+                isDestructive: true,
+                child: const Text('Remove from VIP'),
+                onPressed: () {
+                  setState(() {
+                    _lastActionStatus = 'Removed Craig from VIP';
+                  });
+                },
+              ),
+            ],
+            child: GlassCard(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: CupertinoColors.activeBlue,
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.person_fill,
+                      color: CupertinoColors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Craig Federighi (VIP Card Preview)',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Long-press or secondary click for custom preview',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: CupertinoColors.secondaryLabel,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    CupertinoIcons.chevron_right,
+                    size: 14,
+                    color: CupertinoColors.tertiaryLabel,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
