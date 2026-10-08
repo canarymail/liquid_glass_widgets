@@ -94,7 +94,7 @@ Features appearing in standard iOS system flows (e.g. stock Contacts app) priori
 | `EditButton` + `ForEach` | `GlassEditScope` / `GlassEditButton` / `GlassReorderableList` / `GlassListTile.editing` | ✅ Complete | Full edit mode with ambient scope, delete confirmation badges, reorder handles, and grouped lists (1.12.0). |
 | `.contextMenu()` | `GlassContextMenu` / `GlassContextMenuAction` | ✅ Complete | Long-press / secondary click with 0.96× compression, haptic surface lift, progressive backdrop blur, elevated specular platter, glide selection, and preview builder (1.12.0). |
 | `.fullScreenCover()` | `showGlassFullScreenCover` / `GlassFullScreenCover` | ✅ Complete | Full-viewport modal presentation with spring slide-up, interactive swipe-to-dismiss, elastic resistance, and liquid glass navigation bar (1.12.0). |
-| `DatePicker` / `MultiDatePicker` | `GlassDatePicker` | ⬜ Planned | Liquid glass date/time picker (compact, inline, and wheel/graphical modes). |
+| `DatePicker` / `MultiDatePicker` | `GlassDatePicker` / `GlassMultiDatePicker` | ✅ Complete | Liquid glass date/time picker with compact pill, inline graphical month calendar, 3D wheel, multi-date selection, and modal sheet (1.12.0). |
 | `NavigationStack` + `Link` + `Title` | `GlassNavigationStack` / `GlassNavigationLink` | ⬜ Planned | Declarative typed-route navigation stack. Requires `GlassNavigationLink` as a typed destination link and a `Navigator 2.0`-style route stack manager — meaningfully more than just renaming `GlassNavigationShell`. |
 
 ### Medium-Priority Gaps (Standard iOS HIG)

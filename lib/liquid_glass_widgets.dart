@@ -78,6 +78,7 @@ export 'widgets/containers/glass_reorderable_list.dart';
 export 'widgets/containers/glass_stepper.dart';
 export 'widgets/containers/glass_swipe_actions.dart';
 // Widgets - Input
+export 'widgets/input/glass_date_picker.dart';
 export 'widgets/input/glass_form_field.dart';
 export 'widgets/input/glass_password_field.dart';
 export 'widgets/input/glass_picker.dart';

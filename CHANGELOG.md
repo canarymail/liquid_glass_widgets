@@ -43,6 +43,17 @@
   - `GlassFullScreenCoverBar`: Native iOS 26/27 top navigation bar featuring circular frosted glass close pill buttons (`CupertinoIcons.xmark`), textual "Done"/"Cancel" labels, centered titles, and integrated drag indicators.
   - Declarative and imperative APIs: Supports both imperative `showGlassFullScreenCover(context: ..., builder: ...)` and declarative `.glassFullScreenCover(isPresented: ..., onDismiss: ..., content: ...)` widget extension.
 
+- **Date and Time Pickers (`DatePicker` & `MultiDatePicker`) via `GlassDatePicker` and `GlassMultiDatePicker`:** Provides 100% parity with Apple Human Interface Guidelines and SwiftUI's `DatePicker` and `MultiDatePicker`.
+  - Three authentic display styles:
+    - `GlassDatePickerStyle.compact` (`DatePickerStyle.compact`): Compact liquid glass date and time pills with specular rim highlights that trigger an anchored modal/popover calendar.
+    - `GlassDatePickerStyle.graphical` (`DatePickerStyle.graphical`): Full inline month calendar grid with specular day selection ring, smooth previous/next month transitions, and optional time section.
+    - `GlassDatePickerStyle.wheel` (`DatePickerStyle.wheel`): 3D cylindrical Cupertino picker wheels enclosed in a liquid glass card with theme integration.
+  - Three picker modes: `GlassDatePickerMode.date`, `GlassDatePickerMode.time`, and `GlassDatePickerMode.dateAndTime`.
+  - Multi-date selection (`MultiDatePicker` parity): `GlassMultiDatePicker` supporting selection and unselection of arbitrary sets of dates (`Set<DateTime>`).
+  - Haptic feedback on day selection and month navigation (`HapticFeedback.selectionClick()`).
+  - Range constraints: Enforces `minimumDate`, `maximumDate`, and `minuteInterval`.
+  - Imperative modal presentation via `showGlassDatePicker(context: ..., mode: ..., style: ...)`.
+
 # 1.11.0
 
 ## Features

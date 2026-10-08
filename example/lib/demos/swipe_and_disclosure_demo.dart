@@ -829,6 +829,25 @@ class _SwipeAndDisclosureDemoPageState
                           ),
                         ],
                       ),
+                      const SizedBox(height: 20),
+                      GlassGroupedSection(
+                        header: const Text('CALENDAR & SCHEDULE (DATEPICKER)'),
+                        children: [
+                          GlassListTile(
+                            leading: const Icon(CupertinoIcons.calendar,
+                                color: CupertinoColors.systemPurple),
+                            title: const Text('Next Review'),
+                            trailing: GlassDatePicker.compact(
+                              initialDateTime: DateTime(2026, 10, 15, 14, 30),
+                              mode: GlassDatePickerMode.dateAndTime,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      GlassDatePicker.graphical(
+                        initialDateTime: DateTime(2026, 10, 8),
+                      ),
                       const SizedBox(height: 24),
                       Center(
                         child: Text(
