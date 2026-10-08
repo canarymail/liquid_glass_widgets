@@ -73,6 +73,8 @@ class GlassListTile extends StatefulWidget {
     this.swipeActionWidth = 74.0,
     this.swipeController,
     this.onSwipeStateChanged,
+    this.swipeActionStyle = GlassSwipeActionStyle.tintedGlass,
+    this.onDismissed,
   })  : _useOwnLayer = false,
         _settings = null,
         _quality = null;
@@ -102,6 +104,8 @@ class GlassListTile extends StatefulWidget {
     this.swipeActionWidth = 74.0,
     this.swipeController,
     this.onSwipeStateChanged,
+    this.swipeActionStyle = GlassSwipeActionStyle.tintedGlass,
+    this.onDismissed,
     LiquidGlassSettings? settings,
     GlassQuality? quality,
   })  : _useOwnLayer = true,
@@ -169,6 +173,14 @@ class GlassListTile extends StatefulWidget {
 
   /// Callback fired when the swipe state changes.
   final ValueChanged<GlassSwipeState>? onSwipeStateChanged;
+
+  /// Visual styling applied to the swipe action platter.
+  ///
+  /// Defaults to [GlassSwipeActionStyle.tintedGlass].
+  final GlassSwipeActionStyle swipeActionStyle;
+
+  /// Optional callback executed when the row is dismissed via full swipe.
+  final VoidCallback? onDismissed;
 
   // ===========================================================================
   // Styling Properties
@@ -257,6 +269,8 @@ class _GlassListTileState extends State<GlassListTile>
         actionWidth: widget.swipeActionWidth,
         controller: widget.swipeController,
         onSwipeStateChanged: widget.onSwipeStateChanged,
+        style: widget.swipeActionStyle,
+        onDismissed: widget.onDismissed,
         borderRadius: widget._useOwnLayer
             ? const BorderRadius.all(Radius.circular(12))
             : null,

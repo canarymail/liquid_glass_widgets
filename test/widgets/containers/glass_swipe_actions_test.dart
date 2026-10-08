@@ -470,6 +470,136 @@ void main() {
 
       expect(controller.isOpen, isFalse);
     });
+
+    testWidgets(
+        'trailing actions place actions[0] at outer screen edge matching Swift/UIKit',
+        (tester) async {
+      var primaryActionTapped = false;
+      var secondaryActionTapped = false;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            trailingActions: [
+              GlassSwipeAction(
+                icon: const Icon(CupertinoIcons.trash),
+                label: const Text('Delete'),
+                onTap: () => primaryActionTapped = true,
+              ),
+              GlassSwipeAction(
+                icon: const Icon(CupertinoIcons.flag),
+                label: const Text('Flag'),
+                onTap: () => secondaryActionTapped = true,
+              ),
+            ],
+            child: const SizedBox(
+              height: 50,
+              width: 400,
+              child: Text('Swift Order Row'),
+            ),
+          ),
+        ),
+      );
+
+      // Drag left to reveal both actions
+      await tester.drag(find.text('Swift Order Row'), const Offset(-160, 0));
+      await tester.pumpAndSettle();
+
+      final deletePos = tester.getTopLeft(find.text('Delete'));
+      final flagPos = tester.getTopLeft(find.text('Flag'));
+
+      // In Swift/UIKit, actions[0] ('Delete') is outermost (farthest right in LTR)
+      // and actions[1] ('Flag') is inward (to the left of Delete).
+      expect(deletePos.dx, greaterThan(flagPos.dx));
+
+      // Tap Flag (inward action)
+      await tester.tap(find.text('Flag'));
+      await tester.pumpAndSettle();
+      expect(secondaryActionTapped, isTrue);
+      expect(primaryActionTapped, isFalse);
+    });
+
+    testWidgets(
+        'full swipe with onDismissed animates row height to 0 and invokes callback',
+        (tester) async {
+      var dismissed = false;
+      var deleteTapped = false;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: SizedBox(
+            width: 300,
+            child: GlassSwipeActions(
+              onDismissed: () => dismissed = true,
+              trailingActions: [
+                GlassSwipeAction(
+                  icon: const Icon(CupertinoIcons.trash),
+                  label: const Text('Delete'),
+                  onTap: () => deleteTapped = true,
+                ),
+              ],
+              child: const SizedBox(
+                height: 60,
+                child: Text('Dismissable Row'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Perform a drag exceeding the 65% threshold of 300 (e.g. -220px)
+      await tester.drag(find.text('Dismissable Row'), const Offset(-220, 0));
+      expect(deleteTapped, isTrue);
+
+      // During dismiss animation, SizeTransition shrinks height
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(dismissed, isFalse);
+
+      await tester.pumpAndSettle();
+      expect(dismissed, isTrue);
+      final size = tester.getSize(find.byType(GlassSwipeActions));
+      expect(size.height, 0.0);
+    });
+
+    testWidgets('renders tintedGlass and solidVibrancy styles properly',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: Column(
+            children: [
+              GlassSwipeActions(
+                style: GlassSwipeActionStyle.tintedGlass,
+                trailingActions: const [
+                  GlassSwipeAction(
+                    icon: Icon(CupertinoIcons.gear),
+                    label: Text('Tinted'),
+                    onTap: _noop,
+                  ),
+                ],
+                child: const SizedBox(
+                    height: 50, width: 300, child: Text('Row 1')),
+              ),
+              GlassSwipeActions(
+                style: GlassSwipeActionStyle.solidVibrancy,
+                trailingActions: const [
+                  GlassSwipeAction(
+                    icon: Icon(CupertinoIcons.gear),
+                    label: Text('Solid'),
+                    onTap: _noop,
+                  ),
+                ],
+                child: const SizedBox(
+                    height: 50, width: 300, child: Text('Row 2')),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.text('Row 1'), findsOneWidget);
+      expect(find.text('Row 2'), findsOneWidget);
+    });
   });
 
   group('GlassListTile swipe actions integration', () {
@@ -522,6 +652,37 @@ void main() {
       await tester.tap(find.text('Mark Read'));
       await tester.pumpAndSettle();
       expect(readTapped, isTrue);
+    });
+
+    testWidgets('GlassListTile forwards swipeActionStyle and onDismissed',
+        (tester) async {
+      var dismissed = false;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: SizedBox(
+            width: 300,
+            child: GlassListTile(
+              title: const Text('Dismissable Tile'),
+              swipeActionStyle: GlassSwipeActionStyle.solidVibrancy,
+              onDismissed: () => dismissed = true,
+              trailingSwipeActions: const [
+                GlassSwipeAction(
+                  icon: Icon(CupertinoIcons.trash),
+                  label: Text('Delete'),
+                  onTap: _noop,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Drag left past full swipe threshold of 300 (e.g. -220px)
+      await tester.drag(find.text('Dismissable Tile'), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+
+      expect(dismissed, isTrue);
     });
   });
 }

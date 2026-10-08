@@ -27,6 +27,16 @@ enum GlassSwipeState {
   fullSwipeTrailing,
 }
 
+/// Visual styling options for [GlassSwipeActions] buttons.
+enum GlassSwipeActionStyle {
+  /// Authentic iOS 26/27 liquid glass styling with subtle translucency,
+  /// specular rim highlight, and surface gradient.
+  tintedGlass,
+
+  /// Vibrant solid system styling matching classic UIKit and SwiftUI table views.
+  solidVibrancy,
+}
+
 /// A discrete swipeable action button in a [GlassSwipeActions] platter.
 ///
 /// Defines the icon, label, background color, and behavior for a leading or
@@ -184,6 +194,8 @@ class GlassSwipeActions extends StatefulWidget {
     this.onSwipeStateChanged,
     this.enableHaptics = true,
     this.clipBehavior = Clip.antiAlias,
+    this.style = GlassSwipeActionStyle.tintedGlass,
+    this.onDismissed,
   }) : assert(fullSwipeThreshold > 0.0 && fullSwipeThreshold <= 1.0,
             'fullSwipeThreshold must be between 0.0 and 1.0');
 
@@ -233,15 +245,28 @@ class GlassSwipeActions extends StatefulWidget {
   /// Defaults to [Clip.antiAlias].
   final Clip clipBehavior;
 
+  /// Visual styling applied to the swipe action platter.
+  ///
+  /// Defaults to [GlassSwipeActionStyle.tintedGlass].
+  final GlassSwipeActionStyle style;
+
+  /// Optional callback executed when the row is dismissed via full swipe.
+  ///
+  /// When provided, a committed full-swipe animates the row off-screen and
+  /// smoothly collapses its height down to zero with iOS ease curves before
+  /// invoking this callback.
+  final VoidCallback? onDismissed;
+
   @override
   State<GlassSwipeActions> createState() => GlassSwipeActionsState();
 }
 
 /// State for [GlassSwipeActions], accessible via [GlobalKey] or [GlassSwipeController].
 class GlassSwipeActionsState extends State<GlassSwipeActions>
-    with SingleTickerProviderStateMixin
+    with TickerProviderStateMixin
     implements GlassSwipeActionsControllerInterface {
   late final SingleSpringController _springController;
+  late final AnimationController _dismissController;
 
   double _offset = 0.0;
   double _targetOffset = 0.0;
@@ -271,6 +296,11 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       initialValue: 0.0,
     )..addListener(_onSpringUpdate);
 
+    _dismissController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+
     widget.controller?._attach(this);
   }
 
@@ -288,6 +318,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     widget.controller?._detach(this);
     _springController.removeListener(_onSpringUpdate);
     _springController.dispose();
+    _dismissController.dispose();
     super.dispose();
   }
 
@@ -445,15 +476,25 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     final thresholdDistance = widget.fullSwipeThreshold * rowWidth;
 
     if (widget.allowsFullSwipe && revealDistance >= thresholdDistance) {
-      // Execute full-swipe outermost action
-      if (directionalOffset > 0 && widget.leadingActions.isNotEmpty) {
-        final action = widget.leadingActions.first;
-        action.onTap();
-      } else if (directionalOffset < 0 && widget.trailingActions.isNotEmpty) {
-        final action = widget.trailingActions.last;
-        action.onTap();
+      final isLeading = directionalOffset > 0;
+      // In both leading and trailing, actions.first is the outermost action at the edge
+      final action = isLeading
+          ? widget.leadingActions.first
+          : widget.trailingActions.first;
+
+      action.onTap();
+
+      if (widget.onDismissed != null) {
+        final dismissTarget = isRtl
+            ? (isLeading ? -rowWidth : rowWidth)
+            : (isLeading ? rowWidth : -rowWidth);
+        _animateTo(dismissTarget, velocity: velocity);
+        unawaited(_dismissController.forward().then((_) {
+          widget.onDismissed?.call();
+        }));
+      } else {
+        close();
       }
-      close();
       return;
     }
 
@@ -559,7 +600,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
           );
         }
 
-        return GestureDetector(
+        body = GestureDetector(
           behavior: HitTestBehavior.opaque,
           onHorizontalDragStart: _handleDragStart,
           onHorizontalDragUpdate: (details) =>
@@ -568,6 +609,20 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
           onHorizontalDragCancel: _handleDragCancel,
           child: body,
         );
+
+        if (widget.onDismissed != null) {
+          body = SizeTransition(
+            sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(
+              CurvedAnimation(
+                parent: _dismissController,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
+            child: body,
+          );
+        }
+
+        return body;
       },
     );
   }
@@ -603,18 +658,25 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     final isFullSwipe = widget.allowsFullSwipe &&
         revealWidth >= widget.fullSwipeThreshold * rowWidth;
 
+    // In SwiftUI and UIKit, actions[0] is the primary outermost action at the edge.
+    // In LTR, the platter's visual order from inner (left) to outer edge (right) is:
+    // actions[count - 1], actions[count - 2], ..., actions[0].
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < actions.length; i++) ...[
-          _buildActionButton(
-            context: context,
-            action: actions[i],
-            width: _computeTrailingActionWidth(
-                i, actions.length, revealWidth, totalStandardWidth),
-            isOutermost: i == actions.length - 1,
-            isFullSwipe: isFullSwipe && i == actions.length - 1,
-          ),
+          () {
+            final originalIndex = actions.length - 1 - i;
+            final isOutermost = originalIndex == 0;
+            return _buildActionButton(
+              context: context,
+              action: actions[originalIndex],
+              width: _computeTrailingActionWidth(originalIndex, actions.length,
+                  revealWidth, totalStandardWidth),
+              isOutermost: isOutermost,
+              isFullSwipe: isFullSwipe && isOutermost,
+            );
+          }(),
         ],
       ],
     );
@@ -632,13 +694,13 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     return widget.actionWidth;
   }
 
-  double _computeTrailingActionWidth(
-      int index, int count, double revealWidth, double totalStandardWidth) {
+  double _computeTrailingActionWidth(int originalIndex, int count,
+      double revealWidth, double totalStandardWidth) {
     if (revealWidth <= totalStandardWidth) {
       return revealWidth / count;
     }
-    // Trailing outermost is the last item (count - 1): it absorbs extra stretch space
-    if (index == count - 1) {
+    // Trailing outermost is actions[0] (originalIndex == 0): it absorbs extra stretch space
+    if (originalIndex == 0) {
       return revealWidth - (count - 1) * widget.actionWidth;
     }
     return widget.actionWidth;
@@ -658,6 +720,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       width: width,
       standardWidth: widget.actionWidth,
       isFullSwipe: isFullSwipe,
+      style: widget.style,
       onPressed: () {
         action.onTap();
         if (action.closeOnTap) {
@@ -675,6 +738,7 @@ class _GlassSwipeActionButton extends StatefulWidget {
     required this.standardWidth,
     required this.onPressed,
     this.isFullSwipe = false,
+    this.style = GlassSwipeActionStyle.tintedGlass,
   });
 
   final GlassSwipeAction action;
@@ -682,6 +746,7 @@ class _GlassSwipeActionButton extends StatefulWidget {
   final double standardWidth;
   final VoidCallback onPressed;
   final bool isFullSwipe;
+  final GlassSwipeActionStyle style;
 
   @override
   State<_GlassSwipeActionButton> createState() =>
@@ -706,6 +771,45 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
             ? (widget.action.label as Text).data
             : null);
 
+    final BoxDecoration decoration;
+    if (widget.style == GlassSwipeActionStyle.tintedGlass) {
+      decoration = BoxDecoration(
+        color: _isPressed
+            ? effectiveBgColor.withValues(alpha: 0.76)
+            : effectiveBgColor.withValues(alpha: 0.90),
+        border: Border(
+          top: BorderSide(
+            color: CupertinoColors.white.withValues(alpha: 0.22),
+            width: 0.75,
+          ),
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            CupertinoColors.white.withValues(alpha: 0.16),
+            CupertinoColors.white.withValues(alpha: 0.03),
+            CupertinoColors.black.withValues(alpha: 0.12),
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ),
+      );
+    } else {
+      decoration = BoxDecoration(
+        color: _isPressed
+            ? effectiveBgColor.withValues(alpha: 0.82)
+            : effectiveBgColor,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            CupertinoColors.white.withValues(alpha: 0.10),
+            CupertinoColors.transparent,
+          ],
+        ),
+      );
+    }
+
     return SizedBox(
       width: widget.width,
       child: Semantics(
@@ -719,19 +823,7 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
           onTapCancel: () => setState(() => _isPressed = false),
           onTap: widget.onPressed,
           child: Container(
-            decoration: BoxDecoration(
-              color: _isPressed
-                  ? effectiveBgColor.withValues(alpha: 0.82)
-                  : effectiveBgColor,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  CupertinoColors.white.withValues(alpha: 0.12),
-                  CupertinoColors.black.withValues(alpha: 0.08),
-                ],
-              ),
-            ),
+            decoration: decoration,
             alignment: Alignment.center,
             child: ClipRect(
               child: OverflowBox(
