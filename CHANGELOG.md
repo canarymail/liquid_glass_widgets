@@ -14,7 +14,13 @@
   - Spring-animated expansion and collapse with zero jank using `SizeTransition(curve: Curves.easeInOutCubic)`.
   - Automatic divider interleaving with smart 56px / 16px indentation when nested inside `GlassGroupedSection`.
   - Standalone mode via `GlassDisclosureGroup.standalone` providing an independent superellipse glass container.
-  - Added interactive `SwipeAndDisclosureDemoPage` in the example app showcasing Mail inbox full-swipe deletion, material toggles, and nested privacy/security disclosure accordions.
+
+- **Edit Mode (`EditButton` + `ForEach`) via `GlassEditScope`, `GlassEditButton`, `GlassReorderableList`, and `GlassListTile` editing:** Complete SwiftUI list editing workflow parity benchmarked against Apple's stock Contacts app.
+  - `GlassEditScope`: Ambient inherited scope providing `GlassEditMode` (`inactive`, `active`, `transient`) and `GlassEditController` with `toggle()`, `startEditing()`, and `stopEditing()`.
+  - `GlassEditButton`: SwiftUI `EditButton()` parity widget that smoothly transitions between "Edit" and bold "Done" with haptic feedback and automatic ambient controller coordination. Also supports explicit standalone binding via `GlassEditButton.explicit()`.
+  - `GlassReorderableList`: Modern reorderable list with authentic iOS liquid glass elevation proxy decorator (1.025x scale, elevated soft specular shadow, selection haptic tick). Supports both `GlassReorderableList()` and `GlassReorderableList.grouped()` with superellipse card rounding, automatic dividers, and headers/footers. Fully compatible with both Flutter's modern `onReorderItem` and legacy `onReorder` callbacks.
+  - `GlassListTile` editing parity: Added `isEditing`, `canDelete`, `onDelete`, `canInsert`, `onInsert`, `canReorder`, `reorderIndex`, `canSelect`, `isSelected`, and `onSelectedChanged`. Features circular red minus delete badges with 90° rotation into an inline slide-in "Delete" confirmation pill, green plus insertion badges, Cupertino selection checkmarks, and 3-bar reorder drag handles (`CupertinoIcons.bars`). Automatically suppresses swipe actions during edit mode to eliminate gesture collisions.
+  - Added interactive Contacts reordering and deletion section to `SwipeAndDisclosureDemoPage` in the example app with live edit button toggling.
 
 # 1.11.0
 

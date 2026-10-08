@@ -51,6 +51,7 @@ export 'widgets/shared/glass_page.dart' show GlassPage, GlassStatusBarStyle;
 export 'widgets/shared/glass_motion_scope.dart';
 export 'widgets/shared/glass_scroll_edge_effect.dart';
 export 'widgets/shared/glass_swipe_action_scope.dart';
+export 'widgets/shared/glass_edit_scope.dart';
 export 'widgets/shared/inherited_liquid_glass.dart';
 export 'widgets/shared/lightweight_liquid_glass.dart';
 
@@ -73,6 +74,7 @@ export 'widgets/containers/glass_divider.dart';
 export 'widgets/containers/glass_disclosure_group.dart';
 export 'widgets/containers/glass_grouped_section.dart';
 export 'widgets/containers/glass_list_tile.dart';
+export 'widgets/containers/glass_reorderable_list.dart';
 export 'widgets/containers/glass_stepper.dart';
 export 'widgets/containers/glass_swipe_actions.dart';
 // Widgets - Input
@@ -86,6 +88,7 @@ export 'widgets/input/glass_text_field.dart';
 export 'widgets/interactive/glass_badge.dart';
 export 'widgets/interactive/glass_button.dart';
 export 'widgets/interactive/glass_chip.dart';
+export 'widgets/interactive/glass_edit_button.dart';
 export 'widgets/interactive/glass_icon_button.dart';
 export 'widgets/interactive/glass_page_control.dart';
 export 'widgets/interactive/glass_segmented_control.dart';

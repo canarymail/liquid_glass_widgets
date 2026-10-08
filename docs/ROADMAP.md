@@ -64,6 +64,19 @@ Collapsible accordion / disclosure section within `GlassGroupedSection` and stan
 - Programmatic control via `isExpanded` prop or `GlobalKey<GlassDisclosureGroupState>`.
 - Standalone mode with `GlassDisclosureGroup.standalone`.
 
+### GlassEditScope & GlassReorderableList (`EditMode` / `EditButton` / `ForEach`) ✅ Complete
+
+Comprehensive list editing, item deletion, selection, and reordering parity.
+- **Ambient State:** `GlassEditScope` with `GlassEditMode` (`inactive`, `active`, `transient`) and `GlassEditController` (`isEditing`, `toggle()`, `startEditing()`, `stopEditing()`).
+- **Interactive Control:** `GlassEditButton` and `GlassEditButton.explicit` with animated crossfade between "Edit" and bold "Done", selection haptics, and ambient controller coordination.
+- **Reorderable List:** `GlassReorderableList` and `GlassReorderableList.grouped` with authentic iOS lift elevation proxy (1.025x scale, elevated specular shadow, selection haptic tick). Modern `onReorderItem` and legacy `onReorder` compatibility.
+- **Row-Level Editing:** `GlassListTile` editing features:
+  - Circular red minus delete badge (`CupertinoIcons.minus_circle_fill`) with 90° rotation into an inline slide-in "Delete" confirmation pill.
+  - Circular green plus insertion badge (`CupertinoIcons.plus_circle_fill`).
+  - Selection checkmark state (`canSelect`, `isSelected`, `onSelectedChanged`).
+  - 3-bar reorder drag handle (`CupertinoIcons.bars`) with immediate touch drag initiation via `ReorderableDragStartListener`.
+  - Automatic suppression of swipe gestures during active edit mode to prevent gesture conflicts.
+
 ---
 
 ## SwiftUI & Apple HIG Parity (Roadmap to 2.0)
@@ -78,7 +91,7 @@ Features appearing in standard iOS system flows (e.g. stock Contacts app) priori
 |---|---|---|---|
 | `.swipeActions()` | `GlassSwipeActions` / `GlassListTile.swipeActions` | ✅ Complete | Swipe-to-delete, call, message actions on list items and grouped rows (1.12.0). |
 | `DisclosureGroup` | `GlassDisclosureGroup` / `GlassCollapsibleSection` | ✅ Complete | Collapsible accordion / disclosure section within `GlassGroupedSection` (1.12.0). |
-| `EditButton` + `ForEach` | `GlassEditableList` / `GlassListTile.editing` | ⬜ Planned | Edit mode with red delete badges, reorder drag handles, and row insertion. |
+| `EditButton` + `ForEach` | `GlassEditScope` / `GlassEditButton` / `GlassReorderableList` / `GlassListTile.editing` | ✅ Complete | Full edit mode with ambient scope, delete confirmation badges, reorder handles, and grouped lists (1.12.0). |
 | `.contextMenu()` | `GlassContextMenu` | ⬜ Planned | Context menu triggered by long-press / secondary click with haptic surface lift and action stack. |
 | `.fullScreenCover()` | `showGlassFullScreenCover` | ⬜ Planned | Dedicated full-viewport modal presentation (distinct from bottom sheets). |
 | `DatePicker` / `MultiDatePicker` | `GlassDatePicker` | ⬜ Planned | Liquid glass date/time picker (compact, inline, and wheel/graphical modes). |

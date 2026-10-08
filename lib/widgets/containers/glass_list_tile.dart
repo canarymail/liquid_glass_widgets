@@ -1,10 +1,12 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
 import '../../types/glass_quality.dart';
 import 'glass_container.dart';
 import 'glass_swipe_actions.dart';
+import '../shared/glass_edit_scope.dart';
 import '../shared/glass_focus_region.dart';
 import '../shared/glass_interaction_state_mixin.dart';
 
@@ -75,6 +77,16 @@ class GlassListTile extends StatefulWidget {
     this.onSwipeStateChanged,
     this.swipeActionStyle = GlassSwipeActionStyle.tintedGlass,
     this.onDismissed,
+    this.isEditing,
+    this.canDelete = false,
+    this.onDelete,
+    this.canInsert = false,
+    this.onInsert,
+    this.canReorder = false,
+    this.reorderIndex,
+    this.canSelect = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
   })  : _useOwnLayer = false,
         _settings = null,
         _quality = null;
@@ -106,6 +118,16 @@ class GlassListTile extends StatefulWidget {
     this.onSwipeStateChanged,
     this.swipeActionStyle = GlassSwipeActionStyle.tintedGlass,
     this.onDismissed,
+    this.isEditing,
+    this.canDelete = false,
+    this.onDelete,
+    this.canInsert = false,
+    this.onInsert,
+    this.canReorder = false,
+    this.reorderIndex,
+    this.canSelect = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
     LiquidGlassSettings? settings,
     GlassQuality? quality,
   })  : _useOwnLayer = true,
@@ -183,6 +205,47 @@ class GlassListTile extends StatefulWidget {
   final VoidCallback? onDismissed;
 
   // ===========================================================================
+  // Edit Mode Properties
+  // ===========================================================================
+
+  /// Whether edit mode is explicitly enabled for this tile.
+  ///
+  /// If null, the tile queries the ambient [GlassEditScope.isEditing(context)].
+  final bool? isEditing;
+
+  /// Whether this tile can be deleted in edit mode.
+  ///
+  /// If true or if [onDelete] is non-null, a circular red minus button is
+  /// displayed at the leading edge.
+  final bool canDelete;
+
+  /// Callback executed when the deletion badge or delete button is confirmed.
+  final VoidCallback? onDelete;
+
+  /// Whether this tile acts as an insertion row in edit mode (e.g. "Add Phone").
+  final bool canInsert;
+
+  /// Callback executed when the green plus insertion button is tapped.
+  final VoidCallback? onInsert;
+
+  /// Whether this tile can be reordered in edit mode.
+  ///
+  /// If true, a 3-bar reorder handle is displayed at the trailing edge.
+  final bool canReorder;
+
+  /// Index of this item when nested in a [ReorderableList] or [GlassReorderableList].
+  final int? reorderIndex;
+
+  /// Whether this tile can be selected via a circular checkbox in edit mode.
+  final bool canSelect;
+
+  /// Whether this tile is currently selected in selection mode.
+  final bool isSelected;
+
+  /// Callback fired when the selection state changes.
+  final ValueChanged<bool>? onSelectedChanged;
+
+  // ===========================================================================
   // Styling Properties
   // ===========================================================================
 
@@ -241,9 +304,18 @@ class _GlassListTileState extends State<GlassListTile>
   // Interaction state (isPressed, isFocused, pressedAndFocused)
   // is provided by GlassInteractionStateMixin.
 
+  bool _isDeleteConfirming = false;
+
   @override
   Widget build(BuildContext context) {
-    Widget content = _buildContent(context);
+    final effectiveIsEditing =
+        widget.isEditing ?? GlassEditScope.isEditing(context);
+
+    if (!effectiveIsEditing && _isDeleteConfirming) {
+      _isDeleteConfirming = false;
+    }
+
+    Widget content = _buildContent(context, effectiveIsEditing);
 
     if (widget._useOwnLayer) {
       content = GlassContainer(
@@ -255,10 +327,11 @@ class _GlassListTileState extends State<GlassListTile>
       );
     }
 
-    final hasSwipeActions = (widget.leadingSwipeActions != null &&
-            widget.leadingSwipeActions!.isNotEmpty) ||
-        (widget.trailingSwipeActions != null &&
-            widget.trailingSwipeActions!.isNotEmpty);
+    final hasSwipeActions = !effectiveIsEditing &&
+        ((widget.leadingSwipeActions != null &&
+                widget.leadingSwipeActions!.isNotEmpty) ||
+            (widget.trailingSwipeActions != null &&
+                widget.trailingSwipeActions!.isNotEmpty));
 
     if (hasSwipeActions) {
       content = GlassSwipeActions(
@@ -281,7 +354,7 @@ class _GlassListTileState extends State<GlassListTile>
     return content;
   }
 
-  Widget _buildContent(BuildContext context) {
+  Widget _buildContent(BuildContext context, bool isEditing) {
     final dynamicLabelColor =
         CupertinoTheme.of(context).textTheme.textStyle.color ??
             CupertinoColors.label;
@@ -298,8 +371,150 @@ class _GlassListTileState extends State<GlassListTile>
           fontSize: 13,
         );
 
+    Widget? leadingAccessory;
+    final effectiveCanDelete = widget.canDelete || widget.onDelete != null;
+    final effectiveCanInsert = widget.canInsert || widget.onInsert != null;
+
+    if (isEditing) {
+      if (effectiveCanDelete) {
+        leadingAccessory = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() {
+              _isDeleteConfirming = !_isDeleteConfirming;
+            });
+          },
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.centerLeft,
+            child: AnimatedRotation(
+              turns: _isDeleteConfirming ? 0.25 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              child: const Icon(
+                CupertinoIcons.minus_circle_fill,
+                color: CupertinoColors.systemRed,
+                size: 22,
+              ),
+            ),
+          ),
+        );
+      } else if (effectiveCanInsert) {
+        leadingAccessory = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onInsert?.call();
+          },
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.centerLeft,
+            child: const Icon(
+              CupertinoIcons.plus_circle_fill,
+              color: CupertinoColors.systemGreen,
+              size: 22,
+            ),
+          ),
+        );
+      } else if (widget.canSelect) {
+        leadingAccessory = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onSelectedChanged?.call(!widget.isSelected);
+          },
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.centerLeft,
+            child: Icon(
+              widget.isSelected
+                  ? CupertinoIcons.checkmark_circle_fill
+                  : CupertinoIcons.circle,
+              color: widget.isSelected
+                  ? CupertinoColors.activeBlue
+                  : CupertinoColors.systemGrey3,
+              size: 22,
+            ),
+          ),
+        );
+      }
+    }
+
+    Widget? trailingAccessory;
+    if (isEditing) {
+      if (_isDeleteConfirming) {
+        trailingAccessory = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 8),
+            CupertinoButton(
+              color: CupertinoColors.systemRed,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              minimumSize: Size.zero,
+              borderRadius: BorderRadius.circular(6),
+              onPressed: () {
+                setState(() => _isDeleteConfirming = false);
+                widget.onDelete?.call();
+              },
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: CupertinoColors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        );
+      } else if (widget.canReorder) {
+        Widget handle = Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.centerRight,
+          child: const Icon(
+            CupertinoIcons.bars,
+            color: CupertinoColors.systemGrey3,
+            size: 20,
+          ),
+        );
+        if (widget.reorderIndex != null) {
+          handle = ReorderableDragStartListener(
+            index: widget.reorderIndex!,
+            child: handle,
+          );
+        }
+        trailingAccessory = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 8),
+            handle,
+          ],
+        );
+      }
+    } else if (widget.trailing != null) {
+      trailingAccessory = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(width: 8),
+          IconTheme(
+            data: IconThemeData(
+              color: dynamicLabelColor.withValues(alpha: 0.54),
+              size: 20,
+            ),
+            child: widget.trailing!,
+          ),
+        ],
+      );
+    }
+
     Widget row = Row(
       children: [
+        if (leadingAccessory != null) leadingAccessory,
         if (widget.leading != null) ...[
           IconTheme(
             data: IconThemeData(
@@ -326,18 +541,19 @@ class _GlassListTileState extends State<GlassListTile>
             ],
           ),
         ),
-        if (widget.trailing != null) ...[
-          const SizedBox(width: 8),
-          IconTheme(
-            data: IconThemeData(
-                color: dynamicLabelColor.withValues(alpha: 0.54), size: 20),
-            child: widget.trailing!,
-          ),
-        ],
+        if (trailingAccessory != null) trailingAccessory,
       ],
     );
 
     Widget tile = Padding(padding: widget.contentPadding, child: row);
+
+    if (_isDeleteConfirming) {
+      tile = GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => setState(() => _isDeleteConfirming = false),
+        child: tile,
+      );
+    }
 
     if (widget.onTap != null || widget.onLongPress != null) {
       tile = GlassFocusRegion(

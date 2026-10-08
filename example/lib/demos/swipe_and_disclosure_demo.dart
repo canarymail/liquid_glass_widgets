@@ -52,12 +52,16 @@ class SwipeAndDisclosureDemoPage extends StatefulWidget {
 class _SwipeAndDisclosureDemoPageState
     extends State<SwipeAndDisclosureDemoPage> {
   int _selectedSegment =
-      0; // 0: Swipe Actions, 1: Disclosure Groups, 2: Combined
+      0; // 0: Swipe Actions, 1: Edit & Reorder, 2: Disclosure, 3: Settings
   GlassSwipeActionStyle _actionStyle = GlassSwipeActionStyle.tintedGlass;
   String _lastActionStatus = 'Idle (Drag any row left or right)';
 
+  // Ambient edit controller
+  final GlassEditController _editController = GlassEditController();
+
   // Demo Mail items state
   late List<_MailItem> _mailItems;
+  late List<String> _contactItems;
 
   // Toggle states for disclosure groups
   bool _twoFactorEnabled = true;
@@ -115,6 +119,14 @@ class _SwipeAndDisclosureDemoPageState
           isPinned: false,
         ),
       ];
+
+      _contactItems = [
+        'Craig Federighi',
+        'Kate Lovett',
+        'Tong Mu',
+        'Tim Cook',
+        'Jony Ive',
+      ];
     });
   }
 
@@ -134,37 +146,45 @@ class _SwipeAndDisclosureDemoPageState
           ),
         ),
       ),
-      child: GlassScaffold(
-        appBar: GlassAppBar.pinned(
-          title: const Text('Swipe & Disclosure'),
-          actions: [
-            GlassBarItem.icon(
-              icon: const Icon(CupertinoIcons.arrow_counterclockwise),
-              onTap: _resetMailItems,
-            ),
-          ],
-        ),
-        body: GlassSwipeActionScope(
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              MediaQuery.paddingOf(context).top + 54,
-              16,
-              40,
-            ),
-            children: [
-              _buildSegmentedHeader(),
-              const SizedBox(height: 16),
-              if (_selectedSegment == 0) ...[
-                _buildSwipeControls(),
-                const SizedBox(height: 16),
-                _buildMailSwipeSection(),
-              ] else if (_selectedSegment == 1) ...[
-                _buildDisclosureShowcase(),
-              ] else ...[
-                _buildCombinedShowcase(),
-              ],
+      child: GlassEditScope(
+        controller: _editController,
+        child: GlassScaffold(
+          appBar: GlassAppBar.pinned(
+            title: const Text('SwiftUI & HIG Parity'),
+            actions: [
+              const GlassBarItem.custom(
+                child: GlassEditButton(),
+              ),
+              GlassBarItem.icon(
+                icon: const Icon(CupertinoIcons.arrow_counterclockwise),
+                onTap: _resetMailItems,
+              ),
             ],
+          ),
+          body: GlassSwipeActionScope(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.paddingOf(context).top + 54,
+                16,
+                40,
+              ),
+              children: [
+                _buildSegmentedHeader(),
+                const SizedBox(height: 16),
+                if (_selectedSegment == 0) ...[
+                  _buildSwipeControls(),
+                  const SizedBox(height: 16),
+                  _buildMailSwipeSection(),
+                ] else if (_selectedSegment == 1) ...[
+                  _buildReorderableSection(),
+                ] else if (_selectedSegment == 2) ...[
+                  _buildDisclosureShowcase(),
+                ] else ...[
+                  _buildCombinedShowcase(),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -178,16 +198,20 @@ class _SwipeAndDisclosureDemoPageState
         groupValue: _selectedSegment,
         children: const {
           0: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Text('Swipe Actions', style: TextStyle(fontSize: 13)),
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Text('Swipe', style: TextStyle(fontSize: 12)),
           ),
           1: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Text('Disclosure', style: TextStyle(fontSize: 13)),
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Text('Edit/Move', style: TextStyle(fontSize: 12)),
           ),
           2: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Text('Full Settings', style: TextStyle(fontSize: 13)),
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Text('Disclosure', style: TextStyle(fontSize: 12)),
+          ),
+          3: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Text('Settings', style: TextStyle(fontSize: 12)),
           ),
         },
         onValueChanged: (val) {
@@ -474,6 +498,66 @@ class _SwipeAndDisclosureDemoPageState
               _lastActionStatus = 'Tapped More on #${item.id}';
             });
           },
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // Edit & Reorder Section (SwiftUI List + EditButton + onMove)
+  // ===========================================================================
+
+  Widget _buildReorderableSection() {
+    return Column(
+      children: [
+        GlassReorderableList.grouped(
+          header: const Text('CONTACTS (EDIT MODE & REORDERING)'),
+          footer: const Text(
+            'Tap "Edit" in the top-right toolbar to reveal red deletion badges and drag handles.\n'
+            'Items elevate with liquid glass specular shadows and haptic feedback during reordering.',
+          ),
+          itemCount: _contactItems.length,
+          itemBuilder: (context, index) {
+            final name = _contactItems[index];
+            return GlassListTile(
+              key: ValueKey(name),
+              leading: const Icon(CupertinoIcons.person_crop_circle),
+              title: Text(name),
+              canReorder: true,
+              reorderIndex: index,
+              onDelete: () {
+                setState(() {
+                  _contactItems.removeAt(index);
+                });
+              },
+            );
+          },
+          onReorder: (oldIndex, newIndex) {
+            setState(() {
+              if (oldIndex < newIndex) newIndex -= 1;
+              final item = _contactItems.removeAt(oldIndex);
+              _contactItems.insert(newIndex, item);
+            });
+          },
+        ),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GlassListTile(
+            leading: const Icon(
+              CupertinoIcons.plus_circle_fill,
+              color: CupertinoColors.systemGreen,
+            ),
+            title: const Text(
+              'Add New Contact',
+              style: TextStyle(color: CupertinoColors.activeBlue),
+            ),
+            onTap: () {
+              setState(() {
+                _contactItems.add('New Contact #${_contactItems.length + 1}');
+              });
+            },
+          ),
         ),
       ],
     );
