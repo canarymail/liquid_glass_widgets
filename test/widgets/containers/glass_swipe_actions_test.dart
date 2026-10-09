@@ -684,6 +684,75 @@ void main() {
 
       expect(dismissed, isTrue);
     });
+
+    testWidgets(
+        'unmounting an open row does not throw when another row is swiped',
+        (tester) async {
+      var showFirst = true;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActionScope(
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return Column(
+                  children: [
+                    if (showFirst)
+                      const SizedBox(
+                        width: 300,
+                        height: 60,
+                        child: GlassSwipeActions(
+                          key: ValueKey('first'),
+                          trailingActions: [
+                            GlassSwipeAction(
+                              icon: Icon(CupertinoIcons.trash),
+                              label: Text('Delete 1'),
+                              onTap: _noop,
+                            ),
+                          ],
+                          child: Text('First Row'),
+                        ),
+                      ),
+                    const SizedBox(
+                      width: 300,
+                      height: 60,
+                      child: GlassSwipeActions(
+                        key: ValueKey('second'),
+                        trailingActions: [
+                          GlassSwipeAction(
+                            icon: Icon(CupertinoIcons.trash),
+                            label: Text('Delete 2'),
+                            onTap: _noop,
+                          ),
+                        ],
+                        child: Text('Second Row'),
+                      ),
+                    ),
+                    CupertinoButton(
+                      child: const Text('Toggle'),
+                      onPressed: () => setState(() => showFirst = false),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Drag first row to open
+      await tester.drag(find.text('First Row'), const Offset(-100, 0));
+      await tester.pumpAndSettle();
+
+      // Now unmount first row
+      await tester.tap(find.text('Toggle'));
+      await tester.pumpAndSettle();
+
+      // Now drag second row — must not throw "widget has been unmounted"
+      await tester.drag(find.text('Second Row'), const Offset(-100, 0));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 

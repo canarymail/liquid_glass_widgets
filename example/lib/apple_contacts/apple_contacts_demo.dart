@@ -32,7 +32,7 @@ void main() async {
   runApp(LiquidGlassWidgets.wrap(
     adaptiveQuality: true,
     theme: GlassThemeData.simple(
-      blur: 20,
+      blur: 24,
       thickness: 20,
       quality: GlassQuality.premium,
     ),
@@ -54,7 +54,9 @@ class AppleContactsDemoApp extends StatelessWidget {
         ),
         child: GlassNavigationShell(child: child!),
       ),
-      home: const ContactsListView(),
+      home: const GlassNavigationStack(
+        root: ContactsListView(),
+      ),
       debugShowCheckedModeBanner: false,
     );
   }

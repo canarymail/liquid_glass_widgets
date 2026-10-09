@@ -76,15 +76,18 @@ class GlassSwipeActionScopeState extends State<GlassSwipeActionScope> {
 
   /// Closes the currently open swipe action row, if any.
   void closeOpenRow() {
-    _openRow?.close();
+    final row = _openRow;
     _openRow = null;
+    row?.close();
   }
 
   /// Registers a row that has just opened or started dragging, closing any
   /// previously open row.
   void registerOpenRow(GlassSwipeActionsControllerInterface row) {
     if (_openRow != null && _openRow != row) {
-      _openRow!.close();
+      final prev = _openRow;
+      _openRow = null;
+      prev?.close();
     }
     _openRow = row;
   }

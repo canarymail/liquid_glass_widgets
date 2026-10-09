@@ -58,7 +58,8 @@ class GlassReorderableList extends StatelessWidget {
         _isGrouped = false,
         _settings = null,
         _shape = null,
-        _quality = null;
+        _quality = null,
+        _useOwnLayer = null;
 
   /// Creates a [GlassReorderableList] styled as an iOS grouped table card
   /// with superellipse corners, automatic dividers, and optional header/footer.
@@ -78,6 +79,7 @@ class GlassReorderableList extends StatelessWidget {
     LiquidGlassSettings? settings,
     LiquidShape? shape,
     GlassQuality? quality,
+    bool? useOwnLayer,
   })  : assert(
           onReorderItem != null || onReorder != null,
           'Either onReorderItem or onReorder must be provided.',
@@ -85,7 +87,8 @@ class GlassReorderableList extends StatelessWidget {
         _isGrouped = true,
         _settings = settings,
         _shape = shape,
-        _quality = quality;
+        _quality = quality,
+        _useOwnLayer = useOwnLayer;
 
   /// Total number of items in the list.
   final int itemCount;
@@ -132,6 +135,7 @@ class GlassReorderableList extends StatelessWidget {
   final LiquidGlassSettings? _settings;
   final LiquidShape? _shape;
   final GlassQuality? _quality;
+  final bool? _useOwnLayer;
 
   Widget _defaultProxyDecorator(
     Widget child,
@@ -191,6 +195,7 @@ class GlassReorderableList extends StatelessWidget {
 
     if (_isGrouped) {
       final card = GlassCard(
+        useOwnLayer: _useOwnLayer ?? false,
         padding: EdgeInsets.zero,
         margin: EdgeInsets.zero,
         shape: _shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),

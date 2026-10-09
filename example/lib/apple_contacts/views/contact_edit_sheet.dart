@@ -84,6 +84,9 @@ class _ContactEditSheetState extends State<ContactEditSheet> {
     final isNew = widget.contact == null;
 
     return GlassFullScreenCover(
+      quality: GlassQuality.premium,
+      settings: ContactsTheme.cardSettings,
+      backgroundColor: CupertinoColors.transparent,
       title: Text(isNew ? 'New Contact' : 'Edit Contact'),
       leading: CupertinoButton(
         padding: EdgeInsets.zero,
@@ -102,105 +105,140 @@ class _ContactEditSheetState extends State<ContactEditSheet> {
           ),
         ),
       ),
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Stack(
         children: [
-          // Avatar circle
-          Center(
-            child: Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    widget.contact?.avatarColor ?? ContactsTheme.blue,
-                    (widget.contact?.avatarColor ?? ContactsTheme.blue)
-                        .withValues(alpha: 0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  widget.contact?.initials ?? '?',
-                  style: const TextStyle(
-                    color: CupertinoColors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
+          const AppleContactsBackground(isModal: true),
+          ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            children: [
+              // Avatar circle
+              Center(
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        widget.contact?.avatarColor ?? ContactsTheme.blue,
+                        (widget.contact?.avatarColor ?? ContactsTheme.blue)
+                            .withValues(alpha: 0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(
+                      color: CupertinoColors.white.withValues(alpha: 0.35),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            (widget.contact?.avatarColor ?? ContactsTheme.blue)
+                                .withValues(alpha: 0.35),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.contact?.initials ?? '?',
+                      style: const TextStyle(
+                        color: CupertinoColors.white,
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-          // Name and Company Fields
-          GlassGroupedSection(
-            children: [
-              _buildTextInput('First Name', _firstNameController),
-              _buildTextInput('Last Name', _lastNameController),
-              _buildTextInput('Company', _companyController),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Contact Details
-          GlassGroupedSection(
-            children: [
-              _buildTextInput('Phone', _phoneController,
-                  keyboardType: TextInputType.phone),
-              _buildTextInput('Email', _emailController,
-                  keyboardType: TextInputType.emailAddress),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Birthday Picker Section
-          GlassGroupedSection(
-            header: const Text(
-              'BIRTHDAY & DATES',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: CupertinoColors.secondaryLabel,
+              // Name and Company Fields
+              GlassGroupedSection(
+                quality: GlassQuality.premium,
+                settings: ContactsTheme.cardSettings,
+                children: [
+                  _buildTextInput('First Name', _firstNameController),
+                  _buildTextInput('Last Name', _lastNameController),
+                  _buildTextInput('Company', _companyController),
+                ],
               ),
-            ),
-            children: [
-              GlassListTile(
-                title: const Text('Birthday'),
-                trailing: GlassDatePicker.compact(
-                  initialDateTime: _birthday,
-                  onDateTimeChanged: (d) => setState(() => _birthday = d),
+              const SizedBox(height: 16),
+
+              // Contact Details
+              GlassGroupedSection(
+                quality: GlassQuality.premium,
+                settings: ContactsTheme.cardSettings,
+                children: [
+                  _buildTextInput('Phone', _phoneController,
+                      keyboardType: TextInputType.phone),
+                  _buildTextInput('Email', _emailController,
+                      keyboardType: TextInputType.emailAddress),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Birthday Picker Section
+              GlassGroupedSection(
+                quality: GlassQuality.premium,
+                settings: ContactsTheme.cardSettings,
+                header: const Text(
+                  'BIRTHDAY & DATES',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoColors.secondaryLabel,
+                  ),
                 ),
+                children: [
+                  GlassListTile(
+                    leading: const Icon(CupertinoIcons.gift,
+                        color: ContactsTheme.orange),
+                    title: const Text('Birthday'),
+                    trailing: GlassDatePicker.compact(
+                      quality: GlassQuality.premium,
+                      settings: ContactsTheme.cardSettings,
+                      tintColor: ContactsTheme.blue,
+                      initialDateTime: _birthday,
+                      onDateTimeChanged: (d) => setState(() => _birthday = d),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Important Milestones (MultiDatePicker)
-          GlassGroupedSection(
-            header: const Text(
-              'MILESTONES (MULTIDATE PICKER)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: CupertinoColors.secondaryLabel,
-              ),
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: GlassMultiDatePicker(
-                  selectedDates: _milestones.toSet(),
-                  onDatesChanged: (dates) =>
-                      setState(() => _milestones = dates.toList()),
+              // Important Milestones (MultiDatePicker)
+              GlassGroupedSection(
+                quality: GlassQuality.premium,
+                settings: ContactsTheme.cardSettings,
+                header: const Text(
+                  'MILESTONES (MULTIDATE PICKER)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoColors.secondaryLabel,
+                  ),
                 ),
+                children: [
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: GlassMultiDatePicker(
+                      quality: GlassQuality.premium,
+                      settings: ContactsTheme.cardSettings,
+                      tintColor: ContactsTheme.blue,
+                      selectedDates: _milestones.toSet(),
+                      onDatesChanged: (dates) =>
+                          setState(() => _milestones = dates.toList()),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 32),
             ],
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );

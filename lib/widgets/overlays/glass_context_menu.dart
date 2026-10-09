@@ -765,6 +765,7 @@ class _GlassContextMenuRouteStaticState
                 child: Opacity(
                   opacity: animValue.clamp(0.0, 1.0),
                   child: GlassCard(
+                    useOwnLayer: true,
                     padding: EdgeInsets.zero,
                     margin: EdgeInsets.zero,
                     shape: LiquidRoundedSuperellipse(

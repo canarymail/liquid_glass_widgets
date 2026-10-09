@@ -25,6 +25,7 @@ class ContactsListView extends StatefulWidget {
 
 class _ContactsListViewState extends State<ContactsListView> {
   final GlassEditController _editController = GlassEditController();
+  final TextEditingController _searchController = TextEditingController();
   late List<ContactItem> _contacts;
   String _searchQuery = '';
 
@@ -32,6 +33,13 @@ class _ContactsListViewState extends State<ContactsListView> {
   void initState() {
     super.initState();
     _contacts = List.from(kInitialContacts);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _editController.dispose();
+    super.dispose();
   }
 
   void _addContact(ContactItem newContact) {
@@ -82,116 +90,298 @@ class _ContactsListViewState extends State<ContactsListView> {
     return ListenableBuilder(
       listenable: _editController,
       builder: (context, _) {
-        return GlassPage(
-          background: Container(
-            color: ContactsTheme.bg.resolveFrom(context),
-          ),
-          child: GlassEditScope(
-            controller: _editController,
-            child: GlassScaffold(
-              appBar: GlassAppBar.pinned(
-                title: const Text('Contacts'),
-                leading: [
-                  GlassBarItem.custom(
-                    child: GlassEditButton.explicit(
-                      isEditing: _editController.isEditing,
-                      onPressed: _editController.toggle,
+        return GlassEditScope(
+          controller: _editController,
+          child: GlassScaffold(
+            background: const AppleContactsBackground(),
+            appBar: GlassAppBar.pinned(
+              title: const Text('Contacts'),
+              buttonSettings: LiquidGlassSettings.ios27Dark,
+              leading: [
+                GlassBarItem.custom(
+                  background: GlassBarItemBackground.none,
+                  child: GlassButton(
+                    icon: const Icon(
+                      CupertinoIcons.chevron_left,
+                      color: CupertinoColors.white,
+                      size: 20,
+                    ),
+                    width: 44,
+                    height: 44,
+                    shape: const LiquidOval(),
+                    quality: GlassQuality.premium,
+                    useOwnLayer: true,
+                    settings: LiquidGlassSettings.ios27Dark,
+                    onTap: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ),
+              ],
+              actions: [
+                GlassBarItem.custom(
+                  background: GlassBarItemBackground.none,
+                  child: GlassEditButton.explicit(
+                    isEditing: _editController.isEditing,
+                    onPressed: _editController.toggle,
+                  ),
+                ),
+              ],
+            ),
+            bottomBar: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                MediaQuery.paddingOf(context).bottom + 8,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GlassContainer(
+                      height: 50,
+                      useOwnLayer: true,
+                      quality: GlassQuality.premium,
+                      settings: LiquidGlassSettings.ios27Dark,
+                      shape: const LiquidRoundedSuperellipse(borderRadius: 25),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              CupertinoIcons.search,
+                              color: CupertinoColors.secondaryLabel,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CupertinoTextField(
+                                controller: _searchController,
+                                placeholder: 'Search',
+                                onChanged: (val) =>
+                                    setState(() => _searchQuery = val),
+                                decoration: const BoxDecoration(),
+                                cursorColor: ContactsTheme.blue,
+                                style: const TextStyle(
+                                  color: CupertinoColors.white,
+                                  fontSize: 16,
+                                ),
+                                placeholderStyle: const TextStyle(
+                                  color: CupertinoColors.secondaryLabel,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            if (_searchQuery.isNotEmpty)
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                onPressed: () {
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _searchController.clear();
+                                  });
+                                },
+                                child: const Icon(
+                                  CupertinoIcons.clear_circled_solid,
+                                  color: CupertinoColors.secondaryLabel,
+                                  size: 18,
+                                ),
+                              )
+                            else
+                              const Icon(
+                                CupertinoIcons.mic_fill,
+                                color: CupertinoColors.secondaryLabel,
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ],
-                actions: [
-                  GlassBarItem.icon(
-                    icon: const Icon(CupertinoIcons.add),
+                  const SizedBox(width: 12),
+                  GlassButton(
+                    icon: const Icon(
+                      CupertinoIcons.add,
+                      color: CupertinoColors.white,
+                      size: 24,
+                    ),
+                    width: 50,
+                    height: 50,
+                    shape: const LiquidOval(),
+                    quality: GlassQuality.premium,
+                    useOwnLayer: true,
+                    settings: LiquidGlassSettings.ios27Dark,
                     onTap: _openAddSheet,
                   ),
                 ],
               ),
-              body: GlassSwipeActionScope(
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    MediaQuery.paddingOf(context).top + 54,
-                    16,
-                    48,
-                  ),
-                  children: [
-                    // Search Field
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: CupertinoSearchTextField(
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                        placeholder: 'Search',
-                        style: TextStyle(
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
+            ),
+            body: GlassSwipeActionScope(
+              child: Stack(
+                children: [
+                  ListView(
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      MediaQuery.paddingOf(context).top + 54,
+                      0,
+                      120,
                     ),
-
-                    // My Card Section
-                    if (_searchQuery.isEmpty) ...[
-                      GlassGroupedSection(
-                        children: [
-                          GlassListTile(
-                            leading: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Color(0xFF8E8E93),
-                                    Color(0xFF636366)
-                                  ],
+                    children: [
+                      // My Card Row (Real iOS 27 Contacts style)
+                      if (_searchQuery.isEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 54,
+                                height: 54,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF3F3B56),
                                 ),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'ME',
-                                  style: TextStyle(
-                                    color: CupertinoColors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                child: const Center(
+                                  child: Text(
+                                    'SD',
+                                    style: TextStyle(
+                                      color: CupertinoColors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            title: const Text(
-                              'Apple Developer',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: const Text('My Card'),
-                            trailing: const Icon(CupertinoIcons.chevron_right,
-                                size: 16),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    'Sebastian Degenaar',
+                                    style: TextStyle(
+                                      color: CupertinoColors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'My Card',
+                                    style: TextStyle(
+                                      color: CupertinoColors.secondaryLabel,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
 
-                    // Contacts Reorderable List
-                    GlassReorderableList.grouped(
-                      header: Text(
-                        'ALL CONTACTS (${filtered.length})',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: CupertinoColors.secondaryLabel,
+                      // Section Header "A"
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'A',
+                              style: TextStyle(
+                                color: CupertinoColors.secondaryLabel,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              height: 0.5,
+                              color: const Color(0xFF2C2C2E),
+                            ),
+                          ],
                         ),
                       ),
-                      itemCount: filtered.length,
-                      onReorderItem: (oldIndex, newIndex) {
-                        setState(() {
-                          final item = _contacts.removeAt(oldIndex);
-                          _contacts.insert(newIndex, item);
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final contact = filtered[index];
-                        return _buildContactTile(contact, index);
-                      },
+
+                      // Plain Contacts List
+                      for (int i = 0; i < filtered.length; i++)
+                        _buildContactTile(
+                            filtered[i], i, i == filtered.length - 1),
+
+                      // Bottom Count Label
+                      const SizedBox(height: 24),
+                      Center(
+                        child: Text(
+                          '${filtered.length} Contacts',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: CupertinoColors.secondaryLabel,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+
+                  // Alphabet Index (Vertical blue scroller on the right edge)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + 60,
+                    bottom: 90,
+                    right: 4,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final letter in [
+                            'A',
+                            'B',
+                            'C',
+                            'D',
+                            'E',
+                            'F',
+                            'G',
+                            'H',
+                            'I',
+                            'J',
+                            'K',
+                            'L',
+                            'M',
+                            'N',
+                            'O',
+                            'P',
+                            'Q',
+                            'R',
+                            'S',
+                            'T',
+                            'U',
+                            'V',
+                            'W',
+                            'X',
+                            'Y',
+                            'Z',
+                            '#'
+                          ])
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 0.5),
+                              child: Text(
+                                letter,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF007AFF),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -200,7 +390,88 @@ class _ContactsListViewState extends State<ContactsListView> {
     );
   }
 
-  Widget _buildContactTile(ContactItem contact, int index) {
+  Widget _buildContactPreview(ContactItem contact) {
+    return GlassCard(
+      quality: GlassQuality.premium,
+      useOwnLayer: true,
+      settings: ContactsTheme.cardSettings,
+      shape: const LiquidRoundedSuperellipse(borderRadius: 20),
+      child: Container(
+        width: 270,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    contact.avatarColor,
+                    contact.avatarColor.withValues(alpha: 0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: CupertinoColors.white.withValues(alpha: 0.35),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: contact.avatarColor.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  contact.initials,
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              contact.displayName,
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (contact.company.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                contact.company,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: CupertinoColors.secondaryLabel,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              contact.phone,
+              style: const TextStyle(
+                fontSize: 14,
+                color: ContactsTheme.blue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactTile(ContactItem contact, int index, bool isLast) {
     // When editing is inactive, wrap in ContextMenu and SwipeActions.
     return ListenableBuilder(
       key: ValueKey(contact.id),
@@ -233,97 +504,110 @@ class _ContactsListViewState extends State<ContactsListView> {
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
           ),
           subtitle: contact.company.isNotEmpty ? Text(contact.company) : null,
-          trailing: isEditing
-              ? null
-              : const Icon(CupertinoIcons.chevron_right, size: 16),
+          trailing:
+              null, // Apple Contacts does not display chevrons next to contact names
           canDelete: isEditing,
           onDelete: () => _deleteContact(contact.id),
           canReorder: isEditing,
           reorderIndex: index,
-          onTap: isEditing
-              ? null
-              : () {
-                  Navigator.of(context).push(
-                    CupertinoPageRoute(
-                      builder: (ctx) => ContactDetailView(
-                        contact: contact,
-                        onContactUpdated: _updateContact,
-                        onContactDeleted: _deleteContact,
-                      ),
-                    ),
-                  );
-                },
         );
 
+        final Widget content;
         if (isEditing) {
-          return tile;
+          content = tile;
+        } else {
+          // Standard interactive mode: GlassNavigationLink + GlassContextMenu + GlassSwipeActions
+          content = GlassNavigationLink(
+            destination: (ctx) => ContactDetailView(
+              contact: contact,
+              onContactUpdated: _updateContact,
+              onContactDeleted: _deleteContact,
+            ),
+            child: GlassContextMenu(
+              key: ValueKey(contact.id),
+              quality: GlassQuality.premium,
+              settings: ContactsTheme.cardSettings,
+              previewBuilder: (_) => _buildContactPreview(contact),
+              actions: [
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.bubble_left_fill),
+                  onPressed: () {},
+                  child: const Text('Send Message'),
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.phone_fill),
+                  onPressed: () {},
+                  child: const Text('Call'),
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.videocam_fill),
+                  onPressed: () {},
+                  child: const Text('FaceTime Video'),
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.share),
+                  onPressed: () {},
+                  child: const Text('Share Contact'),
+                ),
+                GlassContextMenuAction(
+                  icon: const Icon(CupertinoIcons.trash_fill),
+                  isDestructive: true,
+                  onPressed: () => _deleteContact(contact.id),
+                  child: const Text('Delete Contact'),
+                ),
+              ],
+              child: GlassSwipeActions(
+                style: GlassSwipeActionStyle.tintedGlass,
+                leadingActions: [
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.phone_fill),
+                    label: const Text('Call'),
+                    backgroundColor: ContactsTheme.green,
+                    onTap: () {},
+                  ),
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.bubble_left_fill),
+                    label: const Text('Message'),
+                    backgroundColor: ContactsTheme.blue,
+                    onTap: () {},
+                  ),
+                ],
+                trailingActions: [
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.trash_fill),
+                    label: const Text('Delete'),
+                    backgroundColor: ContactsTheme.red,
+                    isDestructive: true,
+                    onTap: () => _deleteContact(contact.id),
+                  ),
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.share),
+                    label: const Text('Share'),
+                    backgroundColor: ContactsTheme.orange,
+                    onTap: () {},
+                  ),
+                ],
+                onDismissed: () => _deleteContact(contact.id),
+                child: tile,
+              ),
+            ),
+          );
         }
 
-        // Standard interactive mode: swipe actions + context menu
-        return GlassContextMenu(
-          key: ValueKey(contact.id),
-          actions: [
-            GlassContextMenuAction(
-              icon: const Icon(CupertinoIcons.bubble_left_fill),
-              onPressed: () {},
-              child: const Text('Send Message'),
-            ),
-            GlassContextMenuAction(
-              icon: const Icon(CupertinoIcons.phone_fill),
-              onPressed: () {},
-              child: const Text('Call'),
-            ),
-            GlassContextMenuAction(
-              icon: const Icon(CupertinoIcons.videocam_fill),
-              onPressed: () {},
-              child: const Text('FaceTime Video'),
-            ),
-            GlassContextMenuAction(
-              icon: const Icon(CupertinoIcons.share),
-              onPressed: () {},
-              child: const Text('Share Contact'),
-            ),
-            GlassContextMenuAction(
-              icon: const Icon(CupertinoIcons.trash_fill),
-              isDestructive: true,
-              onPressed: () => _deleteContact(contact.id),
-              child: const Text('Delete Contact'),
-            ),
+        return Column(
+          key: ValueKey('tile_col_${contact.id}'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            content,
+            if (!isLast)
+              Padding(
+                padding: const EdgeInsets.only(left: 68),
+                child: Container(
+                  height: 0.5,
+                  color: const Color(0xFF2C2C2E),
+                ),
+              ),
           ],
-          child: GlassSwipeActions(
-            style: GlassSwipeActionStyle.tintedGlass,
-            leadingActions: [
-              GlassSwipeAction(
-                icon: const Icon(CupertinoIcons.phone_fill),
-                label: const Text('Call'),
-                backgroundColor: ContactsTheme.green,
-                onTap: () {},
-              ),
-              GlassSwipeAction(
-                icon: const Icon(CupertinoIcons.bubble_left_fill),
-                label: const Text('Message'),
-                backgroundColor: ContactsTheme.blue,
-                onTap: () {},
-              ),
-            ],
-            trailingActions: [
-              GlassSwipeAction(
-                icon: const Icon(CupertinoIcons.trash_fill),
-                label: const Text('Delete'),
-                backgroundColor: ContactsTheme.red,
-                isDestructive: true,
-                onTap: () => _deleteContact(contact.id),
-              ),
-              GlassSwipeAction(
-                icon: const Icon(CupertinoIcons.share),
-                label: const Text('Share'),
-                backgroundColor: ContactsTheme.orange,
-                onTap: () {},
-              ),
-            ],
-            onDismissed: () => _deleteContact(contact.id),
-            child: tile,
-          ),
         );
       },
     );

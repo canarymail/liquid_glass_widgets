@@ -61,6 +61,12 @@
   - Custom link targets: Wrap any custom button, card, or pill in `GlassNavigationLink` to push destinations on tap.
   - Added `.navigationTitle(...)` widget extension for declarative accessibility header semantics.
 
+## Bug Fixes
+
+- **Automatic `useOwnLayer` fallback for `AdaptiveGlass` outside of `LiquidGlassLayer`:** Fixed an `AssertionError` where widgets requesting `GlassQuality.premium` (or inheriting it from theme) outside of an ancestor `LiquidGlassLayer` would attempt grouped rendering and fail with `renderLink != null`. `AdaptiveGlass` now detects the absence of an ancestor layer via `InheritedGeometryRenderLink.of(context)` and automatically provisions its own layer (`effectiveUseOwnLayer = true`), ensuring standalone cards, buttons, dialogs, context menus, and modal sheets render safely and seamlessly in premium quality without crashing.
+
+- **`GlassSwipeActions` unmounted row crash protection:** Fixed an issue where initiating a swipe while a previously open row was unmounted (e.g. during scrolling, filtering, or list mutation) caused an unmounted state exception. `GlassSwipeActions` now unregisters itself from `GlassSwipeActionScope` upon disposal, guards all spring physics and settlement callbacks with `mounted` checks, and `GlassSwipeActionScope` defensively clears open row references prior to triggering closure.
+
 # 1.11.0
 
 ## Features

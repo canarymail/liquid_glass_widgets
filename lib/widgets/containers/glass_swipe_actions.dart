@@ -304,6 +304,14 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     widget.controller?._attach(this);
   }
 
+  GlassSwipeActionScopeState? _scope;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scope = GlassSwipeActionScope.of(context);
+  }
+
   @override
   void didUpdateWidget(GlassSwipeActions oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -316,6 +324,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   @override
   void dispose() {
     widget.controller?._detach(this);
+    _scope?.unregisterRow(this);
     _springController.removeListener(_onSpringUpdate);
     _springController.dispose();
     _dismissController.dispose();
@@ -323,6 +332,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   }
 
   void _onSpringUpdate() {
+    if (!mounted) return;
     setState(() {
       _offset = _springController.value;
       if (!_isDragging) {
@@ -334,6 +344,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   }
 
   void _updateSettledState() {
+    if (!mounted) return;
     if (_targetOffset == 0.0) {
       _setSwipeState(GlassSwipeState.idle);
     } else {
@@ -357,42 +368,46 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
   /// Programmatically opens the trailing actions.
   void openTrailing({bool animated = true}) {
-    if (widget.trailingActions.isEmpty) return;
+    if (!mounted || widget.trailingActions.isEmpty) return;
     final totalWidth = widget.trailingActions.length * widget.actionWidth;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final target = isRtl ? totalWidth : -totalWidth;
-    GlassSwipeActionScope.of(context)?.registerOpenRow(this);
+    _scope?.registerOpenRow(this);
     _animateTo(target, animated: animated);
   }
 
   /// Programmatically opens the leading actions.
   void openLeading({bool animated = true}) {
-    if (widget.leadingActions.isEmpty) return;
+    if (!mounted || widget.leadingActions.isEmpty) return;
     final totalWidth = widget.leadingActions.length * widget.actionWidth;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final target = isRtl ? -totalWidth : totalWidth;
-    GlassSwipeActionScope.of(context)?.registerOpenRow(this);
+    _scope?.registerOpenRow(this);
     _animateTo(target, animated: animated);
   }
 
   @override
   void close({bool animated = true}) {
-    GlassSwipeActionScope.of(context)?.unregisterRow(this);
+    if (!mounted) return;
+    _scope?.unregisterRow(this);
     _animateTo(0.0, animated: animated);
   }
 
   void _animateTo(double target,
       {bool animated = true, double velocity = 0.0}) {
+    if (!mounted) return;
     _targetOffset = target;
     final reduceMotion = GlassAccessibilityData.of(context).reduceMotion ||
         (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
 
     if (!animated || reduceMotion) {
       _springController.setValue(target);
-      setState(() {
-        _offset = target;
-        _updateSettledState();
-      });
+      if (mounted) {
+        setState(() {
+          _offset = target;
+          _updateSettledState();
+        });
+      }
     } else {
       _springController.setValue(_offset);
       _springController.animateTo(target, fromVelocity: velocity);
@@ -400,15 +415,16 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   }
 
   void _handleDragStart(DragStartDetails details) {
+    if (!mounted) return;
     _isDragging = true;
     _hasFiredHaptic = false;
     _setSwipeState(GlassSwipeState.dragging);
-    GlassSwipeActionScope.of(context)?.registerOpenRow(this);
+    _scope?.registerOpenRow(this);
     _springController.setValue(_offset);
   }
 
   void _handleDragUpdate(DragUpdateDetails details, double rowWidth) {
-    if (!_isDragging) return;
+    if (!mounted || !_isDragging) return;
 
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final delta = details.primaryDelta ?? 0.0;
@@ -467,6 +483,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   }
 
   void _handleDragEnd(DragEndDetails details, double rowWidth) {
+    if (!mounted) return;
     _isDragging = false;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final velocity = details.primaryVelocity ?? 0.0;

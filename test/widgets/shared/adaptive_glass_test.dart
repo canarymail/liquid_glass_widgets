@@ -339,6 +339,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('premGroup'), findsOneWidget);
     });
+
+    testWidgets(
+        'premium quality with useOwnLayer: false outside of any layer auto-provisions own layer',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: AdaptiveGlass(
+            shape: _shape,
+            settings: _settings,
+            quality: GlassQuality.premium,
+            useOwnLayer:
+                false, // no ancestor layer, should auto-provision own layer without throwing
+            child: const Text('premAutoOwnLayer'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('premAutoOwnLayer'), findsOneWidget);
+    });
   });
 
   group('AdaptiveGlass bodyMode (GlassBodyMode.clear)', () {
