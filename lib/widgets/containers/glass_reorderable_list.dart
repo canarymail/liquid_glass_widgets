@@ -10,7 +10,7 @@ import 'glass_divider.dart';
 /// providing direct parity with SwiftUI's `ForEach.onMove()` within a `List`.
 ///
 /// When an item is dragged to reorder, [GlassReorderableList] applies an authentic
-/// iOS lift effect with a subtle `1.02x` scale, elevated liquid glass shadow, and
+/// iOS lift effect with a subtle `1.025x` scale, elevated liquid glass shadow, and
 /// smooth spring-animated row displacement.
 ///
 /// ## Usage

@@ -13,7 +13,7 @@ import 'glass_list_tile.dart';
 ///
 /// [GlassDisclosureGroup] presents a header row with an interactive title, optional
 /// leading icon, and an animated disclosure chevron. Tapping toggles the visibility
-/// of its child rows with a smooth spring-based height transition.
+/// of its child rows with a smooth curve-driven height transition.
 ///
 /// ## Modes
 ///

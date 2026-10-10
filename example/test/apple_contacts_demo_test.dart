@@ -19,13 +19,21 @@ void main() {
     expect(find.text('My Card'), findsOneWidget);
     expect(find.text('Craig Federighi'), findsOneWidget);
     expect(find.text('Tim Cook'), findsOneWidget);
+    // Lazy list: later rows are only built once scrolled into view.
+    await tester.scrollUntilVisible(
+      find.text('Kate Lovett'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Kate Lovett'), findsOneWidget);
   });
 
   testWidgets(
       'Navigating to ContactDetailView displays hero avatar and detail sections',
       (tester) async {
-    tester.view.physicalSize = const Size(1170, 2532);
+    // Tall surface: the disclosure groups sit below the date pickers in a
+    // lazily-built ListView, so make the surface tall enough to build them all.
+    tester.view.physicalSize = const Size(1170, 12000);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 

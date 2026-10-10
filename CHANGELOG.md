@@ -2,29 +2,30 @@
 
 ## Features
 
-- **Swipe actions (`.swipeActions()`) via `GlassSwipeActions` and `GlassSwipeActionScope`:** Adds authentic iOS-style swipe gestures to list tiles and containers with underdamped spring physics (`GlassSpring.snappy()`), rubber-band damping, and full-swipe execution.
+- **Swipe actions (`.swipeActions()`) via `GlassSwipeActions` and `GlassSwipeActionScope`:** Adds authentic iOS-style swipe gestures to list tiles and containers with spring physics (`GlassSpring.snappy()`), rubber-band damping when full swipe is disabled, and full-swipe execution (`fullSwipeThreshold`, default 0.65).
   - `GlassSwipeAction`: Configurable action button data class defining icon, label, background color, destructive styling, flex, and callbacks.
   - `GlassSwipeActions`: Container widget that wraps any row with smooth horizontal pan disambiguation, proportional reveal platters with subtle liquid glass specular sheens, and full-swipe threshold triggering haptic feedback and automatic execution on release.
   - `GlassSwipeActionStyle`: Added `tintedGlass` (iOS 26/27 liquid glass with specular sheen and top border rim highlight) and `solidVibrancy` (classic opaque table view platter) material styles.
   - `GlassSwipeActionScope`: Inherited widget providing single-open row mutual exclusivity (opening row B automatically springs row A closed) and auto-dismissal upon scrolling.
   - `GlassListTile` first-class integration: Added `leadingSwipeActions`, `trailingSwipeActions`, `swipeActionStyle`, and `onDismissed` (animated row height collapse) parameters directly on both grouped and standalone constructors.
 
-- **Disclosure accordion sections (`DisclosureGroup`) via `GlassDisclosureGroup`:** Provides direct parity with SwiftUI's `DisclosureGroup` within liquid glass surfaces.
-  - Interactive header with title, subtitle, leading icon, and smoothly rotating chevron ($\frac{\pi}{2}$ radians) driven by spring curves.
-  - Spring-animated expansion and collapse with zero jank using `SizeTransition(curve: Curves.easeInOutCubic)`.
-  - Automatic divider interleaving with smart 56px / 16px indentation when nested inside `GlassGroupedSection`.
+- **Disclosure accordion sections (`DisclosureGroup`) via `GlassDisclosureGroup`:** Modeled on SwiftUI's `DisclosureGroup`, rendered within liquid glass surfaces.
+  - Interactive header with title, subtitle, leading icon, and a chevron that rotates a quarter turn (90°, RTL-aware).
+  - Animated expansion and collapse using an `AnimationController` with `animationCurve` (default `Curves.easeInOutCubic`) driving a `SizeTransition`.
+  - Programmatic control via the `isExpanded` property or a `GlobalKey<GlassDisclosureGroupState>`.
+  - Automatic divider interleaving when nested inside `GlassGroupedSection`, with the divider inset aligned to the row's leading content (56px for `GlassListTile` rows with a leading widget, 52px for nested `GlassDisclosureGroup`s with a leading widget, 16px otherwise).
   - Standalone mode via `GlassDisclosureGroup.standalone` providing an independent superellipse glass container.
 
-- **Edit Mode (`EditButton` + `ForEach`) via `GlassEditScope`, `GlassEditButton`, `GlassReorderableList`, and `GlassListTile` editing:** Complete SwiftUI list editing workflow parity benchmarked against Apple's stock Contacts app.
+- **Edit Mode (`EditButton` + `ForEach`) via `GlassEditScope`, `GlassEditButton`, `GlassReorderableList`, and `GlassListTile` editing:** Complete list editing workflow modeled on SwiftUI's `EditButton` and `ForEach` (`onDelete`/`onMove`), benchmarked against Apple's stock Contacts app.
   - `GlassEditScope`: Ambient inherited scope providing `GlassEditMode` (`inactive`, `active`, `transient`) and `GlassEditController` with `toggle()`, `startEditing()`, and `stopEditing()`.
   - `GlassEditButton`: SwiftUI `EditButton()` parity widget that smoothly transitions between "Edit" and bold "Done" with haptic feedback and automatic ambient controller coordination. Also supports explicit standalone binding via `GlassEditButton.explicit()`.
   - `GlassReorderableList`: Modern reorderable list with authentic iOS liquid glass elevation proxy decorator (1.025x scale, elevated soft specular shadow, selection haptic tick). Supports both `GlassReorderableList()` and `GlassReorderableList.grouped()` with superellipse card rounding, automatic dividers, and headers/footers. Fully compatible with both Flutter's modern `onReorderItem` and legacy `onReorder` callbacks.
   - `GlassListTile` editing parity: Added `isEditing`, `canDelete`, `onDelete`, `canInsert`, `onInsert`, `canReorder`, `reorderIndex`, `canSelect`, `isSelected`, and `onSelectedChanged`. Features circular red minus delete badges with 90° rotation into an inline slide-in "Delete" confirmation pill, green plus insertion badges, Cupertino selection checkmarks, and 3-bar reorder drag handles (`CupertinoIcons.bars`). Automatically suppresses swipe actions during edit mode to eliminate gesture collisions.
   - Added interactive Contacts reordering and deletion section to `SwipeAndDisclosureDemoPage` in the example app with live edit button toggling.
 
-- **Context Menus (`.contextMenu()`) via `GlassContextMenu` and `GlassContextMenuAction`:** Provides 100% parity with Apple Human Interface Guidelines, UIKit's `UIContextMenuInteraction`, and SwiftUI's `.contextMenu(menuItems:preview:)` rendered with authentic liquid glass materials.
-  - Authentic touch compression: Child gently compresses to 0.96× scale on initial touch-down with immediate spring response.
-  - Haptic surface lift: Long-press threshold (~350ms) triggers `HapticFeedback.mediumImpact()` as the child lifts and expands to 1.02× with a soft elevated shadow (`BoxShadow(color: black.withAlpha(0.35), blurRadius: 28, offset: Offset(0, 10))`) and superellipse corner clip.
+- **Context Menus (`.contextMenu()`) via `GlassContextMenu` and `GlassContextMenuAction`:** Modeled on Apple Human Interface Guidelines, UIKit's `UIContextMenuInteraction`, and SwiftUI's `.contextMenu(menuItems:preview:)`, rendered with liquid glass materials.
+  - Touch compression: Child compresses to 0.96× scale on initial touch-down.
+  - Haptic surface lift: A long-press (Flutter's standard long-press delay) triggers `HapticFeedback.mediumImpact()` as the child lifts to 1.02× with a soft elevated shadow (28px blur at full lift) and superellipse corner clip.
   - Defocused liquid glass backdrop: Progressive Gaussian blur (`backdropBlur: 20.0`) and subtle modal dimming barrier.
   - Liquid glass action platter: Actions render in an elevated superellipse platter (`LiquidRoundedSuperellipse`) with specular rim highlights, subtle inner borders, and smart auto-positioning above or below the target clamped within screen safe margins.
   - `GlassContextMenuAction`: Standard 44pt touch target height, trailing icon glyph alignment by default (`GlassContextMenuIconPosition.trailing`), destructive red styling, selection checkmark (`isSelected`), keyboard accessibility via `GlassFocusRegion`, and haptic ticks.
@@ -34,32 +35,32 @@
   - Imperative and extension APIs: Presented via `GlassContextMenu(child: ..., actions: [...])`, `widget.glassContextMenu(actions: [...])`, or imperatively via `showGlassContextMenu(context: context, targetRect: rect, actions: [...])`.
   - Added live context menu demonstration on contact rows and a dedicated VIP preview card in `SwipeAndDisclosureDemoPage`.
 
-- **Full-Screen Covers (`.fullScreenCover()`) via `GlassFullScreenCover`, `showGlassFullScreenCover`, and `GlassFullScreenCoverBar`:** Provides 100% parity with SwiftUI's `.fullScreenCover(isPresented:onDismiss:content:)` and UIKit's `.overFullScreen` modal presentation style.
+- **Full-Screen Covers (`.fullScreenCover()`) via `GlassFullScreenCover`, `showGlassFullScreenCover`, and `GlassFullScreenCoverBar`:** Modeled on SwiftUI's `.fullScreenCover(isPresented:onDismiss:content:)` and UIKit's `.overFullScreen` modal presentation style.
   - Dedicated full-viewport modal presentation filling the entire screen edge-to-edge.
-  - Spring-animated vertical slide-up transition from the bottom edge (`Offset(0, 1.0) -> Offset.zero`) with ease-out cubic velocity curves.
+  - Vertical slide-up transition from the bottom edge (`Offset(0, 1.0) -> Offset.zero`) using `Curves.easeOutCubic` (and `Curves.easeInCubic` on dismissal).
   - Interactive swipe-down to dismiss: Users can pull down anywhere on the top bar or header to interactively dismiss the cover.
-  - Dynamic corner radius morphing: Top corners smoothly round (0 to 44pt) during downward pull-down gestures mirroring iOS card presentation dynamics.
-  - Damped elastic rubber-band resistance when dragged upward beyond the top screen edge ($y_{\text{damped}} = \frac{\Delta y}{1 + |\Delta y| / 200}$).
+  - Dynamic corner radius morphing: Top corners round (0 up to `cornerRadius`, default 44pt) during downward pull-down gestures, and the card scales down slightly (to a minimum of 0.92×) while dragging, echoing iOS card presentation dynamics.
+  - Damped elastic rubber-band resistance when dragged upward beyond the top screen edge ($y_{\text{damped}} = \frac{0.3\,\Delta y}{1 + \Delta y / 200}$, where $\Delta y$ is the overscroll distance).
   - `GlassFullScreenCoverBar`: Native iOS 26/27 top navigation bar featuring circular frosted glass close pill buttons (`CupertinoIcons.xmark`), textual "Done"/"Cancel" labels, centered titles, and integrated drag indicators.
   - Declarative and imperative APIs: Supports both imperative `showGlassFullScreenCover(context: ..., builder: ...)` and declarative `.glassFullScreenCover(isPresented: ..., onDismiss: ..., content: ...)` widget extension.
 
-- **Date and Time Pickers (`DatePicker` & `MultiDatePicker`) via `GlassDatePicker` and `GlassMultiDatePicker`:** Provides 100% parity with Apple Human Interface Guidelines and SwiftUI's `DatePicker` and `MultiDatePicker`.
+- **Date and Time Pickers (`DatePicker` & `MultiDatePicker`) via `GlassDatePicker` and `GlassMultiDatePicker`:** Modeled on Apple Human Interface Guidelines and SwiftUI's `DatePicker` and `MultiDatePicker`.
   - Three authentic display styles:
-    - `GlassDatePickerStyle.compact` (`DatePickerStyle.compact`): Compact liquid glass date and time pills with specular rim highlights that trigger an anchored modal/popover calendar.
+    - `GlassDatePickerStyle.compact` (`DatePickerStyle.compact`): Compact liquid glass date and time pills with specular rim highlights that open a Cupertino modal popup picker.
     - `GlassDatePickerStyle.graphical` (`DatePickerStyle.graphical`): Full inline month calendar grid with specular day selection ring, smooth previous/next month transitions, and optional time section.
     - `GlassDatePickerStyle.wheel` (`DatePickerStyle.wheel`): 3D cylindrical Cupertino picker wheels enclosed in a liquid glass card with theme integration.
   - Three picker modes: `GlassDatePickerMode.date`, `GlassDatePickerMode.time`, and `GlassDatePickerMode.dateAndTime`.
   - Multi-date selection (`MultiDatePicker` parity): `GlassMultiDatePicker` supporting selection and unselection of arbitrary sets of dates (`Set<DateTime>`).
   - Haptic feedback on day selection and month navigation (`HapticFeedback.selectionClick()`).
   - Range constraints: Enforces `minimumDate`, `maximumDate`, and `minuteInterval`.
-  - Imperative modal presentation via `showGlassDatePicker(context: ..., mode: ..., style: ...)`.
+  - Imperative modal presentation via `showGlassDatePicker(context: ..., mode: ..., style: ...)`, returning the selected `DateTime?`.
 
-- **Declarative Navigation Stacks (`NavigationStack` & `NavigationLink`) via `GlassNavigationStack`, `GlassNavigationLink`, and `GlassNavigationPath`:** Provides 100% parity with modern SwiftUI declarative typed routing and Apple HIG navigation patterns.
+- **Declarative Navigation Stacks (`NavigationStack` & `NavigationLink`) via `GlassNavigationStack`, `GlassNavigationLink`, and `GlassNavigationPath`:** Modeled on SwiftUI's declarative typed routing (`NavigationStack(path:)`, `navigationDestination(for:)`) and Apple HIG navigation patterns.
   - `GlassNavigationStack`: Modern declarative navigation container integrating directly with `GlassNavigationShell` for automatic pinned chrome synchronization, materializing transitions, and back button coordination.
   - `GlassNavigationPath`: Observable type-safe path stack (`append()`, `pop()`, `popToRoot()`, `clear()`) driving dynamic route stacks.
   - `GlassNavigationLink`: Authentic iOS navigation row with leading icon, title, subtitle, and trailing chevron (`CupertinoIcons.chevron_right`). Supports both direct `destination` builders and typed `value` dispatching to the stack's destination map.
   - Custom link targets: Wrap any custom button, card, or pill in `GlassNavigationLink` to push destinations on tap.
-  - Added `.navigationTitle(...)` widget extension for declarative accessibility header semantics.
+  - Added `.navigationTitle(...)` widget extension. Currently this only annotates the wrapped widget with header `Semantics` (label = title); it does not drive a navigation bar title the way SwiftUI's `.navigationTitle` does.
 
 ## Bug Fixes
 

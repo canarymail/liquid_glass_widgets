@@ -219,7 +219,7 @@ class GlassFullScreenCoverBar extends StatelessWidget {
 ///
 /// Features:
 /// - Fills the entire screen/viewport edge-to-edge.
-/// - Spring-animated vertical slide-up transition from the bottom edge.
+/// - Curve-animated vertical slide-up transition from the bottom edge.
 /// - Interactive swipe-to-dismiss gesture with velocity threshold and elastic resistance.
 /// - Top corners round adaptively during downward drag mirroring iOS card sheet behavior.
 /// - Integrated [GlassFullScreenCoverBar] with circular close button and drag handle.

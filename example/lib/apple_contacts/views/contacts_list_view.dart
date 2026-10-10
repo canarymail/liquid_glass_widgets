@@ -256,11 +256,14 @@ class _ContactsListViewState extends State<ContactsListView> {
                                 ),
                               ),
                               const SizedBox(width: 14),
-                              Column(
+                              Expanded(
+                                  child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: const [
                                   Text(
                                     'Sebastian Degenaar',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: CupertinoColors.white,
                                       fontWeight: FontWeight.w600,
@@ -276,7 +279,7 @@ class _ContactsListViewState extends State<ContactsListView> {
                                     ),
                                   ),
                                 ],
-                              ),
+                              )),
                             ],
                           ),
                         ),
