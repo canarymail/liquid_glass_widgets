@@ -68,6 +68,16 @@
 
 - **`GlassSwipeActions` unmounted row crash protection:** Fixed an issue where initiating a swipe while a previously open row was unmounted (e.g. during scrolling, filtering, or list mutation) caused an unmounted state exception. `GlassSwipeActions` now unregisters itself from `GlassSwipeActionScope` upon disposal, guards all spring physics and settlement callbacks with `mounted` checks, and `GlassSwipeActionScope` defensively clears open row references prior to triggering closure.
 
+# 1.11.1
+
+## Bug Fixes
+
+- **`GlassBackdropGroup` dropped `backerColor` on members after the first (fixes #412):** Surfaces with a visible `backerColor` now take an isolated backdrop read so their dimming pad is preserved, while members without a backer continue sharing the group's backdrop read.
+
+- **Engine lifecycle hardening (PR #410):** Fragment shaders are no longer reloaded on every rebuild. Blend groups release their group link on dispose and follow `renderLink` changes when reparented. Removing a glass shape from a layer repaints its matte, so no ghost of it remains. Duplicate shape registrations on detached render objects are prevented, and the native picture recorded for an asynchronous geometry cache is released as soon as it is rendered.
+
+- **Fragment shaders are now disposed:** `MultiShaderBuilder` disposes the shaders it creates when it unmounts, and the ones it replaces when its keys change (after the frame that last used them), instead of leaving them to the garbage collector.
+
 # 1.11.0
 
 ## Features
