@@ -147,13 +147,14 @@ GlassListTile(
 
 While the public API ergonomics and visual surfaces achieve near-complete fidelity with Apple's iOS 26/27 controls, the following intentional Flutter adaptations should be documented:
 
-1. **Spring vs. Curve Animation Engine**:
-   - Flutter's `SizeTransition` in `GlassDisclosureGroup` and `SlideTransition` in `GlassFullScreenCover` use cubic ease curves (`Curves.easeInOutCubic`, `Curves.easeOutCubic`) rather than interactive CASpringAnimation / `SpringDescription`.
-   - `GlassSwipeActions` *does* use true spring physics via `GlassSpring.snappy()`.
-2. **Long-Press Delay**:
-   - iOS UIKit / SwiftUI uses private velocity and pressure-assisted timers for context menus. Flutter uses the engine's `kLongPressTimeout` (~500ms) unless triggered on desktop via right click (`onSecondaryTapUp`).
+1. **Spring Physics & Animation Engine**:
+   - `GlassSwipeActions` uses authentic iOS spring physics via `GlassSpring.snappy()`.
+   - `GlassDisclosureGroup` now supports native spring physics via the `spring` parameter (e.g. `GlassSpring.snappy()`), driving Flutter's `SpringSimulation` for interactive expansion and collapse matching SwiftUI's default spring response, while retaining `animationCurve` for cubic easing fallbacks.
+   - `GlassFullScreenCover` uses cubic ease curves (`Curves.easeOutCubic`, `Curves.easeInCubic`) for standard modal route slide transitions.
+2. **Touch-and-Hold Context Menu Timing**:
+   - `GlassContextMenu` uses `RawGestureDetector` with a custom `LongPressGestureRecognizer(duration: widget.longPressDuration)`, defaulting to 320ms matching iOS 26/27 haptic lift dynamics rather than Flutter's standard 500ms `kLongPressTimeout`. Desktop / right-click triggers immediately via `onSecondaryTapUp`.
 3. **Compact Date Picker Presentation**:
-   - SwiftUI's `.datePickerStyle(.compact)` anchors a popover arrow directly to the tapped pill on iPad and presents a sheet on iPhone. `GlassDatePicker.compact` presents a modal Cupertino popup sheet on all platforms.
+   - SwiftUI's `.datePickerStyle(.compact)` anchors a popover arrow directly to the tapped pill on iPad and presents a sheet on iPhone. `GlassDatePicker.compact` presents a modal Cupertino popup sheet across platforms.
 4. **`.navigationTitle` Scope**:
    - In SwiftUI, `.navigationTitle` dynamically feeds the enclosing `NavigationStack`'s navigation bar. In Flutter, because `liquid_glass_widgets` separates `GlassAppBar` and child view hierarchies, `.navigationTitle(...)` annotates the wrapped child with header `Semantics` rather than imperatively replacing the app bar title.
 
