@@ -388,4 +388,32 @@ void main() {
     expect(glideSelected, isTrue);
     expect(find.text('Glide Target'), findsNothing);
   });
+
+  testWidgets('GlassContextMenu respects custom longPressDuration',
+      (tester) async {
+    bool opened = false;
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          longPressDuration: const Duration(milliseconds: 150),
+          onOpened: () => opened = true,
+          actions: [
+            GlassContextMenuAction(
+              child: const Text('Action'),
+              onPressed: () {},
+            ),
+          ],
+          child: const Text('Fast Target'),
+        ),
+      ),
+    );
+
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text('Fast Target')));
+    await tester.pump(const Duration(milliseconds: 180));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(opened, isTrue);
+  });
 }

@@ -247,6 +247,7 @@ class GlassContextMenu extends StatefulWidget {
     this.menuWidth = 250.0,
     this.onOpened,
     this.onDismissed,
+    this.longPressDuration = const Duration(milliseconds: 320),
   });
 
   /// The widget that triggers the context menu.
@@ -288,6 +289,11 @@ class GlassContextMenu extends StatefulWidget {
 
   /// Optional callback invoked when the context menu is dismissed.
   final VoidCallback? onDismissed;
+
+  /// The duration of the touch-and-hold gesture required to trigger the context menu.
+  ///
+  /// Defaults to 320 milliseconds, matching iOS 26/27 haptic lift dynamics.
+  final Duration longPressDuration;
 
   @override
   State<GlassContextMenu> createState() => _GlassContextMenuState();
@@ -377,34 +383,52 @@ class _GlassContextMenuState extends State<GlassContextMenu>
       return widget.child;
     }
 
-    return GestureDetector(
+    return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onLongPressDown: (_) {
-        if (!_isRouteOpen) {
-          _pressController.forward();
-        }
-      },
-      onLongPressCancel: () {
-        if (!_isRouteOpen) {
-          _pressController.reverse();
-        }
-      },
-      onLongPressStart: (_) {
-        _openContextMenu();
-      },
-      onLongPressMoveUpdate: (details) {
-        if (_isRouteOpen && _routeStaticKey != null) {
-          _routeStaticKey!.currentState
-              ?.updateGlidePosition(details.globalPosition);
-        }
-      },
-      onLongPressEnd: (_) {
-        if (_isRouteOpen && _routeStaticKey != null) {
-          _routeStaticKey!.currentState?.endGlide();
-        }
-      },
-      onSecondaryTapUp: (_) {
-        _openContextMenu();
+      gestures: {
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(
+            duration: widget.longPressDuration,
+            debugOwner: this,
+          ),
+          (instance) {
+            instance
+              ..onLongPressDown = (_) {
+                if (!_isRouteOpen) {
+                  _pressController.forward();
+                }
+              }
+              ..onLongPressCancel = () {
+                if (!_isRouteOpen) {
+                  _pressController.reverse();
+                }
+              }
+              ..onLongPressStart = (_) {
+                _openContextMenu();
+              }
+              ..onLongPressMoveUpdate = (details) {
+                if (_isRouteOpen && _routeStaticKey != null) {
+                  _routeStaticKey!.currentState
+                      ?.updateGlidePosition(details.globalPosition);
+                }
+              }
+              ..onLongPressEnd = (_) {
+                if (_isRouteOpen && _routeStaticKey != null) {
+                  _routeStaticKey!.currentState?.endGlide();
+                }
+              };
+          },
+        ),
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(debugOwner: this),
+          (instance) {
+            instance.onSecondaryTapUp = (_) {
+              _openContextMenu();
+            };
+          },
+        ),
       },
       child: AnimatedBuilder(
         animation: _scaleAnimation,
@@ -829,6 +853,7 @@ extension GlassContextMenuExtension on Widget {
     double menuWidth = 250.0,
     VoidCallback? onOpened,
     VoidCallback? onDismissed,
+    Duration longPressDuration = const Duration(milliseconds: 320),
   }) {
     return GlassContextMenu(
       key: key,
@@ -844,6 +869,7 @@ extension GlassContextMenuExtension on Widget {
       menuWidth: menuWidth,
       onOpened: onOpened,
       onDismissed: onDismissed,
+      longPressDuration: longPressDuration,
       child: this,
     );
   }

@@ -264,5 +264,39 @@ void main() {
       // In RTL, turns is -0.25 (counter-clockwise 90 deg) to point down
       expect(rotation.turns.value, -0.25);
     });
+
+    testWidgets('spring physics drives expansion and collapse smoothly',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassDisclosureGroup(
+            title: const Text('Spring Disclosure'),
+            spring: GlassSpring.snappy(),
+            children: const [
+              Text('Spring Child Content'),
+            ],
+          ),
+        ),
+      );
+
+      // Tap to expand with spring physics
+      await tester.tap(find.text('Spring Disclosure'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // Mid-animation: height factor should be moving
+      var align = tester.widget<Align>(find.byType(Align));
+      expect(align.heightFactor! > 0.0, isTrue);
+
+      // Settle spring
+      await tester.pumpAndSettle();
+      align = tester.widget<Align>(find.byType(Align));
+      expect(align.heightFactor, 1.0);
+
+      // Tap to collapse with spring physics
+      await tester.tap(find.text('Spring Disclosure'));
+      await tester.pumpAndSettle();
+      align = tester.widget<Align>(find.byType(Align));
+      expect(align.heightFactor, 0.0);
+    });
   });
 }

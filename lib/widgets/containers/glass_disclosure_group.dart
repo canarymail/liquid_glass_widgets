@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
@@ -67,6 +68,7 @@ class GlassDisclosureGroup extends StatefulWidget {
     this.childrenPadding,
     this.animationDuration = const Duration(milliseconds: 250),
     this.animationCurve = Curves.easeInOutCubic,
+    this.spring,
     this.enableHaptics = true,
     this.showDividers = true,
     this.titleStyle,
@@ -96,6 +98,7 @@ class GlassDisclosureGroup extends StatefulWidget {
     this.childrenPadding,
     this.animationDuration = const Duration(milliseconds: 250),
     this.animationCurve = Curves.easeInOutCubic,
+    this.spring,
     this.enableHaptics = true,
     this.showDividers = true,
     this.titleStyle,
@@ -153,8 +156,14 @@ class GlassDisclosureGroup extends StatefulWidget {
 
   /// Easing curve for the expansion and collapse animation.
   ///
-  /// Defaults to [Curves.easeInOutCubic].
+  /// Defaults to [Curves.easeInOutCubic]. Ignored when [spring] is provided.
   final Curve animationCurve;
+
+  /// Optional spring physics for the expansion and collapse animation.
+  ///
+  /// When provided, expansion and collapse are driven by an authentic iOS
+  /// spring physics simulation via [SpringSimulation] rather than [animationCurve].
+  final SpringDescription? spring;
 
   /// Whether to trigger subtle haptic feedback when toggling expansion.
   ///
@@ -214,21 +223,32 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       value: _isExpanded ? 1.0 : 0.0,
     );
 
-    final curvedAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: widget.animationCurve,
-      reverseCurve: widget.animationCurve.flipped,
-    );
+    _initAnimation();
+  }
 
-    _heightFactor = curvedAnimation;
-    // 0.0 turns = points forward (right in LTR); 0.25 turns = 90 deg clockwise (points down)
-    _chevronTurns =
-        Tween<double>(begin: 0.0, end: 0.25).animate(curvedAnimation);
+  void _initAnimation() {
+    if (widget.spring != null) {
+      _heightFactor = _controller;
+      _chevronTurns = Tween<double>(begin: 0.0, end: 0.25).animate(_controller);
+    } else {
+      final curvedAnimation = CurvedAnimation(
+        parent: _controller,
+        curve: widget.animationCurve,
+        reverseCurve: widget.animationCurve.flipped,
+      );
+      _heightFactor = curvedAnimation;
+      _chevronTurns =
+          Tween<double>(begin: 0.0, end: 0.25).animate(curvedAnimation);
+    }
   }
 
   @override
   void didUpdateWidget(covariant GlassDisclosureGroup oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.spring != oldWidget.spring ||
+        widget.animationCurve != oldWidget.animationCurve) {
+      _initAnimation();
+    }
     if (widget.isExpanded != null && widget.isExpanded != _isExpanded) {
       _setExpanded(widget.isExpanded!);
     }
@@ -268,10 +288,23 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
 
     setState(() {
       _isExpanded = expanded;
-      if (_isExpanded) {
-        _controller.forward();
+      if (widget.spring != null) {
+        final target = _isExpanded ? 1.0 : 0.0;
+        _controller
+            .animateWith(
+          SpringSimulation(widget.spring!, _controller.value, target, 0.0),
+        )
+            .whenCompleteOrCancel(() {
+          if (mounted && !_controller.isAnimating) {
+            _controller.value = target;
+          }
+        });
       } else {
-        _controller.reverse();
+        if (_isExpanded) {
+          _controller.forward();
+        } else {
+          _controller.reverse();
+        }
       }
     });
 

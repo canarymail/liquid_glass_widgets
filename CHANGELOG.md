@@ -11,7 +11,7 @@
 
 - **Disclosure accordion sections (`DisclosureGroup`) via `GlassDisclosureGroup`:** Modeled on SwiftUI's `DisclosureGroup`, rendered within liquid glass surfaces.
   - Interactive header with title, subtitle, leading icon, and a chevron that rotates a quarter turn (90°, RTL-aware).
-  - Animated expansion and collapse using an `AnimationController` with `animationCurve` (default `Curves.easeInOutCubic`) driving a `SizeTransition`.
+  - Animated expansion and collapse driven either by authentic iOS spring physics via `spring: SpringDescription` (e.g. `GlassSpring.snappy()`) or standard `animationCurve` (default `Curves.easeInOutCubic`).
   - Programmatic control via the `isExpanded` property or a `GlobalKey<GlassDisclosureGroupState>`.
   - Automatic divider interleaving when nested inside `GlassGroupedSection`, with the divider inset aligned to the row's leading content (56px for `GlassListTile` rows with a leading widget, 52px for nested `GlassDisclosureGroup`s with a leading widget, 16px otherwise).
   - Standalone mode via `GlassDisclosureGroup.standalone` providing an independent superellipse glass container.
@@ -25,7 +25,7 @@
 
 - **Context Menus (`.contextMenu()`) via `GlassContextMenu` and `GlassContextMenuAction`:** Modeled on Apple Human Interface Guidelines, UIKit's `UIContextMenuInteraction`, and SwiftUI's `.contextMenu(menuItems:preview:)`, rendered with liquid glass materials.
   - Touch compression: Child compresses to 0.96× scale on initial touch-down.
-  - Haptic surface lift: A long-press (Flutter's standard long-press delay) triggers `HapticFeedback.mediumImpact()` as the child lifts to 1.02× with a soft elevated shadow (28px blur at full lift) and superellipse corner clip.
+  - Haptic surface lift: A touch-and-hold gesture (configurable `longPressDuration`, defaulting to 320ms matching iOS 26/27 haptic lift dynamics) triggers `HapticFeedback.mediumImpact()` as the child lifts to 1.02× with a soft elevated shadow (28px blur at full lift) and superellipse corner clip.
   - Defocused liquid glass backdrop: Progressive Gaussian blur (`backdropBlur: 20.0`) and subtle modal dimming barrier.
   - Liquid glass action platter: Actions render in an elevated superellipse platter (`LiquidRoundedSuperellipse`) with specular rim highlights, subtle inner borders, and smart auto-positioning above or below the target clamped within screen safe margins.
   - `GlassContextMenuAction`: Standard 44pt touch target height, trailing icon glyph alignment by default (`GlassContextMenuIconPosition.trailing`), destructive red styling, selection checkmark (`isSelected`), keyboard accessibility via `GlassFocusRegion`, and haptic ticks.
