@@ -267,7 +267,8 @@ GlassContainer.card(
 
 ### New `surfaceStyle` (glass or solid)
 
-`GlassContainer.card`, `GlassGroupedSection` and `GlassReorderableList.grouped` accept
+`GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped`,
+`GlassDatePicker`, `GlassMultiDatePicker` and `showGlassDatePicker` accept
 `surfaceStyle: GlassSurfaceStyle.glass | GlassSurfaceStyle.solid`.
 
 - `glass` (default in 1.x): unchanged glass surface.
@@ -275,10 +276,11 @@ GlassContainer.card(
   by default) with no blur, rim light or shadow, like native iOS inset-grouped lists.
   It is a plain filled shape, not a shader, so `settings`, `quality` and `useOwnLayer`
   are ignored. Grouped sections and reorderable lists also clip their rows to the card's
-  rounded corners.
+  rounded corners. The brightness follows `GlassTheme` / your app theme like every other
+  widget in the package. Dark `solid` is always `#1C1C1E`; the lighter elevated grey iOS
+  uses inside sheets is not implemented.
 
-Glass on **scrolling list content** is discouraged: iOS renders those cards flat, and
-each glass card adds a backdrop-sampling cost while scrolling. Opt in now:
+iOS renders inset-grouped list cards flat, so opt in to match:
 
 ```dart
 GlassGroupedSection(
@@ -290,9 +292,7 @@ GlassGroupedSection(
 ### 2.0.0 default flip
 
 In 2.0.0 the default `surfaceStyle` changes from `glass` to `solid` for
-`GlassGroupedSection`, `GlassReorderableList.grouped` and `GlassContainer.card`
+`GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDatePicker`,
+`GlassMultiDatePicker` and `GlassContainer.card`
 (`GlassContainer` itself stays glass-first). To keep today's look after upgrading,
 pass `surfaceStyle: GlassSurfaceStyle.glass` explicitly.
-
-`GlassDatePicker` / `GlassMultiDatePicker` do not have a `surfaceStyle` yet and still
-render a glass card.

@@ -221,11 +221,11 @@ from interactive indicators (segmented control pill, slider thumb) during animat
 Interactive glass controls already provide their own surface appearance via `backgroundColor`
 and `indicatorColor` — no outer container is needed for the track or background.
 
-**Cards in scrolling lists:** iOS renders inset-grouped list cards as flat, opaque surfaces,
-and glass on scrolling content is discouraged. `GlassContainer.card`, `GlassGroupedSection`
-and `GlassReorderableList.grouped` take `surfaceStyle: GlassSurfaceStyle.solid` for a flat
-white / `#1C1C1E` card with 26pt corners (no blur, rim or shadow). `glass` is the default in
-1.x; the default becomes `solid` in 2.0.0.
+**Cards in scrolling lists:** iOS renders inset-grouped list cards as flat, opaque surfaces.
+`GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped` and the date
+pickers take `surfaceStyle: GlassSurfaceStyle.solid` for a flat white / `#1C1C1E` card with
+26pt corners (no blur, rim or shadow). `glass` is the default in 1.x; the default becomes
+`solid` in 2.0.0.
 
 ```dart
 GlassGroupedSection(
