@@ -70,6 +70,18 @@
 
 - **Native parity harness:** `tool/parity/` pairs a stock SwiftUI reference app with a Flutter harness (`example/lib/harnesses/ios_parity_harness.dart`) driven by a command file, plus light/dark simulator captures of both. See `tool/parity/PARITY_AUDIT.md` for what is and is not verified.
 
+- **`GlassSurfaceStyle` and `GlassContainer.card`: a real solid surface for list cards.** Native iOS inset-grouped list cards are flat and opaque (white / `#1C1C1E`, ~26pt continuous corners, no blur, rim or shadow), and glass on scrolling list content is an anti-pattern. Setting the glass shader to "flat" cannot reproduce that (a faint specular rim survives in dark mode), so `solid` is a separate, non-shader path: a plain filled and clipped shape that never samples the backdrop.
+  - New `enum GlassSurfaceStyle { glass, solid }`, exported from `liquid_glass_widgets.dart`.
+  - New `GlassContainer.card(...)` named constructor (16 padding, 12pt superellipse for `glass`, 26pt for `solid`) with a `surfaceStyle` parameter. `GlassContainer` itself is unchanged and stays glass-first.
+  - New `surfaceStyle` parameter on `GlassGroupedSection` and `GlassReorderableList.grouped`. Solid sections also clip their rows to the card's rounded corners.
+  - `surfaceStyle` defaults to `glass` in 1.x, so there is no visual change unless you opt in. The default flips to `solid` for list sections and `GlassContainer.card` in 2.0.0 (see `docs/ROADMAP.md`).
+  - For `solid`, `settings`, `quality` and `useOwnLayer` have no effect; the fill follows the nearest `CupertinoTheme` brightness (falling back to the platform brightness).
+  - Verified against native iOS 27 captures on the simulator (light and dark, static frames): fill colours matched exactly at the sampled points and the card edge and corner profile matched to within ~1px at 3x on the sampled rows. Not verified: motion, pressed/highlighted rows, elevated-dark (`#2C2C2E`) cards inside sheets, and the date pickers (which have no `surfaceStyle` yet).
+
+## Deprecations
+
+- **`GlassCard` is deprecated in favour of `GlassContainer.card`.** `GlassCard` now forwards to `GlassContainer.card` with identical defaults and renders identically (golden images unchanged). It will be removed in 2.0.0. Migration is a rename; see `docs/MIGRATION_0.x_TO_1.0.md`. Package code no longer uses `GlassCard` internally.
+
 ## Bug Fixes
 
 - **`GlassSwipeActions` action tint was never painted:** `BoxDecoration` ignores `color` when `gradient` is set, so `tintedGlass` buttons (Flag, Delete, Pin…) rendered grey instead of their `backgroundColor`. The tint is now a separate layer beneath the specular sheen.

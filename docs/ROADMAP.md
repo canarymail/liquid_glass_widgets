@@ -211,7 +211,7 @@ The following symbols and patterns are scheduled for removal or consolidation in
 - `GlassToast` — non-standard iOS pattern; not part of native Apple HIG (which uses dynamic island, banners, or alerts).
 - `showGlassActionSheet` — legacy ActionSheet pattern; superseded by modern `showGlassConfirmationDialog`.
 - `GlassChip` — redundant; capsule-style `GlassButton` fulfills this use case.
-- `GlassContainer` / `GlassCard` consolidation — **decision: `GlassCard` becomes `GlassContainer.card(...)` named constructor** (opinionated preset with standard corner radius, shadow, and padding), mirroring how `GlassTabBar.bottom()` / `.inline()` / `.searchable()` work. The standalone `GlassCard` class is deprecated; `GlassContainer` is the single surface primitive.
+- `GlassContainer` / `GlassCard` consolidation — **decision: `GlassCard` becomes `GlassContainer.card(...)` named constructor** (opinionated preset with standard corner radius, shadow, and padding), mirroring how `GlassTabBar.bottom()` / `.inline()` / `.searchable()` work. The standalone `GlassCard` class is deprecated; `GlassContainer` is the single surface primitive. *Status: `GlassContainer.card` (with `surfaceStyle`) shipped and `GlassCard` is `@Deprecated` in 1.x; 2.0.0 removes `GlassCard`.*
 - `GlassSheet` — merged into `GlassModalSheet` for unified sheet mechanics.
 
 Behaviour changes scheduled for 2.0.0:
@@ -221,3 +221,4 @@ Behaviour changes scheduled for 2.0.0:
 - A pinned group holding a single item renders at 44pt on both sides, matching the
   back button and iOS 26, rather than 46pt when its items are
   `GlassBarItemBackground.shared`.
+- `GlassGroupedSection`, `GlassReorderableList.grouped` and `GlassContainer.card` change their default `surfaceStyle` from `GlassSurfaceStyle.glass` to `GlassSurfaceStyle.solid` (flat opaque `#FFFFFF` / `#1C1C1E` cards with 26pt corners, matching native inset-grouped lists). Glass on scrolling list content is an anti-pattern, so 1.x keeps `glass` as the default (no silent visual change) and 2.0 flips it. `GlassContainer` itself stays glass-first. Pass `surfaceStyle: GlassSurfaceStyle.glass` to keep the old look.

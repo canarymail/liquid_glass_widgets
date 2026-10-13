@@ -226,8 +226,12 @@ class _ParityHostState extends State<_ParityHost> {
     );
   }
 
-  /// Native iOS 26 inset-grouped cards are opaque white (system grouped
-  /// secondary background) with ~26pt continuous corners.
+  /// Cards use `GlassSurfaceStyle.solid` (native iOS 26 inset-grouped cards are
+  /// opaque white / #1C1C1E with ~26pt continuous corners).
+  ///
+  /// These shader settings are a stopgap kept only for `GlassDatePicker` and
+  /// `GlassMultiDatePicker`, which take `settings`/`shape` but have no
+  /// `surfaceStyle` yet. A faint specular rim can still show in dark mode.
   static LiquidGlassSettings get _nativeCardSettings => LiquidGlassSettings(
         // systemGroupedBackground's secondary: white / 0x1C1C1E.
         glassColor:
@@ -245,10 +249,8 @@ class _ParityHostState extends State<_ParityHost> {
       );
   static const _nativeCardShape = LiquidRoundedSuperellipse(borderRadius: 26);
 
-  Widget _info(String text) => GlassCard(
-        settings: _nativeCardSettings,
-        useOwnLayer: true,
-        shape: _nativeCardShape,
+  Widget _info(String text) => GlassContainer.card(
+        surfaceStyle: GlassSurfaceStyle.solid,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Text(text,
@@ -287,9 +289,7 @@ class _ParityHostState extends State<_ParityHost> {
       _info('Swipe left for Delete / Flag. Swipe right to Pin. Long press any '
           'row for Context Menu with VIP Preview.'),
       GlassGroupedSection(
-        settings: _nativeCardSettings,
-        useOwnLayer: true,
-        shape: _nativeCardShape,
+        surfaceStyle: GlassSurfaceStyle.solid,
         margin: EdgeInsets.zero,
         header: _sectionHeader('Contacts (.swipeActions & .contextMenu)'),
         children: [
@@ -361,9 +361,7 @@ class _ParityHostState extends State<_ParityHost> {
         _info('SwiftUI DisclosureGroup rotates chevron 90° upon expansion and '
             'insets dividers under child rows.'),
         GlassGroupedSection(
-          settings: _nativeCardSettings,
-          useOwnLayer: true,
-          shape: _nativeCardShape,
+          surfaceStyle: GlassSurfaceStyle.solid,
           margin: EdgeInsets.zero,
           header: _sectionHeader('Collapsible Sections (DisclosureGroup)'),
           children: [
@@ -498,9 +496,7 @@ class _ParityHostState extends State<_ParityHost> {
           _info('SwiftUI EditMode provides circular red delete buttons, inline '
               'Delete pills, 3-bar drag handles, and multi-selection.'),
           GlassReorderableList.grouped(
-            settings: _nativeCardSettings,
-            useOwnLayer: true,
-            shape: _nativeCardShape,
+            surfaceStyle: GlassSurfaceStyle.solid,
             padding: EdgeInsets.zero,
             header:
                 _sectionHeader('Edit Mode & Reordering (EditButton + ForEach)'),
@@ -541,10 +537,8 @@ class _ParityHostState extends State<_ParityHost> {
         onDateTimeChanged: (_) {},
       ),
       _header('Compact Picker (DatePickerStyle.compact)'),
-      GlassCard(
-        settings: _nativeCardSettings,
-        useOwnLayer: true,
-        shape: _nativeCardShape,
+      GlassContainer.card(
+        surfaceStyle: GlassSurfaceStyle.solid,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15.5),
         child: Row(
           children: [
@@ -591,9 +585,7 @@ class _ParityHostState extends State<_ParityHost> {
     return _page('Modals & Nav', [
       _header('Full-Screen Cover (.fullScreenCover)'),
       GlassGroupedSection(
-        settings: _nativeCardSettings,
-        useOwnLayer: true,
-        shape: _nativeCardShape,
+        surfaceStyle: GlassSurfaceStyle.solid,
         margin: EdgeInsets.zero,
         children: [
           GlassListTile(
@@ -608,9 +600,7 @@ class _ParityHostState extends State<_ParityHost> {
       ),
       _header('Declarative Navigation (NavigationStack)'),
       GlassGroupedSection(
-        settings: _nativeCardSettings,
-        useOwnLayer: true,
-        shape: _nativeCardShape,
+        surfaceStyle: GlassSurfaceStyle.solid,
         margin: EdgeInsets.zero,
         children: [
           GlassNavigationLink<String>(
