@@ -80,6 +80,26 @@
 
 - **`GlassSwipeActions` unmounted row crash protection:** Fixed an issue where initiating a swipe while a previously open row was unmounted (e.g. during scrolling, filtering, or list mutation) caused an unmounted state exception. `GlassSwipeActions` now unregisters itself from `GlassSwipeActionScope` upon disposal, guards all spring physics and settlement callbacks with `mounted` checks, and `GlassSwipeActionScope` defensively clears open row references prior to triggering closure.
 
+# 1.12.0
+
+## Features
+
+- **Opt-in scroll edge pointer absorption (PR #413):** `GlassScrollEdgeEffect` and `GlassScaffold` can absorb touches in their fade zones when `absorbPointer` (`edgeFadeAbsorbsPointers` on `GlassScaffold`) is enabled; defaults to `false`.
+
+  Thanks to [@yohom](https://github.com/yohom) for the contribution (#413).
+
+## Bug Fixes
+
+- **Anti-aliased premium pill and curved silhouettes (PR #415):** Fixed stair-stepping artifacts on curved glass silhouettes (notably `GlassTabBar`'s indicator pill during drags) by extending the geometry matte's coverage fade to full transparency and filtering transformed mattes bilinearly.
+
+  Thanks to [@gbahry](https://github.com/gbahry) for the fix (#415).
+
+## Performance
+
+- **Morph spring early settle & frame savings (PR #417):** `GlassMorphController` now uses an optimized settling tolerance so springs complete once motion is visually imperceptible. Eliminates trailing rebuild and repaint ticks across `GlassMenu`, `GlassPopover`, and modal sheets, reducing frame draw overhead by ~30%.
+
+  Thanks to [@Ahmadre](https://github.com/Ahmadre) for the contribution (#417).
+
 # 1.11.1
 
 ## Bug Fixes
