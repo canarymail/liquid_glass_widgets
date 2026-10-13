@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
 import '../../types/glass_quality.dart';
-import '../containers/glass_card.dart';
+import '../containers/glass_container.dart';
 import '../containers/glass_divider.dart';
 import '../shared/glass_focus_region.dart';
 import '../shared/glass_interaction_state_mixin.dart';
@@ -740,7 +740,7 @@ class _GlassContextMenuRouteStaticState
         : (widget.previewChild ?? const SizedBox.shrink());
 
     Widget buildPlatter() {
-      return GlassCard(
+      return GlassContainer.card(
         useOwnLayer: true,
         padding: EdgeInsets.zero,
         margin: EdgeInsets.zero,

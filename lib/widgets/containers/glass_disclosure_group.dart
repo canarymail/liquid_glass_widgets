@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
-import 'glass_card.dart';
 import 'glass_container.dart';
 import 'glass_divider.dart';
 import 'glass_list_tile.dart';
@@ -19,7 +18,7 @@ import 'glass_list_tile.dart';
 /// ## Modes
 ///
 /// 1. **Grouped mode** (default constructor): Designed for placement inside
-///    [GlassGroupedSection] or [GlassCard]. Shares the outer glass platter.
+///    [GlassGroupedSection] or [GlassContainer.card]. Shares the outer glass platter.
 /// 2. **Standalone mode** ([GlassDisclosureGroup.standalone]): Manages its own
 ///    independent [GlassContainer] layer with superellipse curvature.
 ///
@@ -50,7 +49,7 @@ import 'glass_list_tile.dart';
 /// ```
 class GlassDisclosureGroup extends StatefulWidget {
   /// Creates a [GlassDisclosureGroup] designed to be nested inside
-  /// a [GlassGroupedSection] or [GlassCard].
+  /// a [GlassGroupedSection] or [GlassContainer.card].
   const GlassDisclosureGroup({
     super.key,
     required this.title,

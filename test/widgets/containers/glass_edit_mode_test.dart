@@ -233,7 +233,7 @@ void main() {
       expect(find.text('Item A'), findsOneWidget);
       expect(find.text('Item B'), findsOneWidget);
       expect(find.text('Item C'), findsOneWidget);
-      expect(find.byType(GlassCard), findsOneWidget);
+      expect(find.byType(GlassContainer), findsOneWidget);
       expect(find.byType(GlassDivider), findsWidgets);
     });
   });

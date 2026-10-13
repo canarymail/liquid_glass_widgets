@@ -50,7 +50,7 @@ import '../shared/glass_interaction_state_mixin.dart';
 /// )
 /// ```
 class GlassListTile extends StatefulWidget {
-  /// Creates a glass list tile for use inside a [GlassCard],
+  /// Creates a glass list tile for use inside a [GlassContainer.card],
   /// [GlassGroupedSection], or other glass container.
   /// Does not create its own glass layer.
   const GlassListTile({
@@ -93,7 +93,7 @@ class GlassListTile extends StatefulWidget {
 
   /// Creates a standalone glass list tile that manages its own glass layer.
   ///
-  /// Use when the tile is not inside a [GlassCard] or [GlassContainer].
+  /// Use when the tile is not inside a [GlassContainer.card] or [GlassContainer].
   const GlassListTile.standalone({
     super.key,
     this.leading,

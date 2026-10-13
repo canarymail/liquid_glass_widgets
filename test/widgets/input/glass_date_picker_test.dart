@@ -196,7 +196,7 @@ void main() {
       );
 
       expect(find.byType(CupertinoDatePicker), findsOneWidget);
-      expect(find.byType(GlassCard), findsOneWidget);
+      expect(find.byType(GlassContainer), findsOneWidget);
     });
   });
 
@@ -406,7 +406,7 @@ void main() {
         ),
       );
 
-      final card = tester.widget<GlassCard>(find.byType(GlassCard));
+      final card = tester.widget<GlassContainer>(find.byType(GlassContainer));
       expect(card.shape, const LiquidRoundedSuperellipse(borderRadius: 26));
     });
   });

@@ -394,7 +394,7 @@ class _ContactsListViewState extends State<ContactsListView> {
   }
 
   Widget _buildContactPreview(ContactItem contact) {
-    return GlassCard(
+    return GlassContainer.card(
       quality: GlassQuality.premium,
       useOwnLayer: true,
       settings: ContactsTheme.cardSettings,

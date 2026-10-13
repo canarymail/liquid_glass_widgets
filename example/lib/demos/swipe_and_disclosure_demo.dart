@@ -228,7 +228,7 @@ class _SwipeAndDisclosureDemoPageState
   // ===========================================================================
 
   Widget _buildSwipeControls() {
-    return GlassCard(
+    return GlassContainer.card(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,7 +697,7 @@ class _SwipeAndDisclosureDemoPageState
                 },
               ),
             ],
-            child: GlassCard(
+            child: GlassContainer.card(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [

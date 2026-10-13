@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
-import '../containers/glass_card.dart';
+import '../containers/glass_container.dart';
 
 /// The display and interaction style of the [GlassDatePicker], matching SwiftUI's
 /// `DatePickerStyle`.
@@ -474,7 +474,7 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
         break;
     }
 
-    return GlassCard(
+    return GlassContainer.card(
       useOwnLayer: true,
       settings: widget.settings,
       shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
@@ -503,7 +503,7 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
   // ===========================================================================
 
   Widget _buildGraphical(BuildContext context) {
-    return GlassCard(
+    return GlassContainer.card(
       useOwnLayer: true,
       settings: widget.settings,
       shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
@@ -1129,7 +1129,7 @@ class _GlassMultiDatePickerState extends State<GlassMultiDatePicker> {
       }
     }
 
-    return GlassCard(
+    return GlassContainer.card(
       useOwnLayer: true,
       settings: widget.settings,
       shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
