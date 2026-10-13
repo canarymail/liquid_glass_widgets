@@ -179,9 +179,9 @@ struct ContactsSwipeParityView: View {
 
 // MARK: - 2. Disclosure Group Parity
 struct DisclosureParityView: View {
-    @State private var isEmergencyExpanded = true
-    @State private var isSocialsExpanded = false
-    @State private var isPrivacyExpanded = false
+    @State private var isEmergencyExpanded = CommandLine.arguments.contains("-expandAll")
+    @State private var isSocialsExpanded = CommandLine.arguments.contains("-expandAll")
+    @State private var isPrivacyExpanded = CommandLine.arguments.contains("-expandAll")
     @State private var emergencyContactEnabled = true
     @State private var medicalNotes = "Allergies: Penicillin"
     
@@ -283,7 +283,7 @@ struct EditModeParityView: View {
         "Continuous Superellipse Squircle",
         "Adaptive Liquid Glass Chrome"
     ]
-    @State private var editMode: EditMode = .active
+    @State private var editMode: EditMode = CommandLine.arguments.contains("-editOff") ? .inactive : .active
     @State private var selectedItems = Set<String>()
     
     var body: some View {
@@ -370,7 +370,11 @@ struct PickersParityView: View {
 // MARK: - 5. Modals & Navigation Parity
 struct ModalsAndNavParityView: View {
     @State private var isPresented = CommandLine.arguments.contains("-presentCover")
-    @State private var navPath = NavigationPath()
+    @State private var navPath: NavigationPath = {
+        var p = NavigationPath()
+        if CommandLine.arguments.contains("-pushNav") { p.append("Level 1: Optics Architecture") }
+        return p
+    }()
     
     var body: some View {
         NavigationStack(path: $navPath) {

@@ -1,6 +1,6 @@
 # iOS 26/27 Liquid Glass & Swift Parity Verification Audit
 
-This document provides a technical comparison between **Apple's native SwiftUI / iOS 27 implementations** and the Flutter **`liquid_glass_widgets` (1.12.0)** implementations for the 7 benchmark gaps identified in the Google/Flutter contacts gap analysis (`docs/ROADMAP.md`).
+This document provides a technical comparison between **Apple's native SwiftUI / iOS 27 implementations** and the Flutter **`liquid_glass_widgets` (unreleased, on top of 1.11.1)** implementations for the 7 benchmark gaps identified in the Google/Flutter contacts gap analysis (`docs/ROADMAP.md`).
 
 ---
 
@@ -11,6 +11,14 @@ A fully working native iOS 27 SwiftUI reference app has been scaffolded and veri
 - **Build & Run Harness**: [`tool/parity/ios_reference/build_and_run.sh`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/ios_reference/build_and_run.sh)
 - **Automated Capture Harness**: [`tool/parity/capture_parity.sh`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/capture_parity.sh)
 - **Captured Artifacts**: [`tool/parity/captures/`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/captures/)
+
+### Flutter-side verification (added after side-by-side review)
+
+The Flutter counterpart of the SwiftUI app lives in [`example/lib/harnesses/ios_parity_harness.dart`](file:///Users/sdegenaar/development/liquid_glass_widgets/example/lib/harnesses/ios_parity_harness.dart). Run it with `flutter run -t lib/harnesses/ios_parity_harness.dart` from `example/`, then drive it with [`tool/parity/capture_flutter.sh`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/capture_flutter.sh) (`flutter_*.png` next to the `native_*.png` captures).
+
+> [!IMPORTANT]
+> Status icons below reflect **API/semantic** parity. Pixel-level parity was only checked in **light mode, static frames**. Motion/springs and dark mode are **not** verified against native. Known remaining visual deltas: card material (native is opaque white, Flutter is tinted glass), grouped-section divider inset, disclosure chevron weight and child indent, date-picker compact capsule / graphical header / wheel ordering, row height (~69 vs 82pt), and swipe platter gloss.
+
 
 ---
 
@@ -25,7 +33,7 @@ A fully working native iOS 27 SwiftUI reference app has been scaffolded and veri
 | **Action Configuration** | `Button(role: .destructive) { } label: { Label(...) }` with `.tint(...)` | `GlassSwipeAction(icon: ..., label: ..., backgroundColor: ..., isDestructive: true)` | ✅ Direct configuration |
 | **Physics** | Underdamped spring physics; rubber-bands beyond bounds | `GlassSpring.snappy()`; damped elastic resistance when full swipe disabled | ✅ Matches iOS spring feel |
 | **Haptics** | `UIImpactFeedbackGenerator(style: .medium)` at full-swipe threshold | `HapticFeedback.mediumImpact()` upon crossing threshold | ✅ Identical |
-| **Materials** | Frosted vibrancy / liquid glass tint on button platters | `GlassSwipeActionStyle.tintedGlass` (with specular sheen) & `solidVibrancy` | ✅ Native material fidelity |
+| **Materials** | Flat tinted platter | `GlassSwipeActionStyle.tintedGlass` & `solidVibrancy` | ⚠️ Tint now correct (was not painted); Flutter adds a gloss gradient native lacks |
 
 **Native Swift Reference:**
 ```swift
@@ -75,9 +83,10 @@ GlassListTile(
 | :--- | :--- | :--- | :--- |
 | **API Syntax** | `DisclosureGroup("Title", isExpanded: $isExpanded) { ... }` | `GlassDisclosureGroup(title: Text(...), initiallyExpanded: ..., isExpanded: ..., children: [...])` | ✅ 1:1 Semantics |
 | **Chevron Rotation** | Rotates 90° ($\pi/2$ rad) smoothly from trailing `>` to downward `v` | `RotationTransition` 0.25 turns (90°), fully RTL-aware | ✅ Identical geometry |
-| **Divider Inset** | Inset aligns with row content (skips leading icon width) | Dynamic indent: 56px (tiles with leading), 52px (nested group with leading), 16px (no leading) | ✅ Identical alignment |
+| **Divider Inset** | Inset aligns with row content (skips leading icon width) | Dynamic indent: 56px (tiles with leading), 52px (nested group with leading), 16px (no leading) | ✅ Matches when children are laid out as in the reference (explicit `GlassDivider`s used in the harness for text-start insets) |
 | **Programmatic Control**| Driven by `$isExpanded` `Binding<Bool>` | Driven by `isExpanded` value or `GlobalKey<GlassDisclosureGroupState>()` | ✅ Full programmatic parity |
-| **Transition Animation**| Native CoreAnimation layout transition | `SizeTransition` with `Curves.easeInOutCubic` | ⚠️ Curve-driven vs CoreAnimation |
+| **Transition Animation**| Native CoreAnimation layout transition | `SizeTransition` with `Curves.easeInOutCubic` | ⚠️ Curve-driven vs CoreAnimation (motion not compared) |
+| **Static layout** | Bold black chevron, 62pt header, children inset | Bold chevron, children indented 20pt, no title/subtitle gap | ✅ Light and dark within a few points; ⚠️ header text starts ~4pt left of native (24pt leading slot) |
 
 ---
 
@@ -87,8 +96,8 @@ GlassListTile(
 | :--- | :--- | :--- | :--- |
 | **Ambient Scope** | `@Environment(\.editMode) var editMode` | `GlassEditScope.of(context)` / `GlassEditController` | ✅ 1:1 Scoped Architecture |
 | **Edit/Done Toggle** | `EditButton()` in navigation toolbar | `GlassEditButton()` (auto-bound to ambient controller) or `GlassEditButton.explicit()` | ✅ 1:1 UI & Haptics |
-| **Delete Indicator** | Circular red badge with centered white minus (`-`) | Circular red badge (`CupertinoIcons.minus_circle_fill`), rotates into inline "Delete" pill | ✅ Matches Contacts app |
-| **Drag Reorder Handle**| 3-bar horizontal gripper (`CupertinoIcons.bars`) | 3-bar horizontal gripper, supports both `onReorderItem` and `onReorder` | ✅ Matches HIG layout |
+| **Delete Indicator** | Circular red badge with centered white minus (`-`) + selection circle | Red badge (`CupertinoIcons.minus_circle_fill`) alongside selection circle, rotates into inline "Delete" pill | ✅ Verified visually (light and dark); glyph size matches (25pt glyph = 21pt disc) |
+| **Drag Reorder Handle**| 3-bar horizontal gripper (`CupertinoIcons.bars`) | 3-bar gripper, supports both `onReorderItem` and `onReorder` | ⚠️ Handle is narrower than native (42 vs 64px) |
 | **Elevation Proxy** | 1.025x scale with elevated soft specular drop shadow | 1.025x scale proxy with elevated liquid glass soft shadow | ✅ Identical visual lift |
 | **Gesture Disambiguation**| Suppresses row swipe actions when `editMode.isEditing == true` | Automatically disables horizontal swipe gestures while in edit mode | ✅ Zero gesture collision |
 
@@ -101,7 +110,7 @@ GlassListTile(
 | **API Syntax** | `.contextMenu { items } preview: { previewView }` | `widget.glassContextMenu(actions: [...], previewBuilder: ...)` or `GlassContextMenu(child: ...)` | ✅ 1:1 Declarative + Extension |
 | **Touch Compression** | Target compresses to ~0.96× scale on initial touch-down | Compresses to 0.96× scale via immediate gesture response | ✅ Matches iOS compression |
 | **Haptic Lift** | Medium impact tick as item lifts to 1.02× with elevated shadow | `HapticFeedback.mediumImpact()` + 1.02× lift + 28px blur shadow | ✅ Matches UIKit / SwiftUI |
-| **Backdrop Blur** | Background progressively defocuses behind modal platter | Progressive Gaussian backdrop blur (`backdropBlur: 20.0`) + dimming barrier | ✅ Liquid glass material |
+| **Backdrop Blur** | Background defocuses behind a light glass platter and natural-size preview | Progressive Gaussian blur + single brightness-aware scrim; custom preview laid out at natural size | ✅ Verified visually (light mode); platter material close but not identical |
 | **Continuous Glide** | Dragging across menu items ticks haptics and highlights on release | Continuous drag tracking with `HapticFeedback.selectionClick()` | ✅ Full HIG glide-to-select |
 | **Desktop / Right-Click**| Instant context menu on right click / secondary click | `onSecondaryTapUp` triggers menu immediately without long-press delay | ✅ Desktop parity |
 
@@ -114,7 +123,7 @@ GlassListTile(
 | **API Syntax** | `.fullScreenCover(isPresented: $show) { Content() }` | `widget.glassFullScreenCover(isPresented: ..., onDismiss: ..., content: ...)` | ✅ 1:1 Declarative + Extension |
 | **Modal Presentation** | Edge-to-edge full viewport presentation | Full viewport modal barrier and route | ✅ Identical geometry |
 | **Interactive Dismiss** | Pull-down gesture with interactive card scale and corner morphing | Pull down from anywhere on bar; top corners round up to 44pt; scales to 0.92× | ✅ Matches iOS card physics |
-| **Top Navigation Bar** | Centered title, circular frosted close button / Done label | `GlassFullScreenCoverBar` with `CupertinoIcons.xmark`, "Done"/"Cancel", drag handle | ✅ Complete HIG bar |
+| **Top Navigation Bar** | Transparent bar, centered title, glass capsule "Cancel"/"Done" | `GlassFullScreenCoverBar` + `GlassFullScreenCoverBarButton` (drag handle opt-in) | ✅ Verified visually (light mode) |
 | **Rubber-Band Resistance**| Damped elastic formula when pulled past top edge | $y_{\text{damped}} = \frac{0.3\,\Delta y}{1 + \Delta y / 200}$ | ✅ Matches UIKit damping |
 
 ---
@@ -123,9 +132,9 @@ GlassListTile(
 
 | Aspect | Apple SwiftUI (`DatePicker` / `MultiDatePicker`) | `liquid_glass_widgets` (`GlassDatePicker` / `GlassMultiDatePicker`) | Parity Status |
 | :--- | :--- | :--- | :--- |
-| **Wheel Style** | `.datePickerStyle(.wheel)` | `GlassDatePicker.wheel()` enclosing Cupertino 3D cylindrical picker in liquid glass | ✅ Complete parity |
-| **Compact Style** | `.datePickerStyle(.compact)` | `GlassDatePicker.compact()` with liquid glass date and time pills | ✅ Complete parity |
-| **Graphical Style** | `.datePickerStyle(.graphical)` | `GlassDatePicker.graphical()` with inline month grid and selection ring | ✅ Complete parity |
+| **Wheel Style** | `.datePickerStyle(.wheel)` | `GlassDatePicker.wheel()` enclosing Cupertino 3D cylindrical picker in liquid glass | ⚠️ Selection band is Cupertino's 8pt rounded rect (native: capsule); month names are English-only; card ~14pt shorter than native |
+| **Compact Style** | `.datePickerStyle(.compact)` | `GlassDatePicker.compact()` with liquid glass date and time pills | ✅ Capsule pills, tertiary fill, label-coloured text (light and dark); native card is ~7pt taller |
+| **Graphical Style** | `.datePickerStyle(.graphical)` | `GlassDatePicker.graphical()` with inline month grid and selection ring | ✅ `SUN MON …` headers, tappable month/year wheel, bold chevrons; ⚠️ English-only, 'Today' ring and multi-date selection not captured natively (no touch injection) |
 | **Multi-Date Parity** | `MultiDatePicker("Title", selection: $selectedDates)` | `GlassMultiDatePicker(selectedDates: Set<DateTime>, onDatesChanged: ...)` | ✅ Complete `Set<DateTime>` parity |
 | **Haptics** | Wheel tick haptics and day selection ticks | `HapticFeedback.selectionClick()` on day/month changes | ✅ Identical |
 
@@ -160,7 +169,27 @@ While the public API ergonomics and visual surfaces achieve near-complete fideli
 
 ---
 
-## 4. Verification Harness Quick Start
+## 4. Verification Status (parity pass)
+
+**Method.** The native app (`tool/parity/ios_reference/ParityApp.swift`, stock SwiftUI linked against the iOS 27 SDK) and the Flutter harness (`example/lib/harnesses/ios_parity_harness.dart`) mirror each other screen for screen. Both run on the same iPhone 18 Pro / iOS 27 simulator with the locale set to **en_US** (the simulator default, en_AU, changes date formats and the first weekday). Captures live in `tool/parity/captures/` (`native_*.png`, `native_dark_*.png`, `flutter_*.png`).
+
+**Harness commands** (written to `/tmp/lgw_parity_cmd.txt`): `tab N`, `scroll px`, `swipe row t|l|c`, `menu row`, `edit on|off`, `cover`, `expand N on|off`, `dark on|off`, `pop`. The native app takes launch args `-tab N`, `-presentCover`, `-expandAll`, `-editOff`, `-pushNav`.
+
+**Verified against native (static frames).** Swipe & menu list, disclosure (collapsed and expanded), edit mode, the three date pickers, full-screen cover, in light mode; disclosure, edit mode, pickers and cover also in dark mode.
+
+**Not verified / known remaining differences.**
+
+- Swipe-open, context-menu-open and multi-date states have no native capture: `simctl` has no touch injection. Flutter-side states were checked by eye against the SwiftUI behaviour, not against screenshots.
+- Motion (springs, transitions, haptics) is not compared.
+- The harness uses `useOwnLayer` cards with flat settings to imitate native inset-grouped cards; the library's default `GlassGroupedSection` / `GlassCard` still render glass (12pt radius), not the opaque 26pt native look.
+- Cards keep a faint specular edge in dark mode that native cards do not have.
+- `CupertinoSwitch` is the pre-iOS 26 switch (native is wider with a pill thumb); no tab bar in the harness.
+- The wheel picker's selection band is an 8pt rounded rect (native: capsule); dates and months are English-only.
+- Swipe platter has a gloss gradient native lacks; the edit-mode reorder handle is narrower (42 vs 64px) and edit accessories are spaced 36pt vs native 39pt.
+- `GlassDisclosureGroup`'s header text starts ~4pt left of native.
+- Nav stack pushed state and `GlassNavigationStack` chrome have a native capture but have not been compared in detail.
+
+## 5. Verification Harness Quick Start
 
 To run the native SwiftUI parity app on any Mac with Xcode:
 ```bash
