@@ -226,29 +226,6 @@ class _ParityHostState extends State<_ParityHost> {
     );
   }
 
-  /// Cards use `GlassSurfaceStyle.solid` (native iOS 26 inset-grouped cards are
-  /// opaque white / #1C1C1E with ~26pt continuous corners).
-  ///
-  /// These shader settings are a stopgap kept only for `GlassDatePicker` and
-  /// `GlassMultiDatePicker`, which take `settings`/`shape` but have no
-  /// `surfaceStyle` yet. A faint specular rim can still show in dark mode.
-  static LiquidGlassSettings get _nativeCardSettings => LiquidGlassSettings(
-        // systemGroupedBackground's secondary: white / 0x1C1C1E.
-        glassColor:
-            _dark.value ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF),
-        thickness: 0,
-        blur: 0,
-        // No rim, glow, refraction or shadow: native inset-grouped cards are
-        // flat fills with no edge highlight.
-        lightIntensity: 0,
-        fresnelStrength: 0,
-        chromaticAberration: 0,
-        glowIntensity: 0,
-        saturation: 1,
-        shadowElevation: 0,
-      );
-  static const _nativeCardShape = LiquidRoundedSuperellipse(borderRadius: 26);
-
   Widget _info(String text) => GlassContainer.card(
         surfaceStyle: GlassSurfaceStyle.solid,
         margin: const EdgeInsets.only(bottom: 8),
@@ -532,8 +509,7 @@ class _ParityHostState extends State<_ParityHost> {
       _header('Wheel Picker (DatePickerStyle.wheel)'),
       GlassDatePicker.wheel(
         initialDateTime: _now,
-        settings: _nativeCardSettings,
-        shape: _nativeCardShape,
+        surfaceStyle: GlassSurfaceStyle.solid,
         onDateTimeChanged: (_) {},
       ),
       _header('Compact Picker (DatePickerStyle.compact)'),
@@ -556,8 +532,7 @@ class _ParityHostState extends State<_ParityHost> {
       GlassDatePicker.graphical(
         initialDateTime: _now,
         firstDayOfWeek: 7,
-        settings: _nativeCardSettings,
-        shape: _nativeCardShape,
+        surfaceStyle: GlassSurfaceStyle.solid,
         onDateTimeChanged: (_) {},
       ),
       _header('Multi-Date Selection (MultiDatePicker)'),
@@ -565,8 +540,7 @@ class _ParityHostState extends State<_ParityHost> {
         selectedDates: _multi,
         displayedMonth: _now,
         firstDayOfWeek: 7,
-        settings: _nativeCardSettings,
-        shape: _nativeCardShape,
+        surfaceStyle: GlassSurfaceStyle.solid,
         onDatesChanged: (s) => setState(() => _multi = s),
       ),
       Padding(

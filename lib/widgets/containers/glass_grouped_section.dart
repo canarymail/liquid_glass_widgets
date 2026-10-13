@@ -57,10 +57,9 @@ import 'glass_list_tile.dart';
 ///
 /// ## Surface style
 ///
-/// [surfaceStyle] defaults to [GlassSurfaceStyle.glass] in 1.x. Glass on
-/// scrolling list content is discouraged — iOS renders inset-grouped cards as
-/// flat, opaque surfaces — so prefer [GlassSurfaceStyle.solid] for sections in
-/// a scrolling page:
+/// [surfaceStyle] defaults to [GlassSurfaceStyle.glass] in 1.x. iOS renders
+/// inset-grouped cards as flat, opaque surfaces, so use
+/// [GlassSurfaceStyle.solid] for sections in a scrolling page to match:
 ///
 /// ```dart
 /// GlassGroupedSection(
@@ -136,8 +135,7 @@ class GlassGroupedSection extends StatelessWidget {
   ///
   /// [GlassSurfaceStyle.glass] (default in 1.x) renders a glass card.
   /// [GlassSurfaceStyle.solid] renders a flat opaque card matching native iOS
-  /// inset-grouped lists, and clips the rows to the card's corners. Glass on
-  /// scrolling list content is discouraged.
+  /// inset-grouped lists, and clips the rows to the card's corners.
   final GlassSurfaceStyle surfaceStyle;
 
   /// Start inset of the automatically inserted dividers that follow a tile

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -177,6 +178,72 @@ void main() {
           (await fillFor(Brightness.dark))!.toARGB32(), _darkFill.toARGB32());
     });
 
+    for (final entry in {
+      Brightness.dark: _darkFill,
+      Brightness.light: _lightFill,
+    }.entries) {
+      testWidgets(
+          'solid obeys a GlassTheme brightness override (${entry.key.name}) '
+          'over the app theme', (tester) async {
+        // App is the opposite brightness, so the override is what must win.
+        final opposite =
+            entry.key == Brightness.dark ? Brightness.light : Brightness.dark;
+        await tester.pumpWidget(
+          GlassTheme(
+            data: GlassThemeData(brightness: entry.key),
+            child: createTestApp(
+              theme: ThemeData(brightness: opposite),
+              child: const GlassContainer.card(
+                surfaceStyle: GlassSurfaceStyle.solid,
+                child: Text('t'),
+              ),
+            ),
+          ),
+        );
+
+        final fill = _solidDecoration(tester, find.byType(GlassContainer))!
+            .color!
+            .toARGB32();
+        expect(fill, entry.value.toARGB32());
+      });
+    }
+
+    testWidgets('solid warns (debug) when glass-only settings are passed',
+        (tester) async {
+      final printed = <String>[];
+      final original = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) printed.add(message);
+      };
+      // Flutter's test invariants run before tear-downs, so restore inline.
+      try {
+        await _pump(
+          tester,
+          GlassContainer.card(
+            surfaceStyle: GlassSurfaceStyle.solid,
+            settings: defaultTestGlassSettings,
+            child: const Text('w'),
+          ),
+        );
+        expect(
+          printed.where((m) => m.contains('have no effect')),
+          isNotEmpty,
+        );
+
+        printed.clear();
+        await _pump(
+          tester,
+          const GlassContainer.card(
+            surfaceStyle: GlassSurfaceStyle.solid,
+            child: Text('w'),
+          ),
+        );
+        expect(printed.where((m) => m.contains('have no effect')), isEmpty);
+      } finally {
+        debugPrint = original;
+      }
+    });
+
     testWidgets('solid applies padding, size and margin', (tester) async {
       await _pump(
         tester,
@@ -353,5 +420,132 @@ void main() {
         expect(find.text('Item 0'), findsOneWidget);
       });
     }
+
+    // Starts a long-press drag on the first row and returns the lifted proxy's
+    // BoxDecoration (the default proxy decorator's shadowed container).
+    Future<BoxDecoration> liftFirstRow(
+      WidgetTester tester,
+      GlassSurfaceStyle style,
+    ) async {
+      await _pump(
+        tester,
+        SizedBox(
+          height: 300,
+          child: GlassReorderableList.grouped(
+            itemCount: 3,
+            surfaceStyle: style,
+            onReorderItem: (_, __) {},
+            itemBuilder: (context, i) => ReorderableDelayedDragStartListener(
+              key: ValueKey(i),
+              index: i,
+              child: GlassListTile(title: Text('Item $i')),
+            ),
+          ),
+        ),
+        brightness: Brightness.dark,
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Item 0')),
+      );
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final lifted = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((c) => c.decoration)
+          .whereType<BoxDecoration>()
+          .where((d) => (d.boxShadow ?? const []).isNotEmpty)
+          .toList();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(lifted, isNotEmpty, reason: 'no lifted drag proxy found');
+      return lifted.first;
+    }
+
+    testWidgets('solid: the lifted row is opaque (card fill)', (tester) async {
+      final d = await liftFirstRow(tester, GlassSurfaceStyle.solid);
+      expect(d.color!.toARGB32(), _darkFill.toARGB32());
+    });
+
+    testWidgets('glass: the lifted row keeps its previous (no fill) look',
+        (tester) async {
+      final d = await liftFirstRow(tester, GlassSurfaceStyle.glass);
+      expect(d.color, isNull);
+    });
+  });
+
+  group('GlassDatePicker / GlassMultiDatePicker surfaceStyle', () {
+    final day = DateTime(2026, 3, 18);
+
+    final variants = <String, Widget Function(GlassSurfaceStyle)>{
+      'wheel': (s) =>
+          GlassDatePicker.wheel(initialDateTime: day, surfaceStyle: s),
+      'graphical': (s) =>
+          GlassDatePicker.graphical(initialDateTime: day, surfaceStyle: s),
+      'default constructor': (s) =>
+          GlassDatePicker(initialDateTime: day, surfaceStyle: s),
+      'multi-date': (s) => GlassMultiDatePicker(
+            selectedDates: {day},
+            displayedMonth: day,
+            surfaceStyle: s,
+          ),
+    };
+
+    for (final v in variants.entries) {
+      testWidgets('${v.key}: defaults to a glass card', (tester) async {
+        await _pump(tester,
+            SingleChildScrollView(child: v.value(GlassSurfaceStyle.glass)));
+        await tester.pump();
+
+        expect(find.byType(AdaptiveGlass), findsOneWidget);
+      });
+
+      for (final b in Brightness.values) {
+        testWidgets('${v.key}: solid card in ${b.name} mode', (tester) async {
+          await _pump(
+            tester,
+            SingleChildScrollView(child: v.value(GlassSurfaceStyle.solid)),
+            brightness: b,
+          );
+          await tester.pump();
+
+          expect(find.byType(AdaptiveGlass), findsNothing);
+          final decoration = _solidDecoration(
+            tester,
+            find.byWidgetPredicate(
+              (w) => w is GlassDatePicker || w is GlassMultiDatePicker,
+            ),
+          )!;
+          expect(
+            decoration.color!.toARGB32(),
+            (b == Brightness.light ? _lightFill : _darkFill).toARGB32(),
+          );
+          expect(
+            decoration.shape,
+            equals(const LiquidRoundedSuperellipse(borderRadius: 26)),
+          );
+        });
+      }
+    }
+
+    testWidgets('solid honours an explicit shape', (tester) async {
+      await _pump(
+        tester,
+        SingleChildScrollView(
+          child: GlassDatePicker.wheel(
+            initialDateTime: day,
+            shape: const LiquidRoundedSuperellipse(borderRadius: 10),
+            surfaceStyle: GlassSurfaceStyle.solid,
+          ),
+        ),
+      );
+
+      expect(
+        _solidDecoration(tester, find.byType(GlassDatePicker))!.shape,
+        equals(const LiquidRoundedSuperellipse(borderRadius: 10)),
+      );
+    });
   });
 }

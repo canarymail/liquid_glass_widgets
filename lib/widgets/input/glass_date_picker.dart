@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
 import '../containers/glass_container.dart';
 
 /// The display and interaction style of the [GlassDatePicker], matching SwiftUI's
@@ -62,6 +63,7 @@ class GlassDatePicker extends StatefulWidget {
     this.settings,
     this.shape,
     this.quality,
+    this.surfaceStyle = GlassSurfaceStyle.glass,
   });
 
   /// Creates a compact pill-styled [GlassDatePicker].
@@ -79,6 +81,7 @@ class GlassDatePicker extends StatefulWidget {
     this.settings,
     this.shape,
     this.quality,
+    this.surfaceStyle = GlassSurfaceStyle.glass,
   }) : style = GlassDatePickerStyle.compact;
 
   /// Creates an inline graphical calendar-styled [GlassDatePicker].
@@ -96,6 +99,7 @@ class GlassDatePicker extends StatefulWidget {
     this.settings,
     this.shape,
     this.quality,
+    this.surfaceStyle = GlassSurfaceStyle.glass,
   }) : style = GlassDatePickerStyle.graphical;
 
   /// Creates a wheel-styled [GlassDatePicker] using Cupertino wheels in liquid glass.
@@ -113,6 +117,7 @@ class GlassDatePicker extends StatefulWidget {
     this.settings,
     this.shape,
     this.quality,
+    this.surfaceStyle = GlassSurfaceStyle.glass,
   }) : style = GlassDatePickerStyle.wheel;
 
   /// The initially selected date and time.
@@ -145,17 +150,29 @@ class GlassDatePicker extends StatefulWidget {
   /// First day of the week (7 = Sunday, 1 = Monday).
   final int firstDayOfWeek;
 
-  /// Liquid glass settings.
+  /// Liquid glass settings. Ignored when [surfaceStyle] is
+  /// [GlassSurfaceStyle.solid].
   final LiquidGlassSettings? settings;
 
-  /// Shape of the picker's glass card (wheel, graphical and multi-date).
+  /// Shape of the picker's card (wheel, graphical and multi-date).
   ///
-  /// Defaults to a 12pt [LiquidRoundedSuperellipse]. Native iOS 26 inset
-  /// grouped containers use ~26pt corners.
+  /// If null, defaults to a 12pt [LiquidRoundedSuperellipse] for
+  /// [GlassSurfaceStyle.glass] and 26pt for [GlassSurfaceStyle.solid], the
+  /// corner radius of native iOS 26 inset grouped containers.
   final LiquidShape? shape;
 
-  /// Rendering quality tier.
+  /// Rendering quality tier. Ignored when [surfaceStyle] is
+  /// [GlassSurfaceStyle.solid].
   final GlassQuality? quality;
+
+  /// How the picker's card is painted.
+  ///
+  /// [GlassSurfaceStyle.glass] (default in 1.x) renders a glass card.
+  /// [GlassSurfaceStyle.solid] renders a flat opaque card matching native iOS
+  /// grouped containers. Applies to the wheel and graphical styles and to the
+  /// graphical popover opened by the compact style; the compact pills
+  /// themselves are unchanged.
+  final GlassSurfaceStyle surfaceStyle;
 
   @override
   State<GlassDatePicker> createState() => _GlassDatePickerState();
@@ -444,6 +461,7 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
                 firstDayOfWeek: widget.firstDayOfWeek,
                 settings: widget.settings,
                 quality: widget.quality,
+                surfaceStyle: widget.surfaceStyle,
                 onDateTimeChanged: (val) {
                   setState(() => _selectedDateTime = val);
                   widget.onDateTimeChanged?.call(val);
@@ -477,8 +495,9 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
     return GlassContainer.card(
       useOwnLayer: true,
       settings: widget.settings,
-      shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
+      shape: widget.shape,
       quality: widget.quality,
+      surfaceStyle: widget.surfaceStyle,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       child: SizedBox(
         height: 216,
@@ -506,8 +525,9 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
     return GlassContainer.card(
       useOwnLayer: true,
       settings: widget.settings,
-      shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
+      shape: widget.shape,
       quality: widget.quality,
+      surfaceStyle: widget.surfaceStyle,
       padding: const EdgeInsets.fromLTRB(16, 27, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -867,6 +887,7 @@ class GlassMultiDatePicker extends StatefulWidget {
     this.settings,
     this.shape,
     this.quality,
+    this.surfaceStyle = GlassSurfaceStyle.glass,
   });
 
   /// The set of currently selected dates.
@@ -890,17 +911,27 @@ class GlassMultiDatePicker extends StatefulWidget {
   /// First day of the week (7 = Sunday, 1 = Monday).
   final int firstDayOfWeek;
 
-  /// Liquid glass settings.
+  /// Liquid glass settings. Ignored when [surfaceStyle] is
+  /// [GlassSurfaceStyle.solid].
   final LiquidGlassSettings? settings;
 
-  /// Shape of the picker's glass card (wheel, graphical and multi-date).
+  /// Shape of the picker's card.
   ///
-  /// Defaults to a 12pt [LiquidRoundedSuperellipse]. Native iOS 26 inset
-  /// grouped containers use ~26pt corners.
+  /// If null, defaults to a 12pt [LiquidRoundedSuperellipse] for
+  /// [GlassSurfaceStyle.glass] and 26pt for [GlassSurfaceStyle.solid], the
+  /// corner radius of native iOS 26 inset grouped containers.
   final LiquidShape? shape;
 
-  /// Rendering quality tier.
+  /// Rendering quality tier. Ignored when [surfaceStyle] is
+  /// [GlassSurfaceStyle.solid].
   final GlassQuality? quality;
+
+  /// How the picker's card is painted.
+  ///
+  /// [GlassSurfaceStyle.glass] (default in 1.x) renders a glass card.
+  /// [GlassSurfaceStyle.solid] renders a flat opaque card matching native iOS
+  /// grouped containers.
+  final GlassSurfaceStyle surfaceStyle;
 
   @override
   State<GlassMultiDatePicker> createState() => _GlassMultiDatePickerState();
@@ -1132,8 +1163,9 @@ class _GlassMultiDatePickerState extends State<GlassMultiDatePicker> {
     return GlassContainer.card(
       useOwnLayer: true,
       settings: widget.settings,
-      shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
+      shape: widget.shape,
       quality: widget.quality,
+      surfaceStyle: widget.surfaceStyle,
       padding: const EdgeInsets.fromLTRB(16, 27, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1183,6 +1215,8 @@ class _GlassMultiDatePickerState extends State<GlassMultiDatePicker> {
 }
 
 /// Imperatively displays a modal liquid glass date/time picker sheet.
+///
+/// [surfaceStyle] is forwarded to the [GlassDatePicker] inside the sheet.
 Future<DateTime?> showGlassDatePicker({
   required BuildContext context,
   DateTime? initialDateTime,
@@ -1196,6 +1230,7 @@ Future<DateTime?> showGlassDatePicker({
   String title = 'Select Date',
   LiquidGlassSettings? settings,
   GlassQuality? quality,
+  GlassSurfaceStyle surfaceStyle = GlassSurfaceStyle.glass,
 }) async {
   DateTime selected = initialDateTime ?? DateTime.now();
 
@@ -1260,6 +1295,7 @@ Future<DateTime?> showGlassDatePicker({
               tintColor: tintColor,
               settings: settings,
               quality: quality,
+              surfaceStyle: surfaceStyle,
               onDateTimeChanged: (val) {
                 selected = val;
               },

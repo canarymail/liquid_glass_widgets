@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
 import '../../types/glass_surface_style.dart';
+import '../shared/glass_solid_surface.dart';
 import 'glass_container.dart';
 import 'glass_divider.dart';
 
@@ -66,9 +67,10 @@ class GlassReorderableList extends StatelessWidget {
   /// Creates a [GlassReorderableList] styled as an iOS grouped table card
   /// with superellipse corners, automatic dividers, and optional header/footer.
   ///
-  /// [surfaceStyle] defaults to [GlassSurfaceStyle.glass] in 1.x. Glass on
-  /// scrolling list content is discouraged; use [GlassSurfaceStyle.solid] for
-  /// a flat opaque card matching native iOS inset-grouped lists.
+  /// [surfaceStyle] defaults to [GlassSurfaceStyle.glass] in 1.x. Use
+  /// [GlassSurfaceStyle.solid] for a flat opaque card matching native iOS
+  /// inset-grouped lists. With the default proxy decorator, a solid list also
+  /// gives the lifted row the card fill so it stays opaque while dragging.
   const GlassReorderableList.grouped({
     super.key,
     required this.itemCount,
@@ -166,6 +168,10 @@ class GlassReorderableList extends StatelessWidget {
           scale: scale,
           child: Container(
             decoration: BoxDecoration(
+              // A solid card is opaque, so the lifted row must be too.
+              color: _isGrouped && _surfaceStyle == GlassSurfaceStyle.solid
+                  ? resolveGlassSolidSurfaceColor(context)
+                  : null,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(

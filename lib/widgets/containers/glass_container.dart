@@ -1,10 +1,10 @@
-import 'package:flutter/cupertino.dart' show CupertinoDynamicColor;
 import 'package:flutter/widgets.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 
 import '../../types/glass_quality.dart';
 import '../../types/glass_surface_style.dart';
 import '../shared/adaptive_glass.dart';
+import '../shared/glass_solid_surface.dart';
 import '../shared/inherited_liquid_glass.dart';
 import '../../theme/glass_theme_helpers.dart';
 
@@ -90,10 +90,9 @@ import '../../theme/glass_theme_helpers.dart';
 /// )
 /// ```
 ///
-/// Glass on **scrolling list content** is discouraged. iOS renders list cards
-/// as flat opaque surfaces, and each glass card adds a backdrop-sampling cost
-/// while scrolling. Use [GlassSurfaceStyle.solid] for cards inside lists and
-/// reserve glass for chrome that floats above content.
+/// iOS renders inset-grouped list cards as flat opaque surfaces, so use
+/// [GlassSurfaceStyle.solid] for cards inside lists and reserve glass for
+/// chrome that floats above content.
 ///
 /// ## ⚠️ Anti-Pattern: Do Not Place Glass Controls Inside a GlassContainer
 ///
@@ -158,10 +157,12 @@ class GlassContainer extends StatelessWidget {
   ///   `#1C1C1E` in dark mode) with no blur, rim, refraction or shadow,
   ///   matching native iOS inset-grouped list cards. When [shape] is null the
   ///   solid card uses a 26px [LiquidRoundedSuperellipse]. [settings],
-  ///   [useOwnLayer] and [quality] are ignored for solid cards.
+  ///   [useOwnLayer] and [quality] are ignored for solid cards. The dark fill
+  ///   is always `#1C1C1E`; the lighter "elevated" grey iOS uses for cards
+  ///   inside sheets is not implemented.
   ///
-  /// Glass cards inside scrolling list content are discouraged; prefer
-  /// [GlassSurfaceStyle.solid] there.
+  /// iOS draws list cards flat; prefer [GlassSurfaceStyle.solid] for cards
+  /// inside lists.
   const GlassContainer.card({
     super.key,
     this.child,
@@ -189,13 +190,6 @@ class GlassContainer extends StatelessWidget {
 
   /// Native inset-grouped list cards use ~26pt continuous corners.
   static const _solidCardShape = LiquidRoundedSuperellipse(borderRadius: 26);
-
-  /// Fill of [GlassSurfaceStyle.solid]: iOS `secondarySystemGroupedBackground`
-  /// (white / `#1C1C1E`), without the elevated-dark variant.
-  static const _solidFill = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFFFFFFFF),
-    darkColor: Color(0xFF1C1C1E),
-  );
 
   final GlassSurfaceStyle _surfaceStyle;
 
@@ -422,6 +416,20 @@ class GlassContainer extends StatelessWidget {
     Widget content,
     GlassQuality effectiveQuality,
   ) {
+    // Debug-only: `settings` and `quality` configure the glass shader, which a
+    // solid card never uses. Passing them is almost certainly a leftover from a
+    // glass card, and a `glassColor` there will NOT tint the card.
+    assert(() {
+      if (settings != null || quality != null) {
+        debugPrint(
+          'GlassContainer.card: `settings` / `quality` have no effect when '
+          '`surfaceStyle` is GlassSurfaceStyle.solid (a solid card is a flat '
+          'opaque fill and does not use the glass shader).',
+        );
+      }
+      return true;
+    }());
+
     final effectiveSettings = GlassThemeHelpers.resolveSettings(
       context,
       explicit: settings,
@@ -444,7 +452,7 @@ class GlassContainer extends StatelessWidget {
 
     return DecoratedBox(
       decoration: ShapeDecoration(
-        color: CupertinoDynamicColor.resolve(_solidFill, context),
+        color: resolveGlassSolidSurfaceColor(context),
         shape: shape,
       ),
       child: inner,
