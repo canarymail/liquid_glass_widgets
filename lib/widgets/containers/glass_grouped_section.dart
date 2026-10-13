@@ -65,6 +65,7 @@ class GlassGroupedSection extends StatelessWidget {
     this.settings,
     this.useOwnLayer = false,
     this.quality,
+    this.dividerIndent,
   });
 
   /// The list tiles to display inside the section.
@@ -109,6 +110,15 @@ class GlassGroupedSection extends StatelessWidget {
 
   /// Rendering quality.
   final GlassQuality? quality;
+
+  /// Start inset of the automatically inserted dividers that follow a tile
+  /// with a leading widget.
+  ///
+  /// Defaults to 56 (a 32pt leading slot + 12pt gap + 12pt inset). Set this to
+  /// the text-start offset when using a larger leading widget, e.g. 72 for a
+  /// 44pt avatar row. Dividers following tiles without a leading widget always
+  /// use 16.
+  final double? dividerIndent;
 
   Widget _buildHeader(BuildContext context) {
     if (header == null) return const SizedBox.shrink();
@@ -171,7 +181,7 @@ class GlassGroupedSection extends StatelessWidget {
             ((currentChild is GlassListTile && currentChild.leading != null) ||
                     (currentChild is GlassDisclosureGroup &&
                         currentChild.leading != null))
-                ? 56.0
+                ? (dividerIndent ?? 56.0)
                 : 16.0;
         processedChildren.add(GlassDivider(indent: indent));
       }

@@ -298,5 +298,53 @@ void main() {
       align = tester.widget<Align>(find.byType(Align));
       expect(align.heightFactor, 0.0);
     });
+
+    testWidgets(
+        'parent-driven isExpanded does not echo through onExpansionChanged',
+        (tester) async {
+      var callbacks = 0;
+      final expanded = ValueNotifier<bool>(false);
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: ValueListenableBuilder<bool>(
+            valueListenable: expanded,
+            builder: (_, value, __) => GlassDisclosureGroup(
+              title: const Text('Group'),
+              isExpanded: value,
+              onExpansionChanged: (_) => callbacks++,
+              children: const [Text('Child')],
+            ),
+          ),
+        ),
+      );
+
+      expanded.value = true;
+      await tester.pumpAndSettle();
+      expect(callbacks, 0);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Group'));
+      await tester.pumpAndSettle();
+      expect(callbacks, 1);
+    });
+
+    testWidgets('children are indented 20pt but the header divider is not',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassDisclosureGroup(
+            title: Text('Group'),
+            initiallyExpanded: true,
+            children: [Text('Child')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final groupLeft = tester.getTopLeft(find.byType(GlassDisclosureGroup)).dx;
+      final childLeft = tester.getTopLeft(find.text('Child')).dx;
+      expect(childLeft - groupLeft, 20);
+    });
   });
 }

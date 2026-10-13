@@ -146,7 +146,10 @@ class GlassDisclosureGroup extends StatefulWidget {
   /// Defaults to `EdgeInsets.symmetric(horizontal: 16, vertical: 12)` matching iOS list insets.
   final EdgeInsetsGeometry contentPadding;
 
-  /// Optional padding around the expanded children container.
+  /// Padding around the expanded children container.
+  ///
+  /// Defaults to a 20pt leading indent, matching native `DisclosureGroup`.
+  /// The header divider is never indented.
   final EdgeInsetsGeometry? childrenPadding;
 
   /// Duration of the expansion and collapse animation.
@@ -250,7 +253,9 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       _initAnimation();
     }
     if (widget.isExpanded != null && widget.isExpanded != _isExpanded) {
-      _setExpanded(widget.isExpanded!);
+      // Parent-driven change: don't echo back through onExpansionChanged
+      // (it would fire during build and loop into the parent's setState).
+      _setExpanded(widget.isExpanded!, notify: false);
     }
   }
 
@@ -279,10 +284,10 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
     }
   }
 
-  void _setExpanded(bool expanded) {
+  void _setExpanded(bool expanded, {bool notify = true}) {
     if (_isExpanded == expanded) return;
 
-    if (widget.enableHaptics) {
+    if (notify && widget.enableHaptics) {
       HapticFeedback.selectionClick();
     }
 
@@ -308,7 +313,7 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       }
     });
 
-    widget.onExpansionChanged?.call(_isExpanded);
+    if (notify) widget.onExpansionChanged?.call(_isExpanded);
   }
 
   @override
@@ -397,10 +402,14 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
     Widget trailingWidget = widget.trailing ??
         RotationTransition(
           turns: chevronTurns,
-          child: const Icon(
-            CupertinoIcons.chevron_forward,
-            color: CupertinoColors.systemGrey,
-            size: 18,
+          child: SizedBox(
+            width: 14,
+            height: 18,
+            child: CustomPaint(
+              painter: _DisclosureChevronPainter(
+                color: CupertinoColors.label.resolveFrom(context),
+              ),
+            ),
           ),
         );
 
@@ -415,7 +424,8 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
                 overflow: TextOverflow.ellipsis,
                 child: widget.title,
               ),
-              const SizedBox(height: 2),
+              // No gap: SwiftUI stacks title and subtitle with natural line
+              // heights only.
               DefaultTextStyle(
                 style: effectiveSubtitleStyle,
                 maxLines: 1,
@@ -471,12 +481,6 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
 
     final processedChildren = <Widget>[];
 
-    // Divider separating header from expanded children
-    if (widget.showDividers) {
-      final double headerDividerIndent = widget.leading != null ? 52.0 : 16.0;
-      processedChildren.add(GlassDivider(indent: headerDividerIndent));
-    }
-
     for (var i = 0; i < widget.children.length; i++) {
       final currentChild = widget.children[i];
       processedChildren.add(currentChild);
@@ -498,19 +502,58 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       }
     }
 
-    Widget content = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: processedChildren,
+    // Native SwiftUI indents disclosed content ~20pt from the row inset.
+    Widget rows = Padding(
+      padding:
+          widget.childrenPadding ?? const EdgeInsetsDirectional.only(start: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: processedChildren,
+      ),
     );
 
-    if (widget.childrenPadding != null) {
-      content = Padding(
-        padding: widget.childrenPadding!,
-        child: content,
+    // Divider separating header from expanded children (aligned with the
+    // header title, not indented with the children).
+    if (widget.showDividers) {
+      final double headerDividerIndent = widget.leading != null ? 52.0 : 16.0;
+      rows = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [GlassDivider(indent: headerDividerIndent), rows],
       );
     }
 
+    final Widget content = rows;
+
     return content;
   }
+}
+
+/// Bold, rounded chevron (pointing right) matching the SF Symbols
+/// `chevron.right` weight SwiftUI uses for `DisclosureGroup`.
+class _DisclosureChevronPainter extends CustomPainter {
+  const _DisclosureChevronPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final path = Path()
+      ..moveTo(cx - 2.6, cy - 5.2)
+      ..lineTo(cx + 2.6, cy)
+      ..lineTo(cx - 2.6, cy + 5.2);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DisclosureChevronPainter old) => old.color != color;
 }

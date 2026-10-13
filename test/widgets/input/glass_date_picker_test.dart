@@ -21,8 +21,9 @@ void main() {
       );
 
       expect(find.text('October 2026'), findsOneWidget);
-      expect(find.text('S'), findsNWidgets(2)); // Sunday and Saturday
-      expect(find.text('M'), findsOneWidget);
+      for (final d in ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']) {
+        expect(find.text(d), findsOneWidget);
+      }
       expect(find.text('8'), findsWidgets); // Day 8 of October
     });
 
@@ -45,15 +46,18 @@ void main() {
       expect(find.text('October 2026'), findsOneWidget);
 
       // Tap next month chevron
-      await tester.tap(find.byIcon(CupertinoIcons.chevron_right));
+      await tester
+          .tap(find.byKey(const ValueKey<String>('glass_calendar_next')));
       await tester.pumpAndSettle();
 
       expect(find.text('November 2026'), findsOneWidget);
 
       // Tap previous month chevron twice
-      await tester.tap(find.byIcon(CupertinoIcons.chevron_left));
+      await tester
+          .tap(find.byKey(const ValueKey<String>('glass_calendar_previous')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(CupertinoIcons.chevron_left));
+      await tester
+          .tap(find.byKey(const ValueKey<String>('glass_calendar_previous')));
       await tester.pumpAndSettle();
 
       expect(find.text('September 2026'), findsOneWidget);
@@ -333,6 +337,77 @@ void main() {
       expect(find.text('Select Date'), findsNothing);
       expect(resultDate, isNotNull);
       expect(resultDate!.day, 22);
+    });
+  });
+
+  group('GlassDatePicker native parity', () {
+    testWidgets('tapping the month label opens the month/year wheels',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: GlassDatePicker.graphical(
+                initialDateTime: DateTime(2026, 10, 8),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CupertinoPicker), findsNothing);
+      await tester.tap(find.text('October 2026'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoPicker), findsNWidgets(2));
+      expect(find.text('SUN'), findsNothing);
+
+      await tester.tap(find.text('October 2026'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoPicker), findsNothing);
+      expect(find.text('SUN'), findsOneWidget);
+    });
+
+    testWidgets('compact pills are capsules with label-coloured text',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: GlassDatePicker.compact(
+                initialDateTime: DateTime(2026, 10, 8, 16, 54),
+                mode: GlassDatePickerMode.dateAndTime,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Oct 8, 2026'), findsOneWidget);
+      expect(find.text('4:54 PM'), findsOneWidget);
+      final decorated = tester
+          .widgetList<Container>(find.byType(Container))
+          .map((c) => c.decoration)
+          .whereType<BoxDecoration>()
+          .where((d) => d.borderRadius == BorderRadius.circular(17.5));
+      expect(decorated, hasLength(2));
+    });
+
+    testWidgets('custom shape is applied to the wheel card', (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: GlassDatePicker.wheel(
+                initialDateTime: DateTime(2026, 10, 8),
+                shape: const LiquidRoundedSuperellipse(borderRadius: 26),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final card = tester.widget<GlassCard>(find.byType(GlassCard));
+      expect(card.shape, const LiquidRoundedSuperellipse(borderRadius: 26));
     });
   });
 }

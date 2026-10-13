@@ -375,9 +375,11 @@ class _GlassListTileState extends State<GlassListTile>
     final effectiveCanDelete = widget.canDelete || widget.onDelete != null;
     final effectiveCanInsert = widget.canInsert || widget.onInsert != null;
 
+    Widget? editBadge;
+    Widget? selectionAccessory;
     if (isEditing) {
       if (effectiveCanDelete) {
-        leadingAccessory = GestureDetector(
+        editBadge = GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
             HapticFeedback.selectionClick();
@@ -396,13 +398,13 @@ class _GlassListTileState extends State<GlassListTile>
               child: const Icon(
                 CupertinoIcons.minus_circle_fill,
                 color: CupertinoColors.systemRed,
-                size: 22,
+                size: 25,
               ),
             ),
           ),
         );
       } else if (effectiveCanInsert) {
-        leadingAccessory = GestureDetector(
+        editBadge = GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
             HapticFeedback.selectionClick();
@@ -415,12 +417,15 @@ class _GlassListTileState extends State<GlassListTile>
             child: const Icon(
               CupertinoIcons.plus_circle_fill,
               color: CupertinoColors.systemGreen,
-              size: 22,
+              size: 25,
             ),
           ),
         );
-      } else if (widget.canSelect) {
-        leadingAccessory = GestureDetector(
+      }
+      // Native SwiftUI shows the selection circle *alongside* the delete /
+      // insert badge when a List has both `onDelete` and a selection binding.
+      if (widget.canSelect) {
+        selectionAccessory = GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
             HapticFeedback.selectionClick();
@@ -437,10 +442,18 @@ class _GlassListTileState extends State<GlassListTile>
               color: widget.isSelected
                   ? CupertinoColors.activeBlue
                   : CupertinoColors.systemGrey3,
-              size: 22,
+              size: 25,
             ),
           ),
         );
+      }
+      if (editBadge != null && selectionAccessory != null) {
+        leadingAccessory = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [editBadge, selectionAccessory],
+        );
+      } else {
+        leadingAccessory = editBadge ?? selectionAccessory;
       }
     }
 
@@ -521,7 +534,12 @@ class _GlassListTileState extends State<GlassListTile>
               color: widget.leadingIconColor ?? dynamicLabelColor,
               size: 22,
             ),
-            child: SizedBox(width: 32, child: widget.leading),
+            // A minimum (not fixed) width so a larger leading widget, such as
+            // a 44pt avatar, keeps its natural size.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 32),
+              child: widget.leading,
+            ),
           ),
           const SizedBox(width: 12),
         ],

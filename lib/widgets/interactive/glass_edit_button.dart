@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../shared/glass_edit_scope.dart';
+import 'glass_button.dart';
+import '../../src/renderer/liquid_glass_renderer.dart';
 
 /// A button that toggles edit mode, directly matching SwiftUI's `EditButton()`.
 ///
@@ -9,7 +11,10 @@ import '../shared/glass_edit_scope.dart';
 /// between [GlassEditMode.inactive] and [GlassEditMode.active].
 ///
 /// - Displays **Edit** when inactive.
-/// - Displays **Done** in bold blue text when active.
+/// - Displays **Done** in bold text when active.
+///
+/// Rendered as a liquid glass capsule with a black label, matching the iOS 26
+/// toolbar button style.
 ///
 /// ## Usage
 ///
@@ -53,7 +58,8 @@ class GlassEditButton extends StatelessWidget {
   /// Label shown when active (defaults to 'Done').
   final String doneLabel;
 
-  /// Tint color for the button text (defaults to [CupertinoColors.activeBlue]).
+  /// Tint color for the button text (defaults to [CupertinoColors.label],
+  /// matching iOS 26 glass toolbar buttons).
   final Color? color;
 
   /// Optional override callback for when the button is tapped.
@@ -72,13 +78,15 @@ class GlassEditButton extends StatelessWidget {
     final isEditing =
         _isExplicit ? _explicitIsEditing : (controller?.isEditing ?? false);
 
-    final effectiveColor =
-        color ?? CupertinoColors.activeBlue.resolveFrom(context);
+    final effectiveColor = color ?? CupertinoColors.label.resolveFrom(context);
 
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      minimumSize: const Size(0, 32),
-      onPressed: () {
+    return GlassButton.custom(
+      label: isEditing ? doneLabel : editLabel,
+      height: 44,
+      useOwnLayer: true,
+      shape: const LiquidRoundedSuperellipse(borderRadius: 22),
+      stretch: 0.15,
+      onTap: () {
         if (enableHaptics) {
           HapticFeedback.selectionClick();
         }
@@ -88,25 +96,27 @@ class GlassEditButton extends StatelessWidget {
           controller?.toggle();
         }
       },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation),
-              child: child,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: Text(
+            isEditing ? doneLabel : editLabel,
+            key: ValueKey<bool>(isEditing),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: isEditing ? FontWeight.w600 : FontWeight.w400,
+              color: effectiveColor,
             ),
-          );
-        },
-        child: Text(
-          isEditing ? doneLabel : editLabel,
-          key: ValueKey<bool>(isEditing),
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: isEditing ? FontWeight.w600 : FontWeight.w400,
-            color: effectiveColor,
-            letterSpacing: -0.4,
           ),
         ),
       ),

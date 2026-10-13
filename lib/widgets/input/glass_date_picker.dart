@@ -60,6 +60,7 @@ class GlassDatePicker extends StatefulWidget {
     this.tintColor,
     this.firstDayOfWeek = 7, // 7 = Sunday, 1 = Monday
     this.settings,
+    this.shape,
     this.quality,
   });
 
@@ -76,6 +77,7 @@ class GlassDatePicker extends StatefulWidget {
     this.tintColor,
     this.firstDayOfWeek = 7,
     this.settings,
+    this.shape,
     this.quality,
   }) : style = GlassDatePickerStyle.compact;
 
@@ -92,6 +94,7 @@ class GlassDatePicker extends StatefulWidget {
     this.tintColor,
     this.firstDayOfWeek = 7,
     this.settings,
+    this.shape,
     this.quality,
   }) : style = GlassDatePickerStyle.graphical;
 
@@ -108,6 +111,7 @@ class GlassDatePicker extends StatefulWidget {
     this.tintColor,
     this.firstDayOfWeek = 7,
     this.settings,
+    this.shape,
     this.quality,
   }) : style = GlassDatePickerStyle.wheel;
 
@@ -144,6 +148,12 @@ class GlassDatePicker extends StatefulWidget {
   /// Liquid glass settings.
   final LiquidGlassSettings? settings;
 
+  /// Shape of the picker's glass card (wheel, graphical and multi-date).
+  ///
+  /// Defaults to a 12pt [LiquidRoundedSuperellipse]. Native iOS 26 inset
+  /// grouped containers use ~26pt corners.
+  final LiquidShape? shape;
+
   /// Rendering quality tier.
   final GlassQuality? quality;
 
@@ -154,6 +164,7 @@ class GlassDatePicker extends StatefulWidget {
 class _GlassDatePickerState extends State<GlassDatePicker> {
   late DateTime _selectedDateTime;
   late DateTime _displayedMonth;
+  bool _showMonthYear = false;
 
   static const List<String> _monthNames = [
     'January',
@@ -186,23 +197,23 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
   ];
 
   static const List<String> _sundayFirstWeekdays = [
-    'S',
-    'M',
-    'T',
-    'W',
-    'T',
-    'F',
-    'S'
+    'SUN',
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT'
   ];
 
   static const List<String> _mondayFirstWeekdays = [
-    'M',
-    'T',
-    'W',
-    'T',
-    'F',
-    'S',
-    'S'
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN'
   ];
 
   @override
@@ -325,10 +336,35 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
   // ===========================================================================
 
   Widget _buildCompact(BuildContext context) {
-    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    final pillBg = isDark
-        ? CupertinoColors.systemGrey6.darkColor.withValues(alpha: 0.7)
-        : CupertinoColors.systemGrey5.color.withValues(alpha: 0.7);
+    // Native iOS 26 compact pills: capsule, tertiary system fill, label-coloured
+    // text (an explicit [tintColor] overrides the text colour).
+    final pillBg = CupertinoColors.tertiarySystemFill.resolveFrom(context);
+    final textColor =
+        widget.tintColor ?? CupertinoColors.label.resolveFrom(context);
+
+    Widget pill(String text, {required bool isTime}) {
+      return GestureDetector(
+        onTap: () => _openCompactModal(context, initialTabIsTime: isTime),
+        child: Container(
+          height: 35,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17.5),
+            color: pillBg,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w400,
+              letterSpacing: -0.4,
+              color: textColor,
+            ),
+          ),
+        ),
+      );
+    }
 
     final showDatePill = widget.mode != GlassDatePickerMode.time;
     final showTimePill = widget.mode != GlassDatePickerMode.date;
@@ -336,61 +372,9 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (showDatePill)
-          GestureDetector(
-            onTap: () => _openCompactModal(context, initialTabIsTime: false),
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: pillBg,
-                border: Border.all(
-                  color: isDark
-                      ? CupertinoColors.white.withValues(alpha: 0.12)
-                      : CupertinoColors.black.withValues(alpha: 0.08),
-                  width: 0.5,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _formatDate(_selectedDateTime),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: widget.tintColor ?? CupertinoColors.activeBlue,
-                ),
-              ),
-            ),
-          ),
-        if (showDatePill && showTimePill) const SizedBox(width: 8),
-        if (showTimePill)
-          GestureDetector(
-            onTap: () => _openCompactModal(context, initialTabIsTime: true),
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: pillBg,
-                border: Border.all(
-                  color: isDark
-                      ? CupertinoColors.white.withValues(alpha: 0.12)
-                      : CupertinoColors.black.withValues(alpha: 0.08),
-                  width: 0.5,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _formatTime(_selectedDateTime),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: widget.tintColor ?? CupertinoColors.activeBlue,
-                ),
-              ),
-            ),
-          ),
+        if (showDatePill) pill(_formatDate(_selectedDateTime), isTime: false),
+        if (showDatePill && showTimePill) const SizedBox(width: 4),
+        if (showTimePill) pill(_formatTime(_selectedDateTime), isTime: true),
       ],
     );
   }
@@ -493,6 +477,7 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
     return GlassCard(
       useOwnLayer: true,
       settings: widget.settings,
+      shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
       quality: widget.quality,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       child: SizedBox(
@@ -521,17 +506,26 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
     return GlassCard(
       useOwnLayer: true,
       settings: widget.settings,
+      shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
       quality: widget.quality,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 27, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.mode != GlassDatePickerMode.time) ...[
             _buildMonthHeader(context),
-            const SizedBox(height: 12),
-            _buildWeekdayRow(context),
-            const SizedBox(height: 8),
-            _buildCalendarGrid(context),
+            if (_showMonthYear)
+              _MonthYearWheel(
+                displayedMonth: _displayedMonth,
+                monthNames: _monthNames,
+                onChanged: (m) => setState(() => _displayedMonth = m),
+              )
+            else ...[
+              const SizedBox(height: 13),
+              _buildWeekdayRow(context),
+              const SizedBox(height: 8),
+              _buildCalendarGrid(context),
+            ],
           ],
           if (widget.mode == GlassDatePickerMode.dateAndTime) ...[
             const SizedBox(height: 14),
@@ -549,40 +543,14 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
   }
 
   Widget _buildMonthHeader(BuildContext context) {
-    final monthName = _monthNames[_displayedMonth.month - 1];
-    final year = _displayedMonth.year;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          '$monthName $year',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            color: CupertinoColors.label.resolveFrom(context),
-          ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CupertinoButton(
-              padding: const EdgeInsets.all(8),
-              minimumSize: const Size(0, 32),
-              onPressed: () => _changeMonth(-1),
-              child: const Icon(CupertinoIcons.chevron_left, size: 16),
-            ),
-            const SizedBox(width: 4),
-            CupertinoButton(
-              padding: const EdgeInsets.all(8),
-              minimumSize: const Size(0, 32),
-              onPressed: () => _changeMonth(1),
-              child: const Icon(CupertinoIcons.chevron_right, size: 16),
-            ),
-          ],
-        ),
-      ],
+    return _CalendarHeader(
+      label:
+          '${_monthNames[_displayedMonth.month - 1]} ${_displayedMonth.year}',
+      tint: widget.tintColor ?? CupertinoColors.activeBlue,
+      pickerOpen: _showMonthYear,
+      onToggle: () => setState(() => _showMonthYear = !_showMonthYear),
+      onPrevious: () => _changeMonth(-1),
+      onNext: () => _changeMonth(1),
     );
   }
 
@@ -897,6 +865,7 @@ class GlassMultiDatePicker extends StatefulWidget {
     this.tintColor,
     this.firstDayOfWeek = 7,
     this.settings,
+    this.shape,
     this.quality,
   });
 
@@ -924,6 +893,12 @@ class GlassMultiDatePicker extends StatefulWidget {
   /// Liquid glass settings.
   final LiquidGlassSettings? settings;
 
+  /// Shape of the picker's glass card (wheel, graphical and multi-date).
+  ///
+  /// Defaults to a 12pt [LiquidRoundedSuperellipse]. Native iOS 26 inset
+  /// grouped containers use ~26pt corners.
+  final LiquidShape? shape;
+
   /// Rendering quality tier.
   final GlassQuality? quality;
 
@@ -933,6 +908,7 @@ class GlassMultiDatePicker extends StatefulWidget {
 
 class _GlassMultiDatePickerState extends State<GlassMultiDatePicker> {
   late DateTime _displayedMonth;
+  bool _showMonthYear = false;
   late Set<DateTime> _selectedDates;
 
   static const List<String> _monthNames = [
@@ -951,23 +927,23 @@ class _GlassMultiDatePickerState extends State<GlassMultiDatePicker> {
   ];
 
   static const List<String> _sundayFirstWeekdays = [
-    'S',
-    'M',
-    'T',
-    'W',
-    'T',
-    'F',
-    'S'
+    'SUN',
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT'
   ];
 
   static const List<String> _mondayFirstWeekdays = [
-    'M',
-    'T',
-    'W',
-    'T',
-    'F',
-    'S',
-    'S'
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN'
   ];
 
   @override
@@ -1156,65 +1132,50 @@ class _GlassMultiDatePickerState extends State<GlassMultiDatePicker> {
     return GlassCard(
       useOwnLayer: true,
       settings: widget.settings,
+      shape: widget.shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
       quality: widget.quality,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 27, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$monthName $year',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
-                  color: CupertinoColors.label.resolveFrom(context),
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CupertinoButton(
-                    padding: const EdgeInsets.all(8),
-                    minimumSize: const Size(0, 32),
-                    onPressed: () => _changeMonth(-1),
-                    child: const Icon(CupertinoIcons.chevron_left, size: 16),
-                  ),
-                  const SizedBox(width: 4),
-                  CupertinoButton(
-                    padding: const EdgeInsets.all(8),
-                    minimumSize: const Size(0, 32),
-                    onPressed: () => _changeMonth(1),
-                    child: const Icon(CupertinoIcons.chevron_right, size: 16),
-                  ),
-                ],
-              ),
-            ],
+          _CalendarHeader(
+            label: '$monthName $year',
+            tint: effectiveTint,
+            pickerOpen: _showMonthYear,
+            onToggle: () => setState(() => _showMonthYear = !_showMonthYear),
+            onPrevious: () => _changeMonth(-1),
+            onNext: () => _changeMonth(1),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: weekdays.map((day) {
-              return SizedBox(
-                width: 38,
-                child: Center(
-                  child: Text(
-                    day,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color:
-                          CupertinoColors.secondaryLabel.resolveFrom(context),
+          if (_showMonthYear)
+            _MonthYearWheel(
+              displayedMonth: _displayedMonth,
+              monthNames: _monthNames,
+              onChanged: (m) => setState(() => _displayedMonth = m),
+            )
+          else ...[
+            const SizedBox(height: 13),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: weekdays.map((day) {
+                return SizedBox(
+                  width: 38,
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            CupertinoColors.secondaryLabel.resolveFrom(context),
+                      ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 8),
-          Column(children: rowWidgets),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+            Column(children: rowWidgets),
+          ],
         ],
       ),
     );
@@ -1310,4 +1271,241 @@ Future<DateTime?> showGlassDatePicker({
   );
 
   return result;
+}
+
+/// Calendar header shared by the graphical and multi-date pickers:
+/// a tappable "Month Year ›" label (opens the month/year wheel) and bold
+/// previous/next chevrons, as in SwiftUI's graphical `DatePicker`.
+class _CalendarHeader extends StatelessWidget {
+  const _CalendarHeader({
+    required this.label,
+    required this.tint,
+    required this.pickerOpen,
+    required this.onToggle,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final String label;
+  final Color tint;
+  final bool pickerOpen;
+  final VoidCallback onToggle;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onToggle,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.4,
+                    color: CupertinoColors.label.resolveFrom(context),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedRotation(
+                  turns: pickerOpen ? 0.25 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: SizedBox(
+                    width: 8,
+                    height: 12,
+                    child: CustomPaint(
+                      painter: _PickerChevronPainter(
+                        color: tint,
+                        halfWidth: 2.2,
+                        halfHeight: 4.2,
+                        strokeWidth: 2.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          if (!pickerOpen) ...[
+            _navButton(onPrevious, left: true),
+            const SizedBox(width: 8),
+            _navButton(onNext, left: false),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _navButton(VoidCallback onTap, {required bool left}) {
+    return Semantics(
+      button: true,
+      label: left ? 'Previous month' : 'Next month',
+      child: GestureDetector(
+        key: ValueKey<String>(
+            left ? 'glass_calendar_previous' : 'glass_calendar_next'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 36,
+          height: 44,
+          child: CustomPaint(
+            painter: _PickerChevronPainter(
+              color: tint,
+              halfWidth: 4.5,
+              halfHeight: 8.5,
+              strokeWidth: 2.8,
+              pointsLeft: left,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bold, round-capped chevron matching SF Symbols `chevron.left/right`.
+class _PickerChevronPainter extends CustomPainter {
+  const _PickerChevronPainter({
+    required this.color,
+    required this.halfWidth,
+    required this.halfHeight,
+    required this.strokeWidth,
+    this.pointsLeft = false,
+  });
+
+  final Color color;
+  final double halfWidth;
+  final double halfHeight;
+  final double strokeWidth;
+  final bool pointsLeft;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final dir = pointsLeft ? -1.0 : 1.0;
+    final path = Path()
+      ..moveTo(cx - dir * halfWidth, cy - halfHeight)
+      ..lineTo(cx + dir * halfWidth, cy)
+      ..lineTo(cx - dir * halfWidth, cy + halfHeight);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_PickerChevronPainter old) =>
+      old.color != color ||
+      old.halfWidth != halfWidth ||
+      old.halfHeight != halfHeight ||
+      old.strokeWidth != strokeWidth ||
+      old.pointsLeft != pointsLeft;
+}
+
+/// Month / year wheels shown in place of the day grid when the calendar
+/// header is tapped (native graphical `DatePicker` behaviour).
+class _MonthYearWheel extends StatefulWidget {
+  const _MonthYearWheel({
+    required this.displayedMonth,
+    required this.monthNames,
+    required this.onChanged,
+  });
+
+  final DateTime displayedMonth;
+  final List<String> monthNames;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  State<_MonthYearWheel> createState() => _MonthYearWheelState();
+}
+
+class _MonthYearWheelState extends State<_MonthYearWheel> {
+  static const int _firstYear = 1900;
+  static const int _yearCount = 300;
+
+  late final FixedExtentScrollController _monthController;
+  late final FixedExtentScrollController _yearController;
+  late int _month;
+  late int _year;
+
+  @override
+  void initState() {
+    super.initState();
+    _month = widget.displayedMonth.month;
+    _year = widget.displayedMonth.year;
+    _monthController = FixedExtentScrollController(initialItem: _month - 1);
+    _yearController =
+        FixedExtentScrollController(initialItem: _year - _firstYear);
+  }
+
+  @override
+  void dispose() {
+    _monthController.dispose();
+    _yearController.dispose();
+    super.dispose();
+  }
+
+  void _emit() {
+    HapticFeedback.selectionClick();
+    widget.onChanged(DateTime(_year, _month, 1));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: 21,
+      color: CupertinoColors.label.resolveFrom(context),
+    );
+    return SizedBox(
+      height: 216,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: CupertinoPicker(
+              scrollController: _monthController,
+              itemExtent: 36,
+              onSelectedItemChanged: (i) {
+                _month = i + 1;
+                _emit();
+              },
+              children: [
+                for (final m in widget.monthNames)
+                  Center(child: Text(m, style: style)),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: CupertinoPicker(
+              scrollController: _yearController,
+              itemExtent: 36,
+              onSelectedItemChanged: (i) {
+                _year = _firstYear + i;
+                _emit();
+              },
+              children: [
+                for (var y = _firstYear; y < _firstYear + _yearCount; y++)
+                  Center(child: Text('$y', style: style)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

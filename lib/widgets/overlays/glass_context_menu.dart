@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
-import '../../constants/glass_defaults.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
 import '../../types/glass_quality.dart';
@@ -476,7 +475,7 @@ Future<T?> showGlassContextMenu<T>({
       glassSettings: settings,
       quality: quality,
       backdropBlur: backdropBlur,
-      barrierColor: barrierColor ?? GlassDefaults.barrierColor,
+      scrimColor: barrierColor,
       menuWidth: menuWidth,
       enableHaptics: enableHaptics,
       routeStaticKey: routeStaticKey,
@@ -494,7 +493,7 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
     this.glassSettings,
     this.quality,
     required this.backdropBlur,
-    required this.barrierColor,
+    this.scrimColor,
     required this.menuWidth,
     required this.enableHaptics,
     this.routeStaticKey,
@@ -508,8 +507,16 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
   final LiquidGlassSettings? glassSettings;
   final GlassQuality? quality;
   final double backdropBlur;
+
+  /// Optional override for the dimming scrim. When null the scrim adapts to
+  /// the ambient brightness.
+  final Color? scrimColor;
+
+  // The page paints its own animated scrim; a route-level barrier colour would
+  // be composited on top of it and double the dimming.
   @override
-  final Color barrierColor;
+  Color? get barrierColor => null;
+
   final double menuWidth;
   final bool enableHaptics;
   final GlobalKey? routeStaticKey;
@@ -542,7 +549,7 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
       settings: glassSettings,
       quality: quality,
       backdropBlur: backdropBlur,
-      barrierColor: barrierColor,
+      scrimColor: scrimColor,
       menuWidth: menuWidth,
       enableHaptics: enableHaptics,
       animation: animation,
@@ -561,7 +568,7 @@ class _GlassContextMenuRouteStatic extends StatefulWidget {
     this.settings,
     this.quality,
     required this.backdropBlur,
-    required this.barrierColor,
+    this.scrimColor,
     required this.menuWidth,
     required this.enableHaptics,
     required this.animation,
@@ -575,7 +582,7 @@ class _GlassContextMenuRouteStatic extends StatefulWidget {
   final LiquidGlassSettings? settings;
   final GlassQuality? quality;
   final double backdropBlur;
-  final Color barrierColor;
+  final Color? scrimColor;
   final double menuWidth;
   final bool enableHaptics;
   final Animation<double> animation;
@@ -711,34 +718,160 @@ class _GlassContextMenuRouteStaticState
                 ? Alignment.bottomRight
                 : Alignment.bottomCenter));
 
-    final Widget previewWidget = widget.previewBuilder != null
+    final bool isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
+    final Color scrim = widget.scrimColor ??
+        (isDark ? const Color(0x66000000) : const Color(0x33000000));
+    // Light mode: a bright, milky platter (iOS 26 context menus are light
+    // glass over a dimmed backdrop). Dark mode keeps the package defaults.
+    final LiquidGlassSettings? platterSettings = widget.settings ??
+        (isDark
+            ? null
+            : const LiquidGlassSettings(
+                glassColor: Color(0xCCF5F5F7),
+                thickness: 16,
+                blur: 22,
+                saturation: 1.2,
+                lightIntensity: 0.35,
+              ));
+    final bool hasCustomPreview = widget.previewBuilder != null;
+
+    final Widget previewWidget = hasCustomPreview
         ? widget.previewBuilder!(context)
         : (widget.previewChild ?? const SizedBox.shrink());
+
+    Widget buildPlatter() {
+      return GlassCard(
+        useOwnLayer: true,
+        padding: EdgeInsets.zero,
+        margin: EdgeInsets.zero,
+        shape: LiquidRoundedSuperellipse(borderRadius: widget.borderRadius),
+        settings: platterSettings,
+        quality: widget.quality,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (int i = 0; i < widget.actions.length; i++) ...[
+                Container(
+                  key: _actionKeys[i],
+                  color: _hoveredIndex == i
+                      ? (widget.actions[i] is GlassContextMenuAction &&
+                              (widget.actions[i] as GlassContextMenuAction)
+                                  .isDestructive
+                          ? CupertinoColors.destructiveRed
+                              .withValues(alpha: 0.16)
+                          : CupertinoColors.activeBlue.withValues(alpha: 0.12))
+                      : const Color(0x00000000),
+                  child: widget.actions[i],
+                ),
+                if (i < widget.actions.length - 1)
+                  const GlassDivider(indent: 16.0),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget liftedPreview(double animValue, Widget child) {
+      return Transform.scale(
+        scale: 0.92 + (0.08 * animValue),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            boxShadow: [
+              BoxShadow(
+                color:
+                    CupertinoColors.black.withValues(alpha: 0.28 * animValue),
+                blurRadius: 28.0 * animValue,
+                offset: Offset(0, 10.0 * animValue),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            child: child,
+          ),
+        ),
+      );
+    }
 
     return AnimatedBuilder(
       animation: curved,
       builder: (context, _) {
         final double animValue = curved.value;
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Defocused liquid glass backdrop
-            GestureDetector(
-              onTap: () => Navigator.of(context, rootNavigator: true).pop(),
-              behavior: HitTestBehavior.opaque,
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: widget.backdropBlur * animValue,
-                  sigmaY: widget.backdropBlur * animValue,
-                ),
-                child: Container(
-                  color: widget.barrierColor.withValues(
-                    alpha: widget.barrierColor.a * animValue,
+        final Widget scrimLayer = GestureDetector(
+          onTap: () => Navigator.of(context, rootNavigator: true).pop(),
+          behavior: HitTestBehavior.opaque,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: widget.backdropBlur * animValue,
+              sigmaY: widget.backdropBlur * animValue,
+            ),
+            child: Container(
+              color: scrim.withValues(alpha: scrim.a * animValue),
+            ),
+          ),
+        );
+
+        if (hasCustomPreview) {
+          // Custom preview: laid out at its natural size (like SwiftUI's
+          // `.contextMenu(preview:)`), with the platter stacked beneath it.
+          // The group is centred on the target and clamped to the safe area.
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              scrimLayer,
+              Positioned.fill(
+                child: SafeArea(
+                  minimum: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: screenSize.width - 32.0,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: () =>
+                                  Navigator.of(context, rootNavigator: true)
+                                      .pop(),
+                              child: liftedPreview(animValue, previewWidget),
+                            ),
+                            const SizedBox(height: 12.0),
+                            SizedBox(
+                              width: widget.menuWidth,
+                              child: Transform.scale(
+                                scale: 0.85 + (0.15 * animValue),
+                                alignment: Alignment.topCenter,
+                                child: Opacity(
+                                  opacity: animValue.clamp(0.0, 1.0),
+                                  child: buildPlatter(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
+          );
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            scrimLayer,
 
             // Lifted target preview
             Positioned(
@@ -748,30 +881,7 @@ class _GlassContextMenuRouteStaticState
               height: widget.targetRect.height,
               child: GestureDetector(
                 onTap: () => Navigator.of(context, rootNavigator: true).pop(),
-                child: Transform.scale(
-                  scale: 0.96 + (0.06 * animValue), // 0.96 -> 1.02x
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        widget.borderRadius * animValue,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: CupertinoColors.black
-                              .withValues(alpha: 0.35 * animValue),
-                          blurRadius: 28.0 * animValue,
-                          offset: Offset(0, 10.0 * animValue),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        widget.borderRadius * animValue,
-                      ),
-                      child: previewWidget,
-                    ),
-                  ),
-                ),
+                child: liftedPreview(animValue, previewWidget),
               ),
             ),
 
@@ -788,44 +898,7 @@ class _GlassContextMenuRouteStaticState
                 alignment: menuAlignment,
                 child: Opacity(
                   opacity: animValue.clamp(0.0, 1.0),
-                  child: GlassCard(
-                    useOwnLayer: true,
-                    padding: EdgeInsets.zero,
-                    margin: EdgeInsets.zero,
-                    shape: LiquidRoundedSuperellipse(
-                      borderRadius: widget.borderRadius,
-                    ),
-                    settings: widget.settings,
-                    quality: widget.quality,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(widget.borderRadius),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (int i = 0; i < widget.actions.length; i++) ...[
-                            Container(
-                              key: _actionKeys[i],
-                              color: _hoveredIndex == i
-                                  ? (widget.actions[i]
-                                              is GlassContextMenuAction &&
-                                          (widget.actions[i]
-                                                  as GlassContextMenuAction)
-                                              .isDestructive
-                                      ? CupertinoColors.destructiveRed
-                                          .withValues(alpha: 0.16)
-                                      : CupertinoColors.activeBlue
-                                          .withValues(alpha: 0.12))
-                                  : const Color(0x00000000),
-                              child: widget.actions[i],
-                            ),
-                            if (i < widget.actions.length - 1)
-                              const GlassDivider(indent: 16.0),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: buildPlatter(),
                 ),
               ),
             ),

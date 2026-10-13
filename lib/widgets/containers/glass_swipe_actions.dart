@@ -797,12 +797,16 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
             ? (widget.action.label as Text).data
             : null);
 
-    final BoxDecoration decoration;
+    // NOTE: A BoxDecoration paints its `gradient` *instead of* its `color`
+    // when both are set, so the tint and the specular sheen are two layers:
+    // a solid tint underneath and the sheen decoration on top of it.
+    final Color tint;
+    final BoxDecoration sheen;
     if (widget.style == GlassSwipeActionStyle.tintedGlass) {
-      decoration = BoxDecoration(
-        color: _isPressed
-            ? effectiveBgColor.withValues(alpha: 0.76)
-            : effectiveBgColor.withValues(alpha: 0.90),
+      tint = _isPressed
+          ? effectiveBgColor.withValues(alpha: 0.76)
+          : effectiveBgColor.withValues(alpha: 0.90);
+      sheen = BoxDecoration(
         border: Border(
           top: BorderSide(
             color: CupertinoColors.white.withValues(alpha: 0.22),
@@ -821,10 +825,10 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
         ),
       );
     } else {
-      decoration = BoxDecoration(
-        color: _isPressed
-            ? effectiveBgColor.withValues(alpha: 0.82)
-            : effectiveBgColor,
+      tint = _isPressed
+          ? effectiveBgColor.withValues(alpha: 0.82)
+          : effectiveBgColor;
+      sheen = BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -858,39 +862,44 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
           onTap: widget.onPressed,
-          child: Container(
-            decoration: decoration,
-            alignment: effectiveAlignment,
-            child: SizedBox(
-              width: widget.standardWidth,
-              child: AnimatedScale(
-                scale: widget.isFullSwipe ? 1.08 : 1.0,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                child: IconTheme(
-                  data: IconThemeData(
-                    color: effectiveFgColor,
-                    size: 22,
-                  ),
-                  child: DefaultTextStyle(
-                    style: TextStyle(
-                      color: effectiveFgColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        widget.action.icon,
-                        if (widget.action.label != null) ...[
-                          const SizedBox(height: 3),
-                          widget.action.label!,
-                        ],
-                      ],
+          child: ColoredBox(
+            color: tint,
+            child: DecoratedBox(
+              decoration: sheen,
+              child: Container(
+                alignment: effectiveAlignment,
+                child: SizedBox(
+                  width: widget.standardWidth,
+                  child: AnimatedScale(
+                    scale: widget.isFullSwipe ? 1.08 : 1.0,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: effectiveFgColor,
+                        size: 22,
+                      ),
+                      child: DefaultTextStyle(
+                        style: TextStyle(
+                          color: effectiveFgColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            widget.action.icon,
+                            if (widget.action.label != null) ...[
+                              const SizedBox(height: 3),
+                              widget.action.label!,
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
