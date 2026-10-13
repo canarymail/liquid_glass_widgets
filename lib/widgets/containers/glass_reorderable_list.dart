@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
-import 'glass_card.dart';
+import '../../types/glass_surface_style.dart';
+import 'glass_container.dart';
 import 'glass_divider.dart';
 
 /// A reorderable list of items rendered with iOS liquid glass aesthetics,
@@ -59,10 +60,15 @@ class GlassReorderableList extends StatelessWidget {
         _settings = null,
         _shape = null,
         _quality = null,
-        _useOwnLayer = null;
+        _useOwnLayer = null,
+        _surfaceStyle = GlassSurfaceStyle.glass;
 
   /// Creates a [GlassReorderableList] styled as an iOS grouped table card
   /// with superellipse corners, automatic dividers, and optional header/footer.
+  ///
+  /// [surfaceStyle] defaults to [GlassSurfaceStyle.glass] in 1.x. Glass on
+  /// scrolling list content is discouraged; use [GlassSurfaceStyle.solid] for
+  /// a flat opaque card matching native iOS inset-grouped lists.
   const GlassReorderableList.grouped({
     super.key,
     required this.itemCount,
@@ -80,6 +86,7 @@ class GlassReorderableList extends StatelessWidget {
     LiquidShape? shape,
     GlassQuality? quality,
     bool? useOwnLayer,
+    GlassSurfaceStyle surfaceStyle = GlassSurfaceStyle.glass,
   })  : assert(
           onReorderItem != null || onReorder != null,
           'Either onReorderItem or onReorder must be provided.',
@@ -88,7 +95,8 @@ class GlassReorderableList extends StatelessWidget {
         _settings = settings,
         _shape = shape,
         _quality = quality,
-        _useOwnLayer = useOwnLayer;
+        _useOwnLayer = useOwnLayer,
+        _surfaceStyle = surfaceStyle;
 
   /// Total number of items in the list.
   final int itemCount;
@@ -136,6 +144,7 @@ class GlassReorderableList extends StatelessWidget {
   final LiquidShape? _shape;
   final GlassQuality? _quality;
   final bool? _useOwnLayer;
+  final GlassSurfaceStyle _surfaceStyle;
 
   Widget _defaultProxyDecorator(
     Widget child,
@@ -194,13 +203,17 @@ class GlassReorderableList extends StatelessWidget {
     );
 
     if (_isGrouped) {
-      final card = GlassCard(
+      final card = GlassContainer.card(
         useOwnLayer: _useOwnLayer ?? false,
         padding: EdgeInsets.zero,
         margin: EdgeInsets.zero,
-        shape: _shape ?? const LiquidRoundedSuperellipse(borderRadius: 12),
+        shape: _shape,
         settings: _settings,
         quality: _quality,
+        surfaceStyle: _surfaceStyle,
+        clipBehavior: _surfaceStyle == GlassSurfaceStyle.solid
+            ? Clip.antiAlias
+            : Clip.none,
         child: listView,
       );
 

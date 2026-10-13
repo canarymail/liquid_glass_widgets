@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart' show CupertinoDynamicColor;
 import 'package:flutter/widgets.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
 import '../shared/adaptive_glass.dart';
 import '../shared/inherited_liquid_glass.dart';
 import '../../theme/glass_theme_helpers.dart';
@@ -74,6 +76,25 @@ import '../../theme/glass_theme_helpers.dart';
 /// )
 /// ```
 ///
+/// ## Card preset: [GlassContainer.card]
+///
+/// [GlassContainer.card] is the card preset (16px padding, 12px superellipse
+/// corners for [GlassSurfaceStyle.glass]). It is the replacement for the
+/// deprecated `GlassCard`, and adds a `surfaceStyle`:
+///
+/// ```dart
+/// // Native iOS inset-grouped card: flat, opaque, no blur / rim / shadow.
+/// GlassContainer.card(
+///   surfaceStyle: GlassSurfaceStyle.solid,
+///   child: Text('Hello'),
+/// )
+/// ```
+///
+/// Glass on **scrolling list content** is discouraged. iOS renders list cards
+/// as flat opaque surfaces, and each glass card adds a backdrop-sampling cost
+/// while scrolling. Use [GlassSurfaceStyle.solid] for cards inside lists and
+/// reserve glass for chrome that floats above content.
+///
 /// ## ⚠️ Anti-Pattern: Do Not Place Glass Controls Inside a GlassContainer
 ///
 /// [GlassContainer] is a **foundational surface**, not a generic wrapper.
@@ -123,7 +144,60 @@ class GlassContainer extends StatelessWidget {
     this.allowElevation = false,
     this.glowIntensity = 0.0,
     this.platformViewBackdrop = false,
-  });
+  }) : _surfaceStyle = GlassSurfaceStyle.glass;
+
+  /// Creates a card-like container with opinionated defaults.
+  ///
+  /// Defaults match the (deprecated) `GlassCard`: [padding] of 16 on all sides
+  /// and, for [GlassSurfaceStyle.glass], a 12px [LiquidRoundedSuperellipse].
+  ///
+  /// [surfaceStyle] chooses how the card is painted:
+  ///
+  /// - [GlassSurfaceStyle.glass] (default in 1.x): the normal glass surface.
+  /// - [GlassSurfaceStyle.solid]: a flat opaque fill (white in light mode,
+  ///   `#1C1C1E` in dark mode) with no blur, rim, refraction or shadow,
+  ///   matching native iOS inset-grouped list cards. When [shape] is null the
+  ///   solid card uses a 26px [LiquidRoundedSuperellipse]. [settings],
+  ///   [useOwnLayer] and [quality] are ignored for solid cards.
+  ///
+  /// Glass cards inside scrolling list content are discouraged; prefer
+  /// [GlassSurfaceStyle.solid] there.
+  const GlassContainer.card({
+    super.key,
+    this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.margin,
+    LiquidShape? shape,
+    this.settings,
+    this.useOwnLayer = false,
+    this.quality,
+    this.clipBehavior = Clip.none,
+    this.width,
+    this.height,
+    GlassSurfaceStyle surfaceStyle = GlassSurfaceStyle.glass,
+  })  : shape = shape ??
+            (surfaceStyle == GlassSurfaceStyle.solid
+                ? _solidCardShape
+                : _glassCardShape),
+        alignment = null,
+        allowElevation = false,
+        glowIntensity = 0.0,
+        platformViewBackdrop = false,
+        _surfaceStyle = surfaceStyle;
+
+  static const _glassCardShape = LiquidRoundedSuperellipse(borderRadius: 12);
+
+  /// Native inset-grouped list cards use ~26pt continuous corners.
+  static const _solidCardShape = LiquidRoundedSuperellipse(borderRadius: 26);
+
+  /// Fill of [GlassSurfaceStyle.solid]: iOS `secondarySystemGroupedBackground`
+  /// (white / `#1C1C1E`), without the elevated-dark variant.
+  static const _solidFill = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFFFFFFF),
+    darkColor: Color(0xFF1C1C1E),
+  );
+
+  final GlassSurfaceStyle _surfaceStyle;
 
   // ===========================================================================
   // Content Properties
@@ -280,6 +354,12 @@ class GlassContainer extends StatelessWidget {
       );
     }
 
+    // Solid surfaces are a plain filled/clipped shape — no AdaptiveGlass, so no
+    // shader, backdrop sampling or rim can render.
+    if (_surfaceStyle == GlassSurfaceStyle.solid) {
+      return _applyLayout(_buildSolid(context, content, effectiveQuality));
+    }
+
     // 4. Apply glass effect with adaptive fallback
     // Premium quality uses Impeller on iOS/macOS, falls back to lightweight shader on web
     // Standard quality always uses lightweight shader
@@ -328,23 +408,68 @@ class GlassContainer extends StatelessWidget {
       ),
     );
 
+    return _applyLayout(glassWidget);
+  }
+
+  /// Paints a flat opaque card: a [ShapeDecoration] fill (with the same
+  /// [shape]'s path, so corners match the glass variant) and, when
+  /// [clipBehavior] is not [Clip.none], a [ShapeBorderClipper] for the content.
+  ///
+  /// The [InheritedLiquidGlass] wrapper is kept so descendants behave exactly
+  /// as they do inside a glass container (nested glass avoids refraction).
+  Widget _buildSolid(
+    BuildContext context,
+    Widget content,
+    GlassQuality effectiveQuality,
+  ) {
+    final effectiveSettings = GlassThemeHelpers.resolveSettings(
+      context,
+      explicit: settings,
+    );
+
+    Widget inner = InheritedLiquidGlass(
+      settings: effectiveSettings,
+      quality: effectiveQuality,
+      avoidsRefraction: true,
+      child: content,
+    );
+
+    if (clipBehavior != Clip.none) {
+      inner = ClipPath(
+        clipper: ShapeBorderClipper(shape: shape),
+        clipBehavior: clipBehavior,
+        child: inner,
+      );
+    }
+
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        color: CupertinoDynamicColor.resolve(_solidFill, context),
+        shape: shape,
+      ),
+      child: inner,
+    );
+  }
+
+  /// Applies width/height constraints, then margin outside the surface.
+  Widget _applyLayout(Widget surface) {
     // 5. Apply width/height constraints
     if (width != null || height != null) {
-      glassWidget = SizedBox(
+      surface = SizedBox(
         width: width,
         height: height,
-        child: glassWidget,
+        child: surface,
       );
     }
 
     // 6. Apply margin outside the glass effect
     if (margin != null) {
-      glassWidget = Padding(
+      surface = Padding(
         padding: margin!,
-        child: glassWidget,
+        child: surface,
       );
     }
 
-    return glassWidget;
+    return surface;
   }
 }
