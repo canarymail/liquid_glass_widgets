@@ -137,6 +137,12 @@ class _ParityHostState extends State<_ParityHost> {
         a[1] == 'on' ? _edit.startEditing() : _edit.stopEditing();
       case 'cover':
         _presentCover();
+      case 'push':
+        Navigator.of(context).push(
+          CupertinoPageRoute<void>(
+            builder: (_) => const _NavDetail('Level 1: Optics Architecture'),
+          ),
+        );
       case 'expand':
         final v = [..._expanded.value];
         v[int.parse(a[1])] = a[2] == 'on';
@@ -741,6 +747,13 @@ class _NavDetail extends StatelessWidget {
                   'and synchronized title.',
                   textAlign: TextAlign.center,
                 ),
+              ),
+              CupertinoButton.filled(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                borderRadius: BorderRadius.circular(20),
+                onPressed: () {},
+                child: const Text('Push Deeper'),
               ),
             ],
           ),

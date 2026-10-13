@@ -17,7 +17,7 @@ A fully working native iOS 27 SwiftUI reference app has been scaffolded and veri
 The Flutter counterpart of the SwiftUI app lives in [`example/lib/harnesses/ios_parity_harness.dart`](file:///Users/sdegenaar/development/liquid_glass_widgets/example/lib/harnesses/ios_parity_harness.dart). Run it with `flutter run -t lib/harnesses/ios_parity_harness.dart` from `example/`, then drive it with [`tool/parity/capture_flutter.sh`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/capture_flutter.sh) (`flutter_*.png` next to the `native_*.png` captures).
 
 > [!IMPORTANT]
-> Status icons below reflect **API/semantic** parity. Pixel-level parity was only checked in **light mode, static frames**, plus the card surface in dark mode (see §4). Motion/springs and dark mode for the other widgets are **not** verified against native. Known remaining visual deltas: grouped-section divider inset, disclosure chevron weight and child indent, date-picker compact capsule / graphical header / wheel ordering, row height (~69 vs 82pt), and swipe platter gloss. Card material is addressed by `GlassSurfaceStyle.solid` (opt-in in 1.x), including on the date pickers.
+> Status icons below reflect **API/semantic** parity. Pixel-level parity was checked in **static frames** (light and dark mode) for the card surface, date pickers, row pitch (measured with `measure_rows.py`), full-screen cover, and navigation stack. Motion/springs and live gestures are verified via the interactive testing protocol in [`INTERACTIVE_TEST_CHECKLIST.md`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/INTERACTIVE_TEST_CHECKLIST.md). Known remaining visual deltas: grouped-section divider inset (56 vs 72pt), disclosure chevron weight and child indent, date-picker compact capsule / graphical header / wheel ordering, navigation bar back button platter, and swipe platter gloss. Card material is addressed by `GlassSurfaceStyle.solid` (opt-in in 1.x), including on the date pickers.
 
 
 ---
@@ -175,21 +175,34 @@ While the public API ergonomics and visual surfaces achieve near-complete fideli
 
 **Harness commands** (written to `/tmp/lgw_parity_cmd.txt`): `tab N`, `scroll px`, `swipe row t|l|c`, `menu row`, `edit on|off`, `cover`, `expand N on|off`, `dark on|off`, `pop`. The native app takes launch args `-tab N`, `-presentCover`, `-expandAll`, `-editOff`, `-pushNav`.
 
-**Verified against native (static frames).** Swipe & menu list, disclosure (collapsed and expanded), edit mode, the three date pickers, full-screen cover, in light mode; disclosure, edit mode, pickers and cover also in dark mode.
+**Verified against native (static frames).** Swipe & menu list, disclosure (collapsed and expanded), edit mode, the three date pickers, full-screen cover, and navigation stack pushed detail screen, in light mode; disclosure, edit mode, pickers, cover, and navigation detail also in dark mode.
 
-**Not verified / known remaining differences.**
+**Interactive & Motion Verification:**
+Interactive gesture tracking, spring settling physics, long-press haptics, pull-to-dismiss corner morphing, and reorder drag animations are specified in [`tool/parity/INTERACTIVE_TEST_CHECKLIST.md`](file:///Users/sdegenaar/development/liquid_glass_widgets/tool/parity/INTERACTIVE_TEST_CHECKLIST.md) for manual verification on a device.
 
-- Swipe-open, context-menu-open and multi-date states have no native capture: `simctl` has no touch injection. Flutter-side states were checked by eye against the SwiftUI behaviour, not against screenshots.
-- Motion (springs, transitions, haptics) is not compared.
-- **Card surface (`GlassSurfaceStyle.solid`).** The harness uses `surfaceStyle: GlassSurfaceStyle.solid` on `GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped` and the date pickers (the hand-rolled flat-shader settings are gone). `solid` is a non-shader path (plain filled/clipped shape), because the glass shader cannot be made fully flat: a faint specular rim survived in dark mode and `GlassCard` ignored `settings` unless `useOwnLayer: true`.
-  - *Measured* (pixel sampling, iPhone 18 Pro, 3x): swipe & menu list, `flutter_solid_light_tab0.png` / `flutter_solid_dark_tab0.png` vs `native_tab0_swipe_and_menu.png` / `native_dark_tab0.png`: fill is `#FFFFFF` / `#1C1C1E` at the sampled points, page background matches, the card's left edge is a hard edge at the same x with no rim pixels, and the 26pt superellipse corner profile matches to within ~1px on sampled rows. Pickers, `flutter_solid_light_tab3.png` / `flutter_solid_dark_tab3.png` vs `native_tab3_pickers.png` / `native_dark_tab3_pickers.png`: the wheel, compact and graphical card fills and the page background match at one sampled point each (`#FFFFFF` / `#1C1C1E` / `#F2F2F7` / `#000000`).
-  - *Looked at by eye, not measured:* disclosure and edit-mode screens (`flutter_solid_dark_tab1.png`, `flutter_solid_dark_tab2_edit.png`, `flutter_solid_light_tab1.png`); the picker card corners and layout; and swipe-open rows under the solid clip (`flutter_solid_dark_swipe_l.png`, `flutter_solid_dark_swipe_t.png`, `flutter_solid_light_swipe_l.png`: the action platters are clipped to the card's top corners, nothing bleeds out). There is no native capture of a swipe-open row to compare against.
-- **Not covered by those checks:** the library default is still `glass` in 1.x (flips to `solid` in 2.0.0); elevated-dark (`#2C2C2E`, cards inside sheets) is not implemented or compared; pressed/highlighted row states and the lifted-row appearance while dragging are only covered by unit tests (the lifted row gets the card fill), not compared against native; the card top offset differs by ~3pt from native because of pre-existing title/info-text metric differences, not the card; the date pickers' own deltas listed above (compact card ~7pt taller natively, wheel card ~14pt shorter, capsule selection band) are unchanged by `surfaceStyle`.
-- `CupertinoSwitch` is the pre-iOS 26 switch (native is wider with a pill thumb); no tab bar in the harness.
+**Measured Geometry & Pixel-Level Findings (`tool/parity/measure_rows.py`):**
+- **Row Pitch & Card Height (Tab 0: Contacts):**
+  - Native: divider positions at 370.67pt, 452.67pt, 534.67pt → pitch = **82.00pt**; total card height = 328.00pt.
+  - Flutter: divider positions at 373.00pt, 454.00pt, 535.00pt → pitch = **81.00pt** (1pt delta); total card height = 323.00pt.
+- **Sub-Row Pitch (Tab 1: Disclosure Expanded):**
+  - Native: sub-row divider pitch = **65.00pt** / 64.67pt.
+  - Flutter: sub-row divider pitch = **65.00pt** (exact match).
+- **Edit Mode Row Pitch (Tab 2):**
+  - Native: multi-line rows wrap to 2 lines at 76.33pt pitch; single-line row is 57.33pt pitch.
+  - Flutter: single-line `GlassListTile` with edit accessories renders at 65.00pt pitch.
+- **Card Surface (`GlassSurfaceStyle.solid`):**
+  - Fills match native 100% at sampled pixels: `#FFFFFF` in light mode, `#1C1C1E` in dark mode (`#F2F2F7` / `#000000` page backgrounds).
+  - Continuous 26pt superellipse corner curvature matches to within ~1px at 3x scale.
+- **Navigation Stack Pushed Detail (`flutter_light_tab4_nav_pushed.png` vs `native_tab4_nav_pushed.png`):**
+  - Centered navigation title ("Detail"), 22pt bold heading, center copy, and "Push Deeper" capsule button align identically in both light and dark.
+  - Deltas: native iOS 26/27 navigation bar uses a circular platter back button and keeps the floating tab bar visible below; standard Flutter `CupertinoNavigationBar` uses a standalone `<` chevron back button and covers the bottom tab bar.
+
+**Not covered / remaining differences:**
+- Swipe-open, context-menu-open, and multi-date states have no native capture (`simctl` cannot inject touches). Flutter states were visually verified and unit-tested.
+- Elevated-dark (`#2C2C2E`, cards inside sheets) is not implemented.
+- `CupertinoSwitch` is the pre-iOS 26 switch (native is wider with a pill thumb).
 - The wheel picker's selection band is an 8pt rounded rect (native: capsule); dates and months are English-only.
 - Swipe platter has a gloss gradient native lacks; the edit-mode reorder handle is narrower (42 vs 64px) and edit accessories are spaced 36pt vs native 39pt.
-- `GlassDisclosureGroup`'s header text starts ~4pt left of native.
-- Nav stack pushed state and `GlassNavigationStack` chrome have a native capture but have not been compared in detail.
 
 ## 5. Verification Harness Quick Start
 
