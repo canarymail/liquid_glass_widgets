@@ -54,6 +54,7 @@ export 'widgets/shared/glass_scroll_edge_effect.dart';
 export 'widgets/shared/glass_swipe_action_scope.dart';
 export 'widgets/shared/glass_edit_scope.dart';
 export 'widgets/shared/inherited_liquid_glass.dart';
+export 'widgets/shared/glass_solid_surface.dart';
 export 'widgets/shared/lightweight_liquid_glass.dart';
 
 // Utils — for advanced / custom widget authors

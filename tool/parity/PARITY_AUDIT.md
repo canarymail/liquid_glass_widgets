@@ -33,7 +33,7 @@ The Flutter counterpart of the SwiftUI app lives in [`example/lib/harnesses/ios_
 | **Action Configuration** | `Button(role: .destructive) { } label: { Label(...) }` with `.tint(...)` | `GlassSwipeAction(icon: ..., label: ..., backgroundColor: ..., isDestructive: true)` | ✅ Direct configuration |
 | **Physics** | Underdamped spring physics; rubber-bands beyond bounds | `GlassSpring.snappy()`; damped elastic resistance when full swipe disabled | ✅ Matches iOS spring feel |
 | **Haptics** | `UIImpactFeedbackGenerator(style: .medium)` at full-swipe threshold | `HapticFeedback.mediumImpact()` upon crossing threshold | ✅ Identical |
-| **Materials** | Flat tinted platter | `GlassSwipeActionStyle.tintedGlass` & `solidVibrancy` | ⚠️ Tint now correct (was not painted); Flutter adds a gloss gradient native lacks |
+| **Materials** | Flat tinted platter | `GlassSwipeActionStyle.tintedGlass` & `solidVibrancy` | ✅ 1:1 Parity (`solidVibrancy` uses flat fills matching native SwiftUI; `tintedGlass` provides liquid glass opt-in) |
 
 **Native Swift Reference:**
 ```swift
@@ -200,9 +200,9 @@ Interactive gesture tracking, spring settling physics, long-press haptics, pull-
 **Not covered / remaining differences:**
 - Swipe-open, context-menu-open, and multi-date states have no native capture (`simctl` cannot inject touches). Flutter states were visually verified and unit-tested.
 - Elevated-dark (`#2C2C2E`, cards inside sheets) is not implemented.
-- `CupertinoSwitch` is the pre-iOS 26 switch (native is wider with a pill thumb).
+- `GlassSwitch` in the harness matches the wider iOS 26 stadium footprint and pill thumb; thumb elevation shadow and contrast tint during the mid-flight toggle jump on solid surfaces are scheduled as a dedicated follow-up.
 - The wheel picker's selection band is an 8pt rounded rect (native: capsule); dates and months are English-only.
-- Swipe platter has a gloss gradient native lacks; the edit-mode reorder handle is narrower (42 vs 64px) and edit accessories are spaced 36pt vs native 39pt.
+- Swipe platter: `solidVibrancy` provides flat fills matching native SwiftUI; the edit-mode reorder handle is narrower (42 vs 64px) and edit accessories are spaced 36pt vs native 39pt.
 
 ## 5. Verification Harness Quick Start
 

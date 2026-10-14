@@ -3,11 +3,13 @@
 ## Features
 
 - **Swipe actions (`.swipeActions()`) via `GlassSwipeActions` and `GlassSwipeActionScope`:** Adds authentic iOS-style swipe gestures to list tiles and containers with spring physics (`GlassSpring.snappy()`), rubber-band damping when full swipe is disabled, and full-swipe execution (`fullSwipeThreshold`, default 0.65).
-  - `GlassSwipeAction`: Configurable action button data class defining icon, label, background color, destructive styling, flex, and callbacks.
-  - `GlassSwipeActions`: Container widget that wraps any row with smooth horizontal pan disambiguation, proportional reveal platters with subtle liquid glass specular sheens, and full-swipe threshold triggering haptic feedback and automatic execution on release.
-  - `GlassSwipeActionStyle`: Added `tintedGlass` (iOS 26/27 liquid glass with specular sheen and top border rim highlight) and `solidVibrancy` (classic opaque table view platter) material styles.
-  - `GlassSwipeActionScope`: Inherited widget providing single-open row mutual exclusivity (opening row B automatically springs row A closed) and auto-dismissal upon scrolling.
-  - `GlassListTile` first-class integration: Added `leadingSwipeActions`, `trailingSwipeActions`, `swipeActionStyle`, and `onDismissed` (animated row height collapse) parameters directly on both grouped and standalone constructors.
+  - `GlassSwipeAction`: Action button data (icon, label, `backgroundColor`, `isDestructive`, flex, `onTap`).
+  - `GlassSwipeActions`: Wraps any row with horizontal-pan disambiguation against vertical scrolling, proportional reveal platters, and haptic full-swipe execution on release.
+  - `GlassSwipeActionStyle`: `tintedGlass` (iOS 26/27 liquid glass with specular sheen and rim highlight) and `solidVibrancy` (flat opaque platter matching native SwiftUI).
+  - `GlassSwipeActionScope`: Only one row is open at a time (opening row B springs row A closed), and scrolling closes the open row.
+  - `GlassListTile`: New `leadingSwipeActions`, `trailingSwipeActions`, `swipeActionStyle` and `onDismissed` (animated row-height collapse), plus context menu parameters (`contextMenuActions`, `contextMenuPreviewBuilder`, `onContextMenuDismissed`, `contextMenuLongPressDuration`). `swipeActionStyle` is inferred from the enclosing surface (`solidVibrancy` on solid cards, `tintedGlass` on glass cards).
+  - `InheritedGlassSurfaceStyle`: Exported inherited widget that propagates `GlassSurfaceStyle` down the tree so children such as `GlassListTile` adapt to the enclosing surface.
+  - `GlassGroupedSection.clipBehavior`: Defaults to `Clip.antiAlias` for solid surfaces so swipe platters follow the card's rounded corners.
 
 - **Disclosure accordion sections (`DisclosureGroup`) via `GlassDisclosureGroup`:** Modeled on SwiftUI's `DisclosureGroup`, rendered within liquid glass surfaces.
   - Interactive header with title, subtitle, leading icon, and a chevron that rotates a quarter turn (90°, RTL-aware).
@@ -16,28 +18,27 @@
   - Automatic divider interleaving when nested inside `GlassGroupedSection`, with the divider inset aligned to the row's leading content (56px for `GlassListTile` rows with a leading widget, 52px for nested `GlassDisclosureGroup`s with a leading widget, 16px otherwise).
   - Standalone mode via `GlassDisclosureGroup.standalone` providing an independent superellipse glass container.
   - Native look: a bold label-coloured chevron (`>` collapsed, `v` expanded), children indented 20pt by default (`childrenPadding`; the header divider is not indented), and no gap between title and subtitle.
-  - A parent-driven `isExpanded` change no longer fires `onExpansionChanged` (previously it fired during build and could throw "setState during build").
+  - `onExpansionChanged` fires only for user-initiated toggles, not for parent-driven `isExpanded` changes.
 
 - **Edit Mode (`EditButton` + `ForEach`) via `GlassEditScope`, `GlassEditButton`, `GlassReorderableList`, and `GlassListTile` editing:** Complete list editing workflow modeled on SwiftUI's `EditButton` and `ForEach` (`onDelete`/`onMove`), benchmarked against Apple's stock Contacts app.
   - `GlassEditScope`: Ambient inherited scope providing `GlassEditMode` (`inactive`, `active`, `transient`) and `GlassEditController` with `toggle()`, `startEditing()`, and `stopEditing()`.
   - `GlassEditButton`: SwiftUI `EditButton()` parity widget rendered as a liquid glass capsule that smoothly transitions between "Edit" and bold "Done" with haptic feedback and automatic ambient controller coordination. Also supports explicit standalone binding via `GlassEditButton.explicit()`.
   - `GlassReorderableList`: Modern reorderable list with authentic iOS liquid glass elevation proxy decorator (1.025x scale, elevated soft specular shadow, selection haptic tick). Supports both `GlassReorderableList()` and `GlassReorderableList.grouped()` with superellipse card rounding, automatic dividers, and headers/footers. Fully compatible with both Flutter's modern `onReorderItem` and legacy `onReorder` callbacks.
-  - `GlassListTile` editing parity: Added `isEditing`, `canDelete`, `onDelete`, `canInsert`, `onInsert`, `canReorder`, `reorderIndex`, `canSelect`, `isSelected`, and `onSelectedChanged`. The selection circle is shown alongside the delete/insert badge, as in native `List`; the badges are 25pt glyphs matching the native 21pt discs. Features circular red minus delete badges with 90° rotation into an inline slide-in "Delete" confirmation pill, green plus insertion badges, Cupertino selection checkmarks, and 3-bar reorder drag handles (`CupertinoIcons.bars`). Automatically suppresses swipe actions during edit mode to eliminate gesture collisions.
+  - `GlassListTile` editing: `isEditing`, `canDelete`/`onDelete`, `canInsert`/`onInsert`, `canReorder`/`reorderIndex`, and `canSelect`/`isSelected`/`onSelectedChanged`. Shows the red minus delete badge (rotates into an inline "Delete" pill), green plus insert badge, selection checkmark and 3-bar reorder handle, with the selection circle alongside the badge as in native `List`. Swipe actions are suppressed while editing.
   - `GlassListTile`'s `leading` slot is now a 32pt *minimum* width instead of a fixed 32pt, so a larger leading widget (e.g. a 44pt avatar) keeps its natural size. Existing 32pt-or-smaller leading widgets render as before.
   - `GlassGroupedSection.dividerIndent`: overrides the 56pt start inset of the auto-inserted dividers that follow a row with a leading widget (e.g. 72 for a 44pt-avatar row).
-  - Added interactive Contacts reordering and deletion section to `SwipeAndDisclosureDemoPage` in the example app with live edit button toggling.
 
 - **Context Menus (`.contextMenu()`) via `GlassContextMenu` and `GlassContextMenuAction`:** Modeled on Apple Human Interface Guidelines, UIKit's `UIContextMenuInteraction`, and SwiftUI's `.contextMenu(menuItems:preview:)`, rendered with liquid glass materials.
   - Touch compression: Child compresses to 0.96× scale on initial touch-down.
   - Haptic surface lift: A touch-and-hold gesture (configurable `longPressDuration`, defaulting to 320ms matching iOS 26/27 haptic lift dynamics) triggers `HapticFeedback.mediumImpact()` as the child lifts to 1.02× with a soft elevated shadow (28px blur at full lift) and superellipse corner clip.
-  - Defocused liquid glass backdrop: Progressive Gaussian blur (`backdropBlur: 20.0`) and a subtle modal dimming scrim that adapts to light/dark (override with `barrierColor`).
-  - Liquid glass action platter: Actions render in an elevated superellipse platter (`LiquidRoundedSuperellipse`) with specular rim highlights, subtle inner borders, and smart auto-positioning above or below the target clamped within screen safe margins.
+  - Defocused liquid glass backdrop: Progressive Gaussian blur (`backdropBlur: 20.0`) and a unified, brightness-aware modal dimming scrim (override with `barrierColor`).
+  - Liquid glass action platter: Actions render in an elevated superellipse platter (`LiquidRoundedSuperellipse`) with specular rim highlights, subtle inner borders, adaptive light-mode glass materials, and smart auto-positioning above or below the target clamped within screen safe margins.
   - `GlassContextMenuAction`: Standard 44pt touch target height, trailing icon glyph alignment by default (`GlassContextMenuIconPosition.trailing`), destructive red styling, selection checkmark (`isSelected`), keyboard accessibility via `GlassFocusRegion`, and haptic ticks.
   - Continuous glide-to-select: Seamlessly drag finger from the long-press gesture across open menu items with `HapticFeedback.selectionClick()` ticks; releasing over any item activates it immediately.
   - Desktop / secondary-click parity: Right-click on macOS/desktop instantly presents the context menu without long-press delay.
   - Custom preview support: Supply `previewBuilder` to render rich, expanded preview cards (e.g. VIP contact cards, media previews). The preview is laid out at its natural size above the platter, like SwiftUI's `.contextMenu(preview:)`.
+  - Targeted retraction: On dismissal the preview card retracts into the source row's rect (`targetRect`) while the platter collapses, rather than fading out in place.
   - Imperative and extension APIs: Presented via `GlassContextMenu(child: ..., actions: [...])`, `widget.glassContextMenu(actions: [...])`, or imperatively via `showGlassContextMenu(context: context, targetRect: rect, actions: [...])`.
-  - Added live context menu demonstration on contact rows and a dedicated VIP preview card in `SwipeAndDisclosureDemoPage`.
 
 - **Full-Screen Covers (`.fullScreenCover()`) via `GlassFullScreenCover`, `showGlassFullScreenCover`, and `GlassFullScreenCoverBar`:** Modeled on SwiftUI's `.fullScreenCover(isPresented:onDismiss:content:)` and UIKit's `.overFullScreen` modal presentation style.
   - Dedicated full-viewport modal presentation filling the entire screen edge-to-edge.
@@ -68,8 +69,6 @@
   - Custom link targets: Wrap any custom button, card, or pill in `GlassNavigationLink` to push destinations on tap.
   - Added `.navigationTitle(...)` widget extension. Currently this only annotates the wrapped widget with header `Semantics` (label = title); it does not drive a navigation bar title the way SwiftUI's `.navigationTitle` does.
 
-- **Native parity harness:** `tool/parity/` pairs a stock SwiftUI reference app with a Flutter harness (`example/lib/harnesses/ios_parity_harness.dart`) driven by a command file, plus light/dark simulator captures of both. See `tool/parity/PARITY_AUDIT.md` for what is and is not verified.
-
 - **`GlassSurfaceStyle` and `GlassContainer.card`: a real solid surface for list cards.** Native iOS inset-grouped list cards are flat and opaque (white / `#1C1C1E`, ~26pt continuous corners, no blur, rim or shadow). Setting the glass shader to "flat" cannot reproduce that (a faint specular rim survives in dark mode), so `solid` is a separate, non-shader path: a plain filled and clipped shape that never samples the backdrop.
   - New `enum GlassSurfaceStyle { glass, solid }`, exported from `liquid_glass_widgets.dart`.
   - New `GlassContainer.card(...)` named constructor (16 padding, 12pt superellipse for `glass`, 26pt for `solid`) with a `surfaceStyle` parameter. `GlassContainer` itself is unchanged and stays glass-first.
@@ -77,7 +76,7 @@
   - `surfaceStyle` defaults to `glass` in 1.x, so there is no visual change unless you opt in. The default flips to `solid` for list sections, date pickers and `GlassContainer.card` in 2.0.0 (see `docs/ROADMAP.md`).
   - For `solid`, `settings`, `quality` and `useOwnLayer` have no effect (a debug-mode message is printed if you pass `settings` or `quality`). The fill brightness is resolved like the rest of the package: a `GlassTheme` override first, then a pinned `CupertinoTheme`, then the Material theme, then the platform.
   - Known limitation: dark `solid` is always `#1C1C1E`. iOS uses a lighter elevated grey (`#2C2C2E`) for cards inside sheets and covers; that variant is not implemented.
-  - Verified against native iOS 27 captures on the simulator (static frames): fill colours matched exactly at the sampled points and the card edge and corner profile matched to within ~1px at 3x on the sampled rows (swipe/menu screen, light and dark). The disclosure and edit-mode screens, and the solid date pickers, were compared by eye only. Not verified against native: motion, the lifted-row drag appearance, pressed rows, and elevated-dark cards.
+  - Static layout was checked against iOS 27 in light and dark (fill colours and corner profile); motion, the lifted-row drag, pressed rows and elevated-dark cards were not compared with native.
 
 ## Deprecations
 
@@ -85,13 +84,7 @@
 
 ## Bug Fixes
 
-- **`GlassSwipeActions` action tint was never painted:** `BoxDecoration` ignores `color` when `gradient` is set, so `tintedGlass` buttons (Flag, Delete, Pin…) rendered grey instead of their `backgroundColor`. The tint is now a separate layer beneath the specular sheen.
-
-- **`GlassContextMenu` scrim was applied twice and the platter was dark in light mode:** The route barrier and the page scrim stacked, turning the screen near-black. The page now owns a single brightness-aware scrim and the platter defaults to a light glass material in light mode.
-
 - **Automatic `useOwnLayer` fallback for `AdaptiveGlass` outside of `LiquidGlassLayer`:** Fixed an `AssertionError` where widgets requesting `GlassQuality.premium` (or inheriting it from theme) outside of an ancestor `LiquidGlassLayer` would attempt grouped rendering and fail with `renderLink != null`. `AdaptiveGlass` now detects the absence of an ancestor layer via `InheritedGeometryRenderLink.of(context)` and automatically provisions its own layer (`effectiveUseOwnLayer = true`), ensuring standalone cards, buttons, dialogs, context menus, and modal sheets render safely and seamlessly in premium quality without crashing.
-
-- **`GlassSwipeActions` unmounted row crash protection:** Fixed an issue where initiating a swipe while a previously open row was unmounted (e.g. during scrolling, filtering, or list mutation) caused an unmounted state exception. `GlassSwipeActions` now unregisters itself from `GlassSwipeActionScope` upon disposal, guards all spring physics and settlement callbacks with `mounted` checks, and `GlassSwipeActionScope` defensively clears open row references prior to triggering closure.
 
 # 1.12.0
 

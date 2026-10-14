@@ -298,6 +298,28 @@ class GlassContextMenu extends StatefulWidget {
   State<GlassContextMenu> createState() => _GlassContextMenuState();
 }
 
+class _ContextMenuLongPressRecognizer extends LongPressGestureRecognizer {
+  _ContextMenuLongPressRecognizer({
+    super.debugOwner,
+    super.duration,
+    this.onRejected,
+  });
+
+  final VoidCallback? onRejected;
+
+  @override
+  void rejectGesture(int pointer) {
+    onRejected?.call();
+    super.rejectGesture(pointer);
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {
+    onRejected?.call();
+    super.didStopTrackingLastPointer(pointer);
+  }
+}
+
 class _GlassContextMenuState extends State<GlassContextMenu>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pressController;
@@ -385,11 +407,16 @@ class _GlassContextMenuState extends State<GlassContextMenu>
     return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       gestures: {
-        LongPressGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(
+        _ContextMenuLongPressRecognizer: GestureRecognizerFactoryWithHandlers<
+            _ContextMenuLongPressRecognizer>(
+          () => _ContextMenuLongPressRecognizer(
             duration: widget.longPressDuration,
             debugOwner: this,
+            onRejected: () {
+              if (!_isRouteOpen && mounted) {
+                _pressController.reverse();
+              }
+            },
           ),
           (instance) {
             instance
@@ -399,12 +426,17 @@ class _GlassContextMenuState extends State<GlassContextMenu>
                 }
               }
               ..onLongPressCancel = () {
-                if (!_isRouteOpen) {
+                if (!_isRouteOpen && mounted) {
                   _pressController.reverse();
                 }
               }
               ..onLongPressStart = (_) {
                 _openContextMenu();
+              }
+              ..onLongPressUp = () {
+                if (!_isRouteOpen && mounted) {
+                  _pressController.reverse();
+                }
               }
               ..onLongPressMoveUpdate = (details) {
                 if (_isRouteOpen && _routeStaticKey != null) {
@@ -415,6 +447,8 @@ class _GlassContextMenuState extends State<GlassContextMenu>
               ..onLongPressEnd = (_) {
                 if (_isRouteOpen && _routeStaticKey != null) {
                   _routeStaticKey!.currentState?.endGlide();
+                } else if (!_isRouteOpen && mounted) {
+                  _pressController.reverse();
                 }
               };
           },
@@ -595,19 +629,43 @@ class _GlassContextMenuRouteStatic extends StatefulWidget {
 class _GlassContextMenuRouteStaticState
     extends State<_GlassContextMenuRouteStatic> {
   late final List<GlobalKey> _actionKeys;
+  late final CurvedAnimation _curved;
+  final GlobalKey _previewKey = GlobalKey();
+  Offset? _measuredRestingCenter;
   int? _hoveredIndex;
 
   @override
   void initState() {
     super.initState();
     _actionKeys = List.generate(widget.actions.length, (_) => GlobalKey());
+    _curved = CurvedAnimation(
+      parent: widget.animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeOutCubic,
+    );
     GestureBinding.instance.pointerRouter.addGlobalRoute(_handleGlobalPointer);
+    WidgetsBinding.instance.addPostFrameCallback(_measureRestingCenter);
+  }
+
+  void _measureRestingCenter(Duration _) {
+    if (!mounted) return;
+    final box = _previewKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      final pos = box.localToGlobal(Offset.zero);
+      final center = pos + Offset(box.size.width / 2.0, box.size.height / 2.0);
+      if (_measuredRestingCenter != center) {
+        setState(() {
+          _measuredRestingCenter = center;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
     GestureBinding.instance.pointerRouter
         .removeGlobalRoute(_handleGlobalPointer);
+    _curved.dispose();
     super.dispose();
   }
 
@@ -683,12 +741,6 @@ class _GlassContextMenuRouteStaticState
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
     final padding = mediaQuery.padding;
-
-    final curved = CurvedAnimation(
-      parent: widget.animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
 
     // Calculate vertical placement (above vs below)
     final double spaceBelow =
@@ -776,11 +828,31 @@ class _GlassContextMenuRouteStaticState
     }
 
     Widget liftedPreview(double animValue, Widget child) {
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: CupertinoColors.black.withValues(alpha: 0.28 * animValue),
+              blurRadius: 28.0 * animValue,
+              offset: Offset(0, 10.0 * animValue),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          child: child,
+        ),
+      );
+    }
+
+    Widget liftedTargetPreview(double animValue, Widget child) {
       return Transform.scale(
-        scale: 0.92 + (0.08 * animValue),
+        scale: 1.0 + (0.02 * animValue),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
+            borderRadius:
+                BorderRadius.circular(widget.borderRadius * animValue),
             boxShadow: [
               BoxShadow(
                 color:
@@ -791,7 +863,8 @@ class _GlassContextMenuRouteStaticState
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
+            borderRadius:
+                BorderRadius.circular(widget.borderRadius * animValue),
             child: child,
           ),
         ),
@@ -799,9 +872,9 @@ class _GlassContextMenuRouteStaticState
     }
 
     return AnimatedBuilder(
-      animation: curved,
+      animation: _curved,
       builder: (context, _) {
-        final double animValue = curved.value;
+        final double animValue = _curved.value;
 
         final Widget scrimLayer = GestureDetector(
           onTap: () => Navigator.of(context, rootNavigator: true).pop(),
@@ -817,14 +890,49 @@ class _GlassContextMenuRouteStaticState
           ),
         );
 
+        final double platterProgress =
+            ((animValue - 0.22) / 0.78).clamp(0.0, 1.0);
+        final double platterOpacity = platterProgress;
+        final double platterScale = 0.85 + (0.15 * platterProgress);
+
         if (hasCustomPreview) {
-          // Custom preview: laid out at its natural size (like SwiftUI's
-          // `.contextMenu(preview:)`), with the platter stacked beneath it.
-          // The group is centred on the target and clamped to the safe area.
+          final Offset fallbackRestingCenter = Offset(
+            screenSize.width / 2.0,
+            (screenSize.height / 2.0) - 76.0,
+          );
+          final Offset restingCenter =
+              _measuredRestingCenter ?? fallbackRestingCenter;
+          final Offset targetCenter = widget.targetRect.center;
+          final Offset translationDelta = targetCenter - restingCenter;
+          final Offset currentTranslation =
+              translationDelta * (1.0 - animValue);
+
+          final double targetScale =
+              (widget.targetRect.height / 160.0).clamp(0.65, 0.95);
+          final double currentScale =
+              targetScale + (1.0 - targetScale) * animValue;
+
+          final double previewOpacity = (animValue / 0.15).clamp(0.0, 1.0);
+          final double targetRowOpacity =
+              (1.0 - (animValue / 0.25)).clamp(0.0, 1.0);
+
           return Stack(
             fit: StackFit.expand,
             children: [
               scrimLayer,
+              if (widget.previewChild != null)
+                Positioned(
+                  left: widget.targetRect.left,
+                  top: widget.targetRect.top,
+                  width: widget.targetRect.width,
+                  height: widget.targetRect.height,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: targetRowOpacity,
+                      child: widget.previewChild!,
+                    ),
+                  ),
+                ),
               Positioned.fill(
                 child: SafeArea(
                   minimum: const EdgeInsets.symmetric(vertical: 12),
@@ -839,20 +947,33 @@ class _GlassContextMenuRouteStaticState
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            GestureDetector(
-                              onTap: () =>
-                                  Navigator.of(context, rootNavigator: true)
-                                      .pop(),
-                              child: liftedPreview(animValue, previewWidget),
+                            SizedBox(
+                              key: _previewKey,
+                              child: Transform.translate(
+                                offset: currentTranslation,
+                                child: Transform.scale(
+                                  scale: currentScale,
+                                  child: Opacity(
+                                    opacity: previewOpacity,
+                                    child: GestureDetector(
+                                      onTap: () => Navigator.of(context,
+                                              rootNavigator: true)
+                                          .pop(),
+                                      child: liftedPreview(
+                                          animValue, previewWidget),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 12.0),
                             SizedBox(
                               width: widget.menuWidth,
                               child: Transform.scale(
-                                scale: 0.85 + (0.15 * animValue),
+                                scale: platterScale,
                                 alignment: Alignment.topCenter,
                                 child: Opacity(
-                                  opacity: animValue.clamp(0.0, 1.0),
+                                  opacity: platterOpacity,
                                   child: buildPlatter(),
                                 ),
                               ),
@@ -881,7 +1002,7 @@ class _GlassContextMenuRouteStaticState
               height: widget.targetRect.height,
               child: GestureDetector(
                 onTap: () => Navigator.of(context, rootNavigator: true).pop(),
-                child: liftedPreview(animValue, previewWidget),
+                child: liftedTargetPreview(animValue, previewWidget),
               ),
             ),
 
@@ -894,10 +1015,10 @@ class _GlassContextMenuRouteStaticState
                   : (screenSize.height - widget.targetRect.top + 12.0),
               width: widget.menuWidth,
               child: Transform.scale(
-                scale: 0.85 + (0.15 * animValue),
+                scale: platterScale,
                 alignment: menuAlignment,
                 child: Opacity(
-                  opacity: animValue.clamp(0.0, 1.0),
+                  opacity: platterOpacity,
                   child: buildPlatter(),
                 ),
               ),

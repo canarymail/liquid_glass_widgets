@@ -4,11 +4,14 @@ import 'package:flutter/services.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
 import 'glass_container.dart';
 import 'glass_swipe_actions.dart';
+import '../overlays/glass_context_menu.dart';
 import '../shared/glass_edit_scope.dart';
 import '../shared/glass_focus_region.dart';
 import '../shared/glass_interaction_state_mixin.dart';
+import '../shared/glass_solid_surface.dart';
 
 /// A glass-aesthetic list tile following iOS 26 grouped row design.
 ///
@@ -75,8 +78,12 @@ class GlassListTile extends StatefulWidget {
     this.swipeActionWidth = 74.0,
     this.swipeController,
     this.onSwipeStateChanged,
-    this.swipeActionStyle = GlassSwipeActionStyle.tintedGlass,
+    this.swipeActionStyle,
     this.onDismissed,
+    this.contextMenuActions,
+    this.contextMenuPreviewBuilder,
+    this.onContextMenuDismissed,
+    this.contextMenuLongPressDuration,
     this.isEditing,
     this.canDelete = false,
     this.onDelete,
@@ -116,8 +123,12 @@ class GlassListTile extends StatefulWidget {
     this.swipeActionWidth = 74.0,
     this.swipeController,
     this.onSwipeStateChanged,
-    this.swipeActionStyle = GlassSwipeActionStyle.tintedGlass,
+    this.swipeActionStyle,
     this.onDismissed,
+    this.contextMenuActions,
+    this.contextMenuPreviewBuilder,
+    this.onContextMenuDismissed,
+    this.contextMenuLongPressDuration,
     this.isEditing,
     this.canDelete = false,
     this.onDelete,
@@ -198,11 +209,30 @@ class GlassListTile extends StatefulWidget {
 
   /// Visual styling applied to the swipe action platter.
   ///
-  /// Defaults to [GlassSwipeActionStyle.tintedGlass].
-  final GlassSwipeActionStyle swipeActionStyle;
+  /// If null, defaults to [GlassSwipeActionStyle.solidVibrancy] when placed
+  /// inside a solid surface container (e.g. [GlassGroupedSection] with
+  /// [GlassSurfaceStyle.solid]), or [GlassSwipeActionStyle.tintedGlass] otherwise.
+  final GlassSwipeActionStyle? swipeActionStyle;
 
   /// Optional callback executed when the row is dismissed via full swipe.
   final VoidCallback? onDismissed;
+
+  /// Optional context menu actions attached to this tile's content.
+  ///
+  /// When provided, the tile content (excluding swipe platters) is wrapped in
+  /// a [GlassContextMenu], mirroring SwiftUI's `.contextMenu { ... }.swipeActions { ... }`
+  /// composition. This ensures the swipe action platter is never compressed or
+  /// distorted when long-pressing the row.
+  final List<Widget>? contextMenuActions;
+
+  /// Optional custom preview widget builder displayed above the context menu.
+  final Widget Function(BuildContext context)? contextMenuPreviewBuilder;
+
+  /// Optional callback invoked when the context menu is dismissed.
+  final VoidCallback? onContextMenuDismissed;
+
+  /// Duration the user must press before the context menu activates.
+  final Duration? contextMenuLongPressDuration;
 
   // ===========================================================================
   // Edit Mode Properties
@@ -317,6 +347,22 @@ class _GlassListTileState extends State<GlassListTile>
 
     Widget content = _buildContent(context, effectiveIsEditing);
 
+    // Context menu wraps the tile's content (not the swipe action platter),
+    // matching SwiftUI's `.contextMenu { ... }.swipeActions { ... }`.
+    // This ensures long-pressing the row compresses only the cell content,
+    // keeping the swipe action platter flush with the card boundary.
+    if (widget.contextMenuActions != null &&
+        widget.contextMenuActions!.isNotEmpty) {
+      content = GlassContextMenu(
+        actions: widget.contextMenuActions!,
+        previewBuilder: widget.contextMenuPreviewBuilder,
+        onDismissed: widget.onContextMenuDismissed,
+        longPressDuration: widget.contextMenuLongPressDuration ??
+            const Duration(milliseconds: 300),
+        child: content,
+      );
+    }
+
     if (widget._useOwnLayer) {
       content = GlassContainer(
         shape: const LiquidRoundedSuperellipse(borderRadius: 12),
@@ -334,6 +380,12 @@ class _GlassListTileState extends State<GlassListTile>
                 widget.trailingSwipeActions!.isNotEmpty));
 
     if (hasSwipeActions) {
+      final effectiveStyle = widget.swipeActionStyle ??
+          (InheritedGlassSurfaceStyle.maybeOf(context) ==
+                  GlassSurfaceStyle.solid
+              ? GlassSwipeActionStyle.solidVibrancy
+              : GlassSwipeActionStyle.tintedGlass);
+
       content = GlassSwipeActions(
         leadingActions: widget.leadingSwipeActions ?? const [],
         trailingActions: widget.trailingSwipeActions ?? const [],
@@ -342,7 +394,7 @@ class _GlassListTileState extends State<GlassListTile>
         actionWidth: widget.swipeActionWidth,
         controller: widget.swipeController,
         onSwipeStateChanged: widget.onSwipeStateChanged,
-        style: widget.swipeActionStyle,
+        style: effectiveStyle,
         onDismissed: widget.onDismissed,
         borderRadius: widget._useOwnLayer
             ? const BorderRadius.all(Radius.circular(12))

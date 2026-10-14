@@ -393,12 +393,15 @@ class GlassContainer extends StatelessWidget {
       allowElevation: allowElevation, // Configurable elevation behavior
       glowIntensity: glowIntensity,
       platformViewBackdrop: platformViewBackdrop,
-      child: InheritedLiquidGlass(
-        settings: effectiveSettings,
-        quality: effectiveQuality,
-        avoidsRefraction:
-            true, // Containers block children from refracting background
-        child: content,
+      child: InheritedGlassSurfaceStyle(
+        surfaceStyle: _surfaceStyle,
+        child: InheritedLiquidGlass(
+          settings: effectiveSettings,
+          quality: effectiveQuality,
+          avoidsRefraction:
+              true, // Containers block children from refracting background
+          child: content,
+        ),
       ),
     );
 
@@ -435,11 +438,14 @@ class GlassContainer extends StatelessWidget {
       explicit: settings,
     );
 
-    Widget inner = InheritedLiquidGlass(
-      settings: effectiveSettings,
-      quality: effectiveQuality,
-      avoidsRefraction: true,
-      child: content,
+    Widget inner = InheritedGlassSurfaceStyle(
+      surfaceStyle: GlassSurfaceStyle.solid,
+      child: InheritedLiquidGlass(
+        settings: effectiveSettings,
+        quality: effectiveQuality,
+        avoidsRefraction: true,
+        child: content,
+      ),
     );
 
     if (clipBehavior != Clip.none) {

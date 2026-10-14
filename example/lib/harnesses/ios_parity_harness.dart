@@ -26,7 +26,6 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:liquid_glass_widgets_example/constants/glass_settings.dart';
 
 const _cmdFile = '/tmp/lgw_parity_cmd.txt';
 
@@ -70,22 +69,37 @@ class _ParityHost extends StatefulWidget {
 class _ParityHostState extends State<_ParityHost> {
   int _tab = 0;
   Timer? _poll;
-  DateTime? _lastStamp;
+  String? _lastCmd;
 
   final _scroll = ScrollController();
   final _swipe = List.generate(4, (_) => GlassSwipeController());
   final _rowKeys = List.generate(4, (_) => GlobalKey());
   final _edit = GlassEditController(initialMode: GlassEditMode.active);
   final _expanded = ValueNotifier<List<bool>>([true, false, false]);
+  final _emergencyContact = ValueNotifier<bool>(true);
+  final _airDrop = ValueNotifier<bool>(true);
+  final _sharePhoto = ValueNotifier<bool>(true);
 
   @override
   void initState() {
     super.initState();
+    final f = File(_cmdFile);
+    if (f.existsSync()) {
+      try {
+        f.deleteSync();
+      } catch (_) {}
+    }
+    _dark.addListener(_onDarkChanged);
     _poll = Timer.periodic(const Duration(milliseconds: 250), (_) => _check());
+  }
+
+  void _onDarkChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _dark.removeListener(_onDarkChanged);
     _poll?.cancel();
     super.dispose();
   }
@@ -93,11 +107,9 @@ class _ParityHostState extends State<_ParityHost> {
   void _check() {
     final f = File(_cmdFile);
     if (!f.existsSync()) return;
-    final stamp = f.lastModifiedSync();
-    if (_lastStamp == stamp) return;
-    _lastStamp = stamp;
     final cmd = f.readAsStringSync().trim();
-    if (cmd.isEmpty) return;
+    if (cmd.isEmpty || _lastCmd == cmd) return;
+    _lastCmd = cmd;
     _run(cmd.split(RegExp(r'\s+')));
   }
 
@@ -107,8 +119,19 @@ class _ParityHostState extends State<_ParityHost> {
         _dark.value = a[1] == 'on';
         setState(() {});
       case 'pop':
-        Navigator.of(context, rootNavigator: true).maybePop();
+        try {
+          final nav = Navigator.of(context, rootNavigator: true);
+          if (nav.canPop()) {
+            nav.pop();
+          }
+        } catch (_) {}
       case 'tab':
+        try {
+          final nav = Navigator.of(context, rootNavigator: true);
+          while (nav.canPop()) {
+            nav.pop();
+          }
+        } catch (_) {}
         setState(() => _tab = int.parse(a[1]));
       case 'scroll':
         if (_scroll.hasClients) _scroll.jumpTo(double.parse(a[1]));
@@ -147,6 +170,15 @@ class _ParityHostState extends State<_ParityHost> {
         final v = [..._expanded.value];
         v[int.parse(a[1])] = a[2] == 'on';
         _expanded.value = v;
+      case 'toggle':
+        switch (a[1]) {
+          case '0':
+            _emergencyContact.value = a[2] == 'on';
+          case '1':
+            _airDrop.value = a[2] == 'on';
+          case '2':
+            _sharePhoto.value = a[2] == 'on';
+        }
     }
   }
 
@@ -194,16 +226,48 @@ class _ParityHostState extends State<_ParityHost> {
       _pickers(),
       _modalsAndNav(),
     ];
-    return CupertinoPageScaffold(
+    final activePage = _tab == 2
+        ? GlassEditScope(controller: _edit, child: pages[_tab])
+        : pages[_tab];
+
+    final isDark = _dark.value;
+    final ios27Settings =
+        isDark ? LiquidGlassSettings.ios27Dark : LiquidGlassSettings.ios27Light;
+
+    return GlassScaffold(
       backgroundColor:
-          _dark.value ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
-      child: AdaptiveLiquidGlassLayer(
-        settings: RecommendedGlassSettings.standard,
-        child: GlassSwipeActionScope(
-          child: _tab == 2
-              ? GlassEditScope(controller: _edit, child: pages[_tab])
-              : pages[_tab],
-        ),
+          isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
+      settings: ios27Settings,
+      bottomBar: GlassTabBar.bottom(
+        selectedIndex: _tab,
+        onTabSelected: (idx) => setState(() => _tab = idx),
+        quality: GlassQuality.premium,
+        backgroundQuality: GlassQuality.premium,
+        tabs: const [
+          GlassTab(
+            icon: Icon(CupertinoIcons.hand_draw),
+            label: 'Swipe',
+          ),
+          GlassTab(
+            icon: Icon(CupertinoIcons.chevron_down_circle),
+            label: 'Disclosure',
+          ),
+          GlassTab(
+            icon: Icon(CupertinoIcons.pencil_circle),
+            label: 'Edit',
+          ),
+          GlassTab(
+            icon: Icon(CupertinoIcons.calendar),
+            label: 'Pickers',
+          ),
+          GlassTab(
+            icon: Icon(CupertinoIcons.arrow_up_right_square),
+            label: 'Modals',
+          ),
+        ],
+      ),
+      body: GlassSwipeActionScope(
+        child: activePage,
       ),
     );
   }
@@ -227,7 +291,20 @@ class _ParityHostState extends State<_ParityHost> {
             ...children,
           ],
         ),
-        if (trailing != null) Positioned(top: 62, right: 16, child: trailing),
+        Positioned(
+          top: 60,
+          right: 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _ThemeToggle(),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing,
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -278,55 +355,52 @@ class _ParityHostState extends State<_ParityHost> {
         children: [
           for (var i = 0; i < _contacts.length; i++) ...[
             // Native dividers are inset to the text start and end at a 16pt
-            // inset. They are explicit because each row is wrapped (so the
-            // auto-divider can't see the tile's leading widget).
+            // inset.
             if (i > 0) const GlassDivider(indent: 72, endIndent: 16),
             KeyedSubtree(
               key: _rowKeys[i],
-              child: GlassContextMenu(
-                actions: _menuActions(),
-                previewBuilder: (_) => _VipPreview(_contacts[i]),
-                child: GlassListTile(
-                  swipeController: _swipe[i],
-                  allowsFullSwipe: true,
-                  trailingSwipeActions: [
-                    GlassSwipeAction(
-                      icon: const Icon(CupertinoIcons.trash),
-                      label: const Text('Delete'),
-                      isDestructive: true,
-                      onTap: () {},
-                    ),
-                    GlassSwipeAction(
-                      icon: const Icon(CupertinoIcons.flag_fill),
-                      label: const Text('Flag'),
-                      backgroundColor: CupertinoColors.systemOrange,
-                      onTap: () {},
-                    ),
-                  ],
-                  leadingSwipeActions: [
-                    GlassSwipeAction(
-                      icon: const Icon(CupertinoIcons.pin_fill),
-                      label: const Text('Pin'),
-                      backgroundColor: CupertinoColors.systemBlue,
-                      onTap: () {},
-                    ),
-                  ],
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                  leading: Padding(
-                      padding: const EdgeInsets.only(right: 2),
-                      child: _Avatar(_contacts[i], 44)),
-                  title: Text(_contacts[i].name,
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w600)),
-                  subtitle: Text(_contacts[i].title,
-                      style: const TextStyle(
-                          fontSize: 13, color: CupertinoColors.systemGrey)),
-                  trailing: _contacts[i].favorite
-                      ? const Icon(CupertinoIcons.star_fill,
-                          size: 15, color: Color(0xFFFFCC00))
-                      : null,
-                ),
+              child: GlassListTile(
+                swipeController: _swipe[i],
+                allowsFullSwipe: true,
+                contextMenuActions: _menuActions(),
+                contextMenuPreviewBuilder: (_) => _VipPreview(_contacts[i]),
+                trailingSwipeActions: [
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.trash),
+                    label: const Text('Delete'),
+                    isDestructive: true,
+                    onTap: () {},
+                  ),
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.flag_fill),
+                    label: const Text('Flag'),
+                    backgroundColor: CupertinoColors.systemOrange,
+                    onTap: () {},
+                  ),
+                ],
+                leadingSwipeActions: [
+                  GlassSwipeAction(
+                    icon: const Icon(CupertinoIcons.pin_fill),
+                    label: const Text('Pin'),
+                    backgroundColor: CupertinoColors.systemBlue,
+                    onTap: () {},
+                  ),
+                ],
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                leading: Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: _Avatar(_contacts[i], 44)),
+                title: Text(_contacts[i].name,
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w600)),
+                subtitle: Text(_contacts[i].title,
+                    style: const TextStyle(
+                        fontSize: 13, color: CupertinoColors.systemGrey)),
+                trailing: _contacts[i].favorite
+                    ? const Icon(CupertinoIcons.star_fill,
+                        size: 15, color: Color(0xFFFFCC00))
+                    : null,
               ),
             ),
           ],
@@ -365,8 +439,14 @@ class _ParityHostState extends State<_ParityHost> {
                   padding: const EdgeInsets.only(bottom: 13),
                   child: Column(children: [
                     _kv('Emergency Contact', null,
-                        trailing:
-                            CupertinoSwitch(value: true, onChanged: (_) {})),
+                        trailing: ValueListenableBuilder<bool>(
+                          valueListenable: _emergencyContact,
+                          builder: (context, val, _) => GlassSwitch(
+                            value: val,
+                            quality: GlassQuality.premium,
+                            onChanged: (v) => _emergencyContact.value = v,
+                          ),
+                        )),
                     _kv('Blood Type', 'O+'),
                     _kv('Medical ID', 'Active',
                         valueColor: CupertinoColors.systemGreen),
@@ -394,10 +474,10 @@ class _ParityHostState extends State<_ParityHost> {
                 Padding(
                   padding: const EdgeInsets.only(top: 14, bottom: 13),
                   child: Column(children: [
-                    _kv('X / Twitter', '@sdegenaar',
+                    _kv('X / Twitter', '@alexrivera',
                         leading: const Icon(CupertinoIcons.chat_bubble_2_fill,
                             size: 22, color: CupertinoColors.systemBlue)),
-                    _kv('GitHub', 'sdegenaar',
+                    _kv('GitHub', 'alexrivera',
                         leading: const Icon(
                             CupertinoIcons.chevron_left_slash_chevron_right,
                             size: 20,
@@ -421,9 +501,23 @@ class _ParityHostState extends State<_ParityHost> {
                       fontSize: 12, color: CupertinoColors.systemGrey)),
               children: [
                 _kv('AirDrop Discoverable', null,
-                    trailing: CupertinoSwitch(value: true, onChanged: (_) {})),
+                    trailing: ValueListenableBuilder<bool>(
+                      valueListenable: _airDrop,
+                      builder: (context, val, _) => GlassSwitch(
+                        quality: GlassQuality.premium,
+                        value: val,
+                        onChanged: (v) => _airDrop.value = v,
+                      ),
+                    )),
                 _kv('Share Name & Photo', null,
-                    trailing: CupertinoSwitch(value: true, onChanged: (_) {})),
+                    trailing: ValueListenableBuilder<bool>(
+                      valueListenable: _sharePhoto,
+                      builder: (context, val, _) => GlassSwitch(
+                        quality: GlassQuality.premium,
+                        value: val,
+                        onChanged: (v) => _sharePhoto.value = v,
+                      ),
+                    )),
               ],
             ),
           ],
@@ -606,6 +700,33 @@ class _ParityHostState extends State<_ParityHost> {
 // Data + small widgets
 // ---------------------------------------------------------------------------
 
+class _ThemeToggle extends StatelessWidget {
+  const _ThemeToggle();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _dark,
+      builder: (context, isDark, _) => GlassIconButton(
+        size: 44,
+        useOwnLayer: true,
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            isDark ? CupertinoIcons.sun_max_fill : CupertinoIcons.moon_fill,
+            key: ValueKey(isDark),
+            size: 20,
+            color: isDark
+                ? CupertinoColors.systemYellow
+                : CupertinoColors.systemIndigo,
+          ),
+        ),
+        onPressed: () => _dark.value = !isDark,
+      ),
+    );
+  }
+}
+
 class _Contact {
   const _Contact(this.name, this.title, this.phone, this.colors,
       {this.favorite = false});
@@ -615,15 +736,15 @@ class _Contact {
 }
 
 const _contacts = [
-  _Contact('Craig Federighi', 'SVP Software Engineering', '+1 (408) 996-1010',
+  _Contact('Alex Rivera', 'Product Design Director', '+1 (408) 555-0142',
       [Color(0xFF007AFF), Color(0xFF32ADE6)],
       favorite: true),
-  _Contact('Tim Cook', 'CEO', '+1 (408) 996-1011',
+  _Contact('Jordan Lee', 'Engineering Lead', '+1 (408) 555-0189',
       [Color(0xFF5856D6), Color(0xFFAF52DE)],
       favorite: true),
-  _Contact('Kate Lovett', 'Engineering Director', '+1 (408) 996-1012',
+  _Contact('Taylor Brooks', 'Creative Director', '+1 (408) 555-0167',
       [Color(0xFFFF2D55), Color(0xFFFF9500)]),
-  _Contact('Sebastian Degenaar', 'Principal Architect', '+1 (408) 996-1013',
+  _Contact('Morgan Davis', 'Principal Architect', '+1 (408) 555-0123',
       [Color(0xFFAF52DE), Color(0xFF007AFF)]),
 ];
 

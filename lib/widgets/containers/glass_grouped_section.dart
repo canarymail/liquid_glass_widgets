@@ -6,6 +6,7 @@ import 'glass_container.dart';
 import 'glass_disclosure_group.dart';
 import 'glass_divider.dart';
 import 'glass_list_tile.dart';
+import '../shared/glass_solid_surface.dart';
 
 /// A convenience wrapper that groups [GlassListTile]s inside a card
 /// ([GlassContainer.card]).
@@ -82,6 +83,7 @@ class GlassGroupedSection extends StatelessWidget {
     this.quality,
     this.dividerIndent,
     this.surfaceStyle = GlassSurfaceStyle.glass,
+    this.clipBehavior,
   });
 
   /// The list tiles to display inside the section.
@@ -137,6 +139,14 @@ class GlassGroupedSection extends StatelessWidget {
   /// [GlassSurfaceStyle.solid] renders a flat opaque card matching native iOS
   /// inset-grouped lists, and clips the rows to the card's corners.
   final GlassSurfaceStyle surfaceStyle;
+
+  /// How the section card clips its children.
+  ///
+  /// Defaults to [Clip.antiAlias] when [surfaceStyle] is
+  /// [GlassSurfaceStyle.solid] (to clip row press highlights and swipe actions
+  /// to the card's rounded corners), and [Clip.none] when [surfaceStyle] is
+  /// [GlassSurfaceStyle.glass].
+  final Clip? clipBehavior;
 
   /// Start inset of the automatically inserted dividers that follow a tile
   /// with a leading widget.
@@ -214,6 +224,9 @@ class GlassGroupedSection extends StatelessWidget {
       }
     }
 
+    final effectiveClipBehavior = clipBehavior ??
+        (surfaceStyle == GlassSurfaceStyle.solid ? Clip.antiAlias : Clip.none);
+
     final card = GlassContainer.card(
       padding: EdgeInsets.zero,
       margin: EdgeInsets.zero,
@@ -222,13 +235,14 @@ class GlassGroupedSection extends StatelessWidget {
       useOwnLayer: useOwnLayer,
       quality: quality,
       surfaceStyle: surfaceStyle,
-      // Solid cards clip rows (press highlights, swipe actions) to the card
-      // corners, as native grouped lists do.
-      clipBehavior:
-          surfaceStyle == GlassSurfaceStyle.solid ? Clip.antiAlias : Clip.none,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: processedChildren,
+      clipBehavior: effectiveClipBehavior,
+      child: InheritedGlassSurfaceStyle(
+        surfaceStyle: surfaceStyle,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: processedChildren,
+        ),
       ),
     );
 

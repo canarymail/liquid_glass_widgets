@@ -828,16 +828,7 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
       tint = _isPressed
           ? effectiveBgColor.withValues(alpha: 0.82)
           : effectiveBgColor;
-      sheen = BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            CupertinoColors.white.withValues(alpha: 0.10),
-            CupertinoColors.transparent,
-          ],
-        ),
-      );
+      sheen = const BoxDecoration();
     }
 
     final isRtl = Directionality.of(context) == TextDirection.rtl;

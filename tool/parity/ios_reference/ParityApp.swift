@@ -72,10 +72,10 @@ struct ParityTabView: View {
 // MARK: - 1. Swipe Actions & Context Menu Parity
 struct ContactsSwipeParityView: View {
     @State private var contacts = [
-        ContactItem(name: "Craig Federighi", title: "SVP Software Engineering", company: "Apple Inc.", phone: "+1 (408) 996-1010", email: "craig@apple.com", isFavorite: true, gradientColors: [.blue, .cyan]),
-        ContactItem(name: "Tim Cook", title: "CEO", company: "Apple Inc.", phone: "+1 (408) 996-1011", email: "tcook@apple.com", isFavorite: true, gradientColors: [.indigo, .purple]),
-        ContactItem(name: "Kate Lovett", title: "Engineering Director", company: "Apple Inc.", phone: "+1 (408) 996-1012", email: "klovett@apple.com", gradientColors: [.pink, .orange]),
-        ContactItem(name: "Sebastian Degenaar", title: "Principal Architect", company: "Liquid Glass", phone: "+1 (408) 996-1013", email: "sebastian@deg.io", gradientColors: [.purple, .blue])
+        ContactItem(name: "Alex Rivera", title: "Product Design Director", company: "Acme Corp", phone: "+1 (408) 555-0142", email: "alex@acme.io", isFavorite: true, gradientColors: [.blue, .cyan]),
+        ContactItem(name: "Jordan Lee", title: "Engineering Lead", company: "Acme Corp", phone: "+1 (408) 555-0189", email: "jordan@acme.io", isFavorite: true, gradientColors: [.indigo, .purple]),
+        ContactItem(name: "Taylor Brooks", title: "Creative Director", company: "Acme Corp", phone: "+1 (408) 555-0167", email: "taylor@acme.io", gradientColors: [.pink, .orange]),
+        ContactItem(name: "Morgan Davis", title: "Principal Architect", company: "Acme Corp", phone: "+1 (408) 555-0123", email: "morgan@acme.io", gradientColors: [.purple, .blue])
     ]
     
     var body: some View {
