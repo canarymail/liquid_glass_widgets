@@ -502,6 +502,7 @@ class _GlassDatePickerState extends State<GlassDatePicker> {
       child: SizedBox(
         height: 216,
         child: CupertinoDatePicker(
+          key: ValueKey<CupertinoDatePickerMode>(cupertinoMode),
           mode: cupertinoMode,
           initialDateTime: _selectedDateTime,
           minimumDate: widget.minimumDate,

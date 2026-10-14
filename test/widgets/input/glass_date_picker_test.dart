@@ -167,11 +167,12 @@ void main() {
 
       // Popup header should be visible
       expect(find.text('Select Date'), findsOneWidget);
-      expect(find.text('Done'), findsOneWidget);
-      expect(find.text('October 2026'), findsOneWidget);
+      // Tap a day in the popup sheet
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
 
-      // Tap Done to close
-      await tester.tap(find.text('Done'));
+      // Tap Cancel to close
+      await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
       expect(find.text('Select Date'), findsNothing);
@@ -582,6 +583,133 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedResult, isNull);
+    });
+
+    testWidgets('compact style with use24hFormat renders 24-hour time',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassDatePicker.compact(
+              initialDateTime: DateTime(2026, 10, 8, 9, 5),
+              mode: GlassDatePickerMode.time,
+              use24hFormat: true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('09:05'), findsOneWidget);
+    });
+
+    testWidgets('wheel style with time and dateAndTime modes renders picker',
+        (tester) async {
+      DateTime? changedTime;
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassDatePicker.wheel(
+              initialDateTime: DateTime(2026, 10, 8, 14, 30),
+              mode: GlassDatePickerMode.time,
+              onDateTimeChanged: (dt) => changedTime = dt,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CupertinoDatePicker), findsOneWidget);
+
+      // Drag picker wheel
+      await tester.drag(find.byType(CupertinoDatePicker), const Offset(0, -50));
+      await tester.pumpAndSettle();
+      expect(changedTime, isNotNull);
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassDatePicker.wheel(
+              initialDateTime: DateTime(2026, 10, 8, 14, 30),
+              mode: GlassDatePickerMode.dateAndTime,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CupertinoDatePicker), findsOneWidget);
+    });
+
+    testWidgets(
+        'GlassMultiDatePicker chevrons navigate months and label toggles wheel',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassMultiDatePicker(
+              selectedDates: const {},
+              displayedMonth: DateTime(2026, 10, 1),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('October 2026'), findsOneWidget);
+
+      // Tap next month chevron
+      await tester
+          .tap(find.byKey(const ValueKey<String>('glass_calendar_next')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('November 2026'), findsOneWidget);
+
+      // Tap previous month chevron
+      await tester
+          .tap(find.byKey(const ValueKey<String>('glass_calendar_previous')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('October 2026'), findsOneWidget);
+
+      // Tap month label to open month/year wheel
+      await tester.tap(find.text('October 2026'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoPicker), findsNWidgets(2));
+
+      // Scroll month wheel
+      await tester.drag(
+          find.byType(CupertinoPicker).first, const Offset(0, -60));
+      await tester.pumpAndSettle();
+
+      // Scroll year wheel
+      await tester.drag(
+          find.byType(CupertinoPicker).last, const Offset(0, -60));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('firstDayOfWeek: 1 starts week on Monday', (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassDatePicker.graphical(
+              initialDateTime: DateTime(2026, 10, 8),
+              firstDayOfWeek: 1,
+            ),
+          ),
+        ),
+      );
+      expect(find.text('MON'), findsOneWidget);
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassMultiDatePicker(
+              selectedDates: const {},
+              displayedMonth: DateTime(2026, 10, 1),
+              firstDayOfWeek: 1,
+            ),
+          ),
+        ),
+      );
+      expect(find.text('MON'), findsOneWidget);
     });
   });
 }

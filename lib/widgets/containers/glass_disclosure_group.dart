@@ -205,8 +205,8 @@ class GlassDisclosureGroup extends StatefulWidget {
 class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _heightFactor;
-  late final Animation<double> _chevronTurns;
+  late Animation<double> _heightFactor;
+  late Animation<double> _chevronTurns;
 
   bool _isExpanded = false;
   bool _isPressed = false;

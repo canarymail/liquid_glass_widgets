@@ -424,6 +424,34 @@ void main() {
     });
 
     testWidgets(
+        'declarative glassFullScreenCover with onDismiss in dark mode dismisses via swipe',
+        (tester) async {
+      bool dismissed = false;
+      await tester.pumpWidget(
+        CupertinoApp(
+          theme: const CupertinoThemeData(brightness: Brightness.dark),
+          home: CupertinoPageScaffold(
+            child: const Text('Main Screen').glassFullScreenCover(
+              isPresented: true,
+              onDismiss: () => dismissed = true,
+              content: (context) => const Text('Swipable Content'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Swipable Content'), findsOneWidget);
+
+      await tester.fling(
+          find.text('Swipable Content'), const Offset(0, 300), 1000.0);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Swipable Content'), findsNothing);
+      expect(dismissed, isTrue);
+    });
+
+    testWidgets(
         'GlassFullScreenCoverBar renders drag handle in light and dark mode',
         (tester) async {
       await tester.pumpWidget(
@@ -488,6 +516,68 @@ void main() {
 
       // Cover should still be visible and spring back
       expect(find.text('Damping Body'), findsOneWidget);
+    });
+
+    testWidgets(
+        'declarative cover with isPresented: true initially presents on mount',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: const Text('Initial Screen').glassFullScreenCover(
+              isPresented: true,
+              content: (context) => const Text('Initial Cover Body'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Initial Cover Body'), findsOneWidget);
+    });
+
+    testWidgets(
+        'drag past threshold and drag back up resets threshold crossing',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Builder(
+              builder: (context) => CupertinoButton(
+                child: const Text('Open Threshold Test'),
+                onPressed: () {
+                  showGlassFullScreenCover(
+                    context: context,
+                    builder: (context) => const GlassFullScreenCover(
+                      title: Text('Threshold Title'),
+                      dismissThreshold: 100.0,
+                      child: Text('Threshold Body'),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Threshold Test'));
+      await tester.pumpAndSettle();
+
+      // Start drag down past threshold (120px)
+      final gesture = await tester
+          .startGesture(tester.getCenter(find.text('Threshold Title')));
+      await gesture.moveBy(const Offset(0, 120));
+      await tester.pump();
+
+      // Move back up above threshold (-50px)
+      await gesture.moveBy(const Offset(0, -50));
+      await tester.pump();
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Threshold Body'), findsOneWidget);
     });
   });
 }

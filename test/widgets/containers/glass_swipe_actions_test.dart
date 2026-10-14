@@ -562,13 +562,19 @@ void main() {
       expect(size.height, 0.0);
     });
 
-    testWidgets('renders tintedGlass and solidVibrancy styles properly',
+    testWidgets(
+        'renders tintedGlass and solidVibrancy styles properly and handles press',
         (tester) async {
+      final ctrl1 = GlassSwipeController();
+      final ctrl2 = GlassSwipeController();
+      final rtlCtrl = GlassSwipeController();
+
       await tester.pumpWidget(
         createTestApp(
           child: Column(
             children: [
               GlassSwipeActions(
+                controller: ctrl1,
                 style: GlassSwipeActionStyle.tintedGlass,
                 trailingActions: const [
                   GlassSwipeAction(
@@ -581,6 +587,7 @@ void main() {
                     height: 50, width: 300, child: Text('Row 1')),
               ),
               GlassSwipeActions(
+                controller: ctrl2,
                 style: GlassSwipeActionStyle.solidVibrancy,
                 trailingActions: const [
                   GlassSwipeAction(
@@ -592,13 +599,48 @@ void main() {
                 child: const SizedBox(
                     height: 50, width: 300, child: Text('Row 2')),
               ),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: GlassSwipeActions(
+                  controller: rtlCtrl,
+                  leadingActions: const [
+                    GlassSwipeAction(
+                      icon: Icon(CupertinoIcons.gear),
+                      label: Text('RtlLeading'),
+                      onTap: _noop,
+                    ),
+                  ],
+                  child: const SizedBox(
+                      height: 50, width: 300, child: Text('Row 3')),
+                ),
+              ),
             ],
           ),
         ),
       );
 
-      expect(find.text('Row 1'), findsOneWidget);
-      expect(find.text('Row 2'), findsOneWidget);
+      ctrl1.openTrailing(animated: false);
+      ctrl2.openTrailing(animated: false);
+      rtlCtrl.openLeading(animated: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tinted'), findsOneWidget);
+      expect(find.text('Solid'), findsOneWidget);
+      expect(find.text('RtlLeading'), findsOneWidget);
+
+      // Press and cancel on Tinted (covers tintedGlass pressed + onTapCancel)
+      final gesture1 =
+          await tester.startGesture(tester.getCenter(find.text('Tinted')));
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture1.cancel();
+      await tester.pumpAndSettle();
+
+      // Press and cancel on Solid (covers solidVibrancy pressed)
+      final gesture2 =
+          await tester.startGesture(tester.getCenter(find.text('Solid')));
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture2.cancel();
+      await tester.pumpAndSettle();
     });
   });
 
@@ -912,6 +954,116 @@ void main() {
       await tester.tap(find.text('Close All Button'));
       await tester.pumpAndSettle();
 
+      expect(controller.isOpen, isFalse);
+    });
+
+    testWidgets('GlassSwipeActions clips with borderRadius', (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassSwipeActions(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            trailingActions: [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+            ],
+            child: SizedBox(
+              width: 300,
+              height: 60,
+              child: Text('Rounded Row'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(ClipRRect), findsWidgets);
+    });
+
+    testWidgets('GlassSwipeActions leading overdrag and full swipe execution',
+        (tester) async {
+      bool flagged = false;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            allowsFullSwipe: true,
+            fullSwipeThreshold: 0.3,
+            leadingActions: [
+              GlassSwipeAction(
+                icon: const Icon(CupertinoIcons.flag),
+                label: const Text('Flag'),
+                onTap: () => flagged = true,
+              ),
+            ],
+            child: const SizedBox(
+              width: 300,
+              height: 60,
+              child: Text('Leading Swipe Item'),
+            ),
+          ),
+        ),
+      );
+
+      // Drag right with large offset to trigger rubber-banding and full swipe
+      await tester.drag(find.text('Leading Swipe Item'), const Offset(250, 0));
+      await tester.pumpAndSettle();
+
+      expect(flagged, isTrue);
+    });
+
+    testWidgets('GlassSwipeActionScope closes on ScrollUpdateNotification',
+        (tester) async {
+      final controller = GlassSwipeController();
+      late BuildContext buildContext;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActionScope(
+            child: Builder(
+              builder: (context) {
+                buildContext = context;
+                return GlassSwipeActions(
+                  controller: controller,
+                  trailingActions: const [
+                    GlassSwipeAction(
+                      icon: Icon(CupertinoIcons.trash),
+                      label: Text('Delete'),
+                      onTap: _noop,
+                    ),
+                  ],
+                  child: const SizedBox(
+                    width: 300,
+                    height: 60,
+                    child: Text('Scroll Close Item'),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+
+      // Dispatch ScrollUpdateNotification with scrollDelta > 1.0
+      ScrollUpdateNotification(
+        metrics: FixedScrollMetrics(
+          minScrollExtent: 0,
+          maxScrollExtent: 100,
+          pixels: 10,
+          viewportDimension: 50,
+          axisDirection: AxisDirection.down,
+          devicePixelRatio: 1.0,
+        ),
+        context: buildContext,
+        scrollDelta: 5.0,
+      ).dispatch(buildContext);
+
+      await tester.pumpAndSettle();
       expect(controller.isOpen, isFalse);
     });
   });

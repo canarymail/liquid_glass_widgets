@@ -218,6 +218,11 @@ void main() {
 
       expect(find.text('Pushed Screen Content'), findsNothing);
       expect(find.text('Push Screen'), findsOneWidget);
+
+      // Push when navigator is unmounted returns null
+      await tester.pumpWidget(const SizedBox());
+      final nullPush = await stackState.push(const SizedBox());
+      expect(nullPush, isNull);
     });
 
     testWidgets('GlassNavigationStack.of throws assertion outside of stack',
@@ -292,6 +297,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Standard Destination'), findsOneWidget);
+    });
+
+    testWidgets('navigationTitle extension wraps with header semantics',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: const Text('Page Body').navigationTitle('Settings Header'),
+          ),
+        ),
+      );
+
+      final semantics = tester.getSemantics(find.text('Page Body'));
+      expect(semantics.label, contains('Settings Header'));
     });
   });
 }

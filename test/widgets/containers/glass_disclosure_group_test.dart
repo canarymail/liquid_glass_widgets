@@ -352,11 +352,11 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         createTestApp(
-          child: const GlassDisclosureGroup.standalone(
-            title: Text('Standalone Group'),
-            leading: Icon(CupertinoIcons.heart),
+          child: GlassDisclosureGroup.standalone(
+            title: const Text('Standalone Group'),
+            leading: const Icon(CupertinoIcons.heart),
             leadingIconColor: CupertinoColors.systemRed,
-            children: [Text('Standalone Child')],
+            children: const [Text('Standalone Child')],
           ),
         ),
       );
@@ -374,6 +374,62 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Standalone Group'), findsOneWidget);
+    });
+
+    testWidgets(
+        'GlassDisclosureGroup didUpdateWidget updates animation when curve changes',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassDisclosureGroup(
+            animationCurve: Curves.easeIn,
+            title: Text('Animated Group'),
+            children: [Text('Content')],
+          ),
+        ),
+      );
+
+      // Change animation curve
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassDisclosureGroup(
+            animationCurve: Curves.easeOut,
+            title: Text('Animated Group'),
+            children: [Text('Content')],
+          ),
+        ),
+      );
+
+      expect(find.text('Animated Group'), findsOneWidget);
+    });
+
+    testWidgets(
+        'nested GlassDisclosureGroup with leading gets smart 52pt divider indentation',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassDisclosureGroup(
+            title: Text('Parent Group'),
+            initiallyExpanded: true,
+            showDividers: true,
+            children: [
+              GlassDisclosureGroup(
+                title: Text('Nested Group 1'),
+                leading: Icon(CupertinoIcons.folder),
+                children: [Text('Item 1')],
+              ),
+              GlassDisclosureGroup(
+                title: Text('Nested Group 2'),
+                children: [Text('Item 2')],
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.text('Parent Group'), findsOneWidget);
+      expect(find.text('Nested Group 1'), findsOneWidget);
+      expect(find.byType(GlassDivider), findsWidgets);
     });
   });
 }

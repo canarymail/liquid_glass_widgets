@@ -106,6 +106,39 @@ void main() {
       );
 
       expect(find.text('Editing'), findsOneWidget);
+
+      // Swap controller to null (provisions internal controller)
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            controller: null,
+            child: Builder(
+              builder: (context) {
+                final isEditing = GlassEditScope.isEditing(context);
+                return Text(isEditing ? 'Editing' : 'Not Editing');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Not Editing'), findsOneWidget);
+    });
+
+    testWidgets('standard GlassEditButton with custom labels', (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            child: GlassEditButton(
+              editLabel: 'Custom Edit',
+              doneLabel: 'Custom Done',
+              color: CupertinoColors.activeGreen,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Custom Edit'), findsOneWidget);
     });
 
     testWidgets('explicit GlassEditButton respects external state and callback',

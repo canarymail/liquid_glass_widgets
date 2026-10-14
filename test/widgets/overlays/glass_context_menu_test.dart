@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:liquid_glass_widgets/widgets/shared/glass_focus_region.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -484,5 +485,99 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Action To Dismiss'), findsNothing);
+  });
+
+  testWidgets('tapping lifted target preview dismisses the context menu',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          actions: [
+            GlassContextMenuAction(
+              onPressed: () {},
+              child: const Text('Some Action'),
+            ),
+          ],
+          child: const Text('Preview Target'),
+        ),
+      ),
+    );
+
+    // Open menu
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.text('Preview Target')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Some Action'), findsOneWidget);
+
+    // Tap the lifted preview target in the overlay
+    await tester.tap(find.text('Preview Target').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Some Action'), findsNothing);
+  });
+
+  testWidgets('GlassContextMenu near bottom edge places platter above target',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: GlassContextMenu(
+            actions: [
+              GlassContextMenuAction(
+                onPressed: () {},
+                child: const Text('Bottom Action'),
+              ),
+            ],
+            child: const Text('Bottom Target'),
+          ),
+        ),
+      ),
+    );
+
+    // Open menu
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text('Bottom Target')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bottom Action'), findsOneWidget);
+  });
+
+  testWidgets(
+      'GlassContextMenuAction semanticOnTap and onKeyboardActivate execute action',
+      (tester) async {
+    int tapCount = 0;
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          actions: [
+            GlassContextMenuAction(
+              onPressed: () => tapCount++,
+              child: const Text('Keyboard Action'),
+            ),
+          ],
+          child: const Text('Keyboard Target'),
+        ),
+      ),
+    );
+
+    // Open menu
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.text('Keyboard Target')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final focusRegionFinder = find.byType(GlassFocusRegion);
+    expect(focusRegionFinder, findsOneWidget);
+    final focusRegion = tester.widget<GlassFocusRegion>(focusRegionFinder);
+    focusRegion.semanticOnTap?.call();
+    focusRegion.onKeyboardActivate?.call();
+    expect(tapCount, 2);
   });
 }
