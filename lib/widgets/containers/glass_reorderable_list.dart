@@ -300,11 +300,15 @@ class GlassReorderableList extends StatelessWidget {
           ],
         );
       },
-      onReorderItem: onReorderItem ??
-          (int oldIndex, int newIndex) {
-            final unadjusted = newIndex >= oldIndex ? newIndex + 1 : newIndex;
-            onReorder!(oldIndex, unadjusted);
-          },
+      // ignore: deprecated_member_use
+      onReorder: (int oldIndex, int newIndex) {
+        if (onReorderItem != null) {
+          final adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
+          onReorderItem!(oldIndex, adjusted);
+        } else {
+          onReorder!(oldIndex, newIndex);
+        }
+      },
       proxyDecorator: proxyDecorator,
     );
   }
