@@ -532,5 +532,43 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('nestedGrouped'), findsOneWidget);
     });
+
+    testWidgets(
+        'AdaptiveGlass with useOwnLayer=false falls back to own layer when no ancestor layer exists',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const AdaptiveGlass(
+            shape: _shape,
+            settings: _settings,
+            useOwnLayer: false,
+            child: Text('fallbackOwnLayer'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('fallbackOwnLayer'), findsOneWidget);
+    });
+
+    testWidgets('InheritedGlassSurfaceStyle.maybeOf retrieves ambient style',
+        (tester) async {
+      GlassSurfaceStyle? retrievedStyle;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: InheritedGlassSurfaceStyle(
+            surfaceStyle: GlassSurfaceStyle.solid,
+            child: Builder(
+              builder: (context) {
+                retrievedStyle = InheritedGlassSurfaceStyle.maybeOf(context);
+                return const Text('Surface Style Child');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(retrievedStyle, GlassSurfaceStyle.solid);
+    });
   });
 }

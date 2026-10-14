@@ -753,6 +753,167 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('GlassSwipeController programmatic open, close, and offset',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: controller,
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+            ],
+            leadingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.flag),
+                label: Text('Flag'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 300,
+              height: 50,
+              child: Text('Controller Item'),
+            ),
+          ),
+        ),
+      );
+
+      expect(controller.isOpen, isFalse);
+      expect(controller.offset, 0.0);
+
+      // Open trailing programmatically
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+
+      expect(controller.isOpen, isTrue);
+      expect(controller.offset, lessThan(0.0));
+
+      // Close programmatically
+      controller.close(animated: false);
+      await tester.pumpAndSettle();
+
+      expect(controller.isOpen, isFalse);
+      expect(controller.offset, 0.0);
+
+      // Open leading programmatically
+      controller.openLeading(animated: false);
+      await tester.pumpAndSettle();
+
+      expect(controller.isOpen, isTrue);
+      expect(controller.offset, greaterThan(0.0));
+
+      controller.close(animated: false);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('GlassSwipeActions didUpdateWidget swaps controller',
+        (tester) async {
+      final ctrl1 = GlassSwipeController();
+      final ctrl2 = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: ctrl1,
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 300,
+              height: 60,
+              child: Text('Swapping Item'),
+            ),
+          ),
+        ),
+      );
+
+      expect(ctrl1.isOpen, isFalse);
+
+      // Swap controller
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: ctrl2,
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 300,
+              height: 60,
+              child: Text('Swapping Item'),
+            ),
+          ),
+        ),
+      );
+
+      ctrl2.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+
+      expect(ctrl2.isOpen, isTrue);
+    });
+
+    testWidgets('GlassSwipeActionScope.closeAll closes currently open row',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActionScope(
+            child: Builder(
+              builder: (context) {
+                return Column(
+                  children: [
+                    GlassSwipeActions(
+                      controller: controller,
+                      trailingActions: const [
+                        GlassSwipeAction(
+                          icon: Icon(CupertinoIcons.trash),
+                          label: Text('Delete'),
+                          onTap: _noop,
+                        ),
+                      ],
+                      child: const SizedBox(
+                        width: 300,
+                        height: 60,
+                        child: Text('Row In Scope'),
+                      ),
+                    ),
+                    CupertinoButton(
+                      child: const Text('Close All Button'),
+                      onPressed: () => GlassSwipeActionScope.closeAll(context),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+
+      await tester.tap(find.text('Close All Button'));
+      await tester.pumpAndSettle();
+
+      expect(controller.isOpen, isFalse);
+    });
   });
 }
 

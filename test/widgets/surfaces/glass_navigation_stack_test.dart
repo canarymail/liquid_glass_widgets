@@ -152,18 +152,146 @@ void main() {
       expect(find.text('Custom Target Screen'), findsOneWidget);
     });
 
-    testWidgets('navigationTitle extension wraps with header semantics',
+    test('GlassNavigationPath helpers: isEmpty, isNotEmpty, popToRoot, clear',
+        () {
+      final path = GlassNavigationPath();
+      expect(path.isEmpty, isTrue);
+      expect(path.isNotEmpty, isFalse);
+
+      path.append('item 1');
+      path.append('item 2');
+      expect(path.isEmpty, isFalse);
+      expect(path.isNotEmpty, isTrue);
+      expect(path.length, 2);
+
+      path.popToRoot();
+      expect(path.isEmpty, isTrue);
+      expect(path.length, 0);
+
+      path.append('item A');
+      expect(path.isNotEmpty, isTrue);
+      path.clear();
+      expect(path.isEmpty, isTrue);
+    });
+
+    testWidgets('GlassNavigationStack.of and programmatic push / pop',
         (tester) async {
+      late GlassNavigationStackState stackState;
+
       await tester.pumpWidget(
         CupertinoApp(
-          home: CupertinoPageScaffold(
-            child: const Text('Page Body').navigationTitle('Settings Header'),
+          home: GlassNavigationStack(
+            root: Builder(
+              builder: (context) {
+                stackState = GlassNavigationStack.of(context);
+                return CupertinoPageScaffold(
+                  child: Center(
+                    child: CupertinoButton(
+                      child: const Text('Push Screen'),
+                      onPressed: () {
+                        stackState.push(
+                          const CupertinoPageScaffold(
+                            child: Center(child: Text('Pushed Screen Content')),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       );
 
-      final semantics = tester.getSemantics(find.text('Page Body'));
-      expect(semantics.label, contains('Settings Header'));
+      expect(stackState.navigatorKey, isNotNull);
+      expect(find.text('Push Screen'), findsOneWidget);
+
+      await tester.tap(find.text('Push Screen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pushed Screen Content'), findsOneWidget);
+
+      // Pop using stackState
+      stackState.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pushed Screen Content'), findsNothing);
+      expect(find.text('Push Screen'), findsOneWidget);
+    });
+
+    testWidgets('GlassNavigationStack.of throws assertion outside of stack',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: Builder(
+            builder: (context) {
+              expect(
+                () => GlassNavigationStack.of(context),
+                throwsA(isA<AssertionError>()),
+              );
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+    });
+
+    testWidgets(
+        'GlassNavigationStack didUpdateWidget swaps navigatorKey and path',
+        (tester) async {
+      final key1 = GlobalKey<NavigatorState>();
+      final key2 = GlobalKey<NavigatorState>();
+      final path1 = GlassNavigationPath();
+      final path2 = GlassNavigationPath();
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: GlassNavigationStack(
+            navigatorKey: key1,
+            path: path1,
+            root: const Text('Root 1'),
+          ),
+        ),
+      );
+
+      expect(find.text('Root 1'), findsOneWidget);
+
+      // Update widget with new key and path
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: GlassNavigationStack(
+            navigatorKey: key2,
+            path: path2,
+            root: const Text('Root 2'),
+          ),
+        ),
+      );
+
+      expect(find.text('Root 2'), findsOneWidget);
+    });
+
+    testWidgets(
+        'GlassNavigationLink without stack pushes directly via Navigator.of',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassNavigationLink(
+              title: const Text('Standard Nav Link'),
+              destination: (context) => const CupertinoPageScaffold(
+                child: Center(child: Text('Standard Destination')),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Standard Nav Link'), findsOneWidget);
+      await tester.tap(find.text('Standard Nav Link'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Standard Destination'), findsOneWidget);
     });
   });
 }

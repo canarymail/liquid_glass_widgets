@@ -390,5 +390,104 @@ void main() {
       expect(find.text('Fling Body'), findsNothing);
       expect(dismissed, isTrue);
     });
+
+    testWidgets(
+        'declarative glassFullScreenCover presents and dismisses via state',
+        (tester) async {
+      Widget buildApp({required bool isPresented}) {
+        return CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: const Center(
+              child: Text('Main Screen'),
+            ).glassFullScreenCover(
+              isPresented: isPresented,
+              content: (context) => const Text('Declarative Cover Content'),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildApp(isPresented: false));
+      expect(find.text('Declarative Cover Content'), findsNothing);
+
+      // Present
+      await tester.pumpWidget(buildApp(isPresented: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Declarative Cover Content'), findsOneWidget);
+
+      // Dismiss declaratively via didUpdateWidget
+      await tester.pumpWidget(buildApp(isPresented: false));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Declarative Cover Content'), findsNothing);
+    });
+
+    testWidgets(
+        'GlassFullScreenCoverBar renders drag handle in light and dark mode',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          theme: const CupertinoThemeData(brightness: Brightness.dark),
+          home: const CupertinoPageScaffold(
+            child: GlassFullScreenCoverBar(
+              showDragHandle: true,
+              title: Text('Title With Handle'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Title With Handle'), findsOneWidget);
+
+      // Switch to light mode
+      await tester.pumpWidget(
+        CupertinoApp(
+          theme: const CupertinoThemeData(brightness: Brightness.light),
+          home: const CupertinoPageScaffold(
+            child: GlassFullScreenCoverBar(
+              showDragHandle: true,
+              title: Text('Title With Handle'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Title With Handle'), findsOneWidget);
+    });
+
+    testWidgets('upward drag applies rubber-band resistance damping',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Builder(
+              builder: (context) => CupertinoButton(
+                child: const Text('Open'),
+                onPressed: () {
+                  showGlassFullScreenCover(
+                    context: context,
+                    builder: (context) => const GlassFullScreenCover(
+                      title: Text('Damping Test'),
+                      child: Text('Damping Body'),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // Drag upward (negative dy)
+      await tester.drag(find.text('Damping Test'), const Offset(0, -60));
+      await tester.pumpAndSettle();
+
+      // Cover should still be visible and spring back
+      expect(find.text('Damping Body'), findsOneWidget);
+    });
   });
 }

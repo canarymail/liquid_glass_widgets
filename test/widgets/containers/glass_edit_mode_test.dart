@@ -44,6 +44,70 @@ void main() {
       expect(find.text('View Mode'), findsOneWidget);
     });
 
+    testWidgets('GlassEditScope.of and stopEditing helper', (tester) async {
+      late GlassEditController controller;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            child: Builder(
+              builder: (context) {
+                controller = GlassEditScope.of(context);
+                return Text('Mode: ${controller.mode.name}');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(controller.mode, GlassEditMode.inactive);
+      controller.startEditing();
+      await tester.pumpAndSettle();
+      expect(controller.mode, GlassEditMode.active);
+
+      controller.stopEditing();
+      await tester.pumpAndSettle();
+      expect(controller.mode, GlassEditMode.inactive);
+    });
+
+    testWidgets('GlassEditScope didUpdateWidget swaps controller',
+        (tester) async {
+      final ctrl1 = GlassEditController(initialMode: GlassEditMode.inactive);
+      final ctrl2 = GlassEditController(initialMode: GlassEditMode.active);
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            controller: ctrl1,
+            child: Builder(
+              builder: (context) {
+                final isEditing = GlassEditScope.isEditing(context);
+                return Text(isEditing ? 'Editing' : 'Not Editing');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Not Editing'), findsOneWidget);
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            controller: ctrl2,
+            child: Builder(
+              builder: (context) {
+                final isEditing = GlassEditScope.isEditing(context);
+                return Text(isEditing ? 'Editing' : 'Not Editing');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Editing'), findsOneWidget);
+    });
+
     testWidgets('explicit GlassEditButton respects external state and callback',
         (tester) async {
       var toggled = false;
@@ -117,6 +181,74 @@ void main() {
       await tester.tap(find.text('Contact Name'));
       await tester.pumpAndSettle();
       expect(find.text('Delete'), findsNothing);
+    });
+
+    testWidgets('exiting edit mode clears delete confirmation', (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassListTile(
+            isEditing: true,
+            title: const Text('Contact Name'),
+            onDelete: _noop,
+          ),
+        ),
+      );
+
+      final minusFinder = find.byIcon(CupertinoIcons.minus_circle_fill);
+      await tester.tap(minusFinder);
+      await tester.pumpAndSettle();
+      expect(find.text('Delete'), findsOneWidget);
+
+      // Re-render with isEditing: false
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassListTile(
+            isEditing: false,
+            title: Text('Contact Name'),
+          ),
+        ),
+      );
+
+      expect(find.text('Delete'), findsNothing);
+    });
+
+    testWidgets('renders both edit badge and selection accessory in edit mode',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassListTile(
+            isEditing: true,
+            canSelect: true,
+            isSelected: false,
+            onDelete: _noop,
+            title: const Text('Multi-Accessory Row'),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(CupertinoIcons.minus_circle_fill), findsOneWidget);
+      expect(find.byIcon(CupertinoIcons.circle), findsOneWidget);
+    });
+
+    testWidgets(
+        'wraps content in GlassContextMenu when contextMenuActions provided',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassListTile(
+            title: const Text('Tile With Context Menu'),
+            contextMenuActions: [
+              GlassContextMenuAction(
+                trailing: const Text('Cmd+C'),
+                onPressed: () {},
+                child: const Text('Action 1'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.byType(GlassContextMenu), findsOneWidget);
     });
 
     testWidgets('shows insertion plus badge when onInsert is provided',
@@ -235,6 +367,84 @@ void main() {
       expect(find.text('Item C'), findsOneWidget);
       expect(find.byType(GlassContainer), findsOneWidget);
       expect(find.byType(GlassDivider), findsWidgets);
+    });
+
+    testWidgets('standard GlassReorderableList with padding, header, footer',
+        (tester) async {
+      final items = ['Item 1', 'Item 2', 'Item 3'];
+      int? reorderedOld;
+      int? reorderedNew;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassReorderableList(
+            header: const Text('Header Text'),
+            footer: const Text('Footer Text'),
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            onReorderItem: (oldIdx, newIdx) {
+              reorderedOld = oldIdx;
+              reorderedNew = newIdx;
+            },
+            itemBuilder: (context, index) {
+              return GlassListTile(
+                key: ValueKey(items[index]),
+                isEditing: true,
+                title: Text(items[index]),
+                canReorder: true,
+                reorderIndex: index,
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('Header Text'), findsOneWidget);
+      expect(find.text('Footer Text'), findsOneWidget);
+      expect(find.text('Item 1'), findsOneWidget);
+
+      // Drag to reorder Item 1 downwards
+      final handle = find.byIcon(CupertinoIcons.bars).first;
+      await tester.drag(handle, const Offset(0, 100));
+      await tester.pumpAndSettle();
+
+      expect(reorderedOld, isNotNull);
+      expect(reorderedNew, isNotNull);
+    });
+
+    testWidgets('GlassReorderableList with classic onReorder callback',
+        (tester) async {
+      final items = ['Alpha', 'Beta', 'Gamma'];
+      int? reorderedOld;
+      int? reorderedNew;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassReorderableList(
+            itemCount: items.length,
+            onReorder: (oldIdx, newIdx) {
+              reorderedOld = oldIdx;
+              reorderedNew = newIdx;
+            },
+            itemBuilder: (context, index) {
+              return GlassListTile(
+                key: ValueKey(items[index]),
+                isEditing: true,
+                title: Text(items[index]),
+                canReorder: true,
+                reorderIndex: index,
+              );
+            },
+          ),
+        ),
+      );
+
+      final handle = find.byIcon(CupertinoIcons.bars).first;
+      await tester.drag(handle, const Offset(0, 100));
+      await tester.pumpAndSettle();
+
+      expect(reorderedOld, isNotNull);
+      expect(reorderedNew, isNotNull);
     });
   });
 }

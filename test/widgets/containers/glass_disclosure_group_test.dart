@@ -346,5 +346,34 @@ void main() {
       final childLeft = tester.getTopLeft(find.text('Child')).dx;
       expect(childLeft - groupLeft, 20);
     });
+
+    testWidgets(
+        'GlassDisclosureGroup.standalone renders with leadingIconColor and handles press/cancel',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const GlassDisclosureGroup.standalone(
+            title: Text('Standalone Group'),
+            leading: Icon(CupertinoIcons.heart),
+            leadingIconColor: CupertinoColors.systemRed,
+            children: [Text('Standalone Child')],
+          ),
+        ),
+      );
+
+      expect(find.text('Standalone Group'), findsOneWidget);
+      expect(find.byType(GlassContainer), findsOneWidget);
+
+      // Start gesture to trigger onTapDown
+      final gesture = await tester
+          .startGesture(tester.getCenter(find.text('Standalone Group')));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Cancel gesture to trigger onTapCancel
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Standalone Group'), findsOneWidget);
+    });
   });
 }

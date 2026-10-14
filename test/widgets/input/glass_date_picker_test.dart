@@ -409,5 +409,179 @@ void main() {
       final card = tester.widget<GlassContainer>(find.byType(GlassContainer));
       expect(card.shape, const LiquidRoundedSuperellipse(borderRadius: 26));
     });
+
+    testWidgets(
+        'time controls increment, decrement, and AM/PM toggle in dark mode',
+        (tester) async {
+      DateTime? changed;
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          theme: const CupertinoThemeData(brightness: Brightness.dark),
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: GlassDatePicker.graphical(
+                initialDateTime: DateTime(2026, 10, 8, 9, 30),
+                mode: GlassDatePickerMode.dateAndTime,
+                onDateTimeChanged: (dt) => changed = dt,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Time'), findsOneWidget);
+      expect(find.text('AM'), findsOneWidget);
+
+      // Increment hour
+      final plusFinder = find.byIcon(CupertinoIcons.plus);
+      await tester.tap(plusFinder.first);
+      await tester.pumpAndSettle();
+      expect(changed?.hour, 10);
+
+      // Decrement hour
+      final minusFinder = find.byIcon(CupertinoIcons.minus);
+      await tester.tap(minusFinder.first);
+      await tester.pumpAndSettle();
+      expect(changed?.hour, 9);
+
+      // Increment minute
+      await tester.tap(plusFinder.last);
+      await tester.pumpAndSettle();
+      expect(changed?.minute, 31);
+
+      // Decrement minute
+      await tester.tap(minusFinder.last);
+      await tester.pumpAndSettle();
+      expect(changed?.minute, 30);
+
+      // Toggle AM/PM
+      await tester.tap(find.text('AM'));
+      await tester.pumpAndSettle();
+      expect(changed?.hour, 21);
+      expect(find.text('PM'), findsOneWidget);
+    });
+
+    testWidgets('respects maximumDate constraint', (tester) async {
+      final initialDate = DateTime(2026, 10, 8);
+      final maxDate = DateTime(2026, 10, 10);
+      DateTime? changedDate;
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: GlassDatePicker.graphical(
+                initialDateTime: initialDate,
+                maximumDate: maxDate,
+                onDateTimeChanged: (val) => changedDate = val,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Tap on day 15 (beyond maximumDate)
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+
+      expect(changedDate, isNull);
+    });
+
+    testWidgets('GlassDatePicker and GlassMultiDatePicker didUpdateWidget',
+        (tester) async {
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassDatePicker.graphical(
+              initialDateTime: DateTime(2026, 10, 8),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('October 2026'), findsOneWidget);
+
+      // Update widget with new date
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassDatePicker.graphical(
+              initialDateTime: DateTime(2026, 11, 15),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Multi date picker
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassMultiDatePicker(
+              selectedDates: {DateTime(2026, 10, 8)},
+            ),
+          ),
+        ),
+      );
+
+      // Update multi date picker
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: GlassMultiDatePicker(
+              selectedDates: {DateTime(2026, 11, 20)},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('showGlassDatePicker modal popup done and cancel paths',
+        (tester) async {
+      DateTime? selectedResult;
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Builder(
+              builder: (context) {
+                return CupertinoButton(
+                  child: const Text('Open Modal Picker'),
+                  onPressed: () async {
+                    selectedResult = await showGlassDatePicker(
+                      context: context,
+                      initialDateTime: DateTime(2026, 10, 8),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Open and tap Done
+      await tester.tap(find.text('Open Modal Picker'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Done'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      expect(selectedResult, isNotNull);
+
+      // Open and tap Cancel
+      selectedResult = DateTime(2026, 1, 1);
+      await tester.tap(find.text('Open Modal Picker'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cancel'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(selectedResult, isNull);
+    });
   });
 }

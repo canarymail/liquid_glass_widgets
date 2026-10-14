@@ -416,4 +416,73 @@ void main() {
 
     expect(opened, isTrue);
   });
+
+  testWidgets('GlassContextMenu with GlassMenuItem executes onTap and pops',
+      (tester) async {
+    bool menuItemTapped = false;
+
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          actions: [
+            GlassMenuItem(
+              title: 'Menu Item Title',
+              onTap: () => menuItemTapped = true,
+            ),
+          ],
+          child: const Text('Item Target'),
+        ),
+      ),
+    );
+
+    // Open menu
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text('Item Target')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menu Item Title'), findsOneWidget);
+
+    // Tap the GlassMenuItem
+    await tester.tap(find.text('Menu Item Title'));
+    await tester.pumpAndSettle();
+
+    expect(menuItemTapped, isTrue);
+    expect(find.text('Menu Item Title'), findsNothing);
+  });
+
+  testWidgets('tapping outside context menu barrier dismisses the menu',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          actions: [
+            GlassContextMenuAction(
+              trailing: const Text('Ctrl+D'),
+              onPressed: () {},
+              child: const Text('Action To Dismiss'),
+            ),
+          ],
+          child: const Text('Barrier Target'),
+        ),
+      ),
+    );
+
+    // Open menu
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.text('Barrier Target')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Action To Dismiss'), findsOneWidget);
+    expect(find.text('Ctrl+D'), findsOneWidget);
+
+    // Tap outside at top-left corner
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Action To Dismiss'), findsNothing);
+  });
 }
