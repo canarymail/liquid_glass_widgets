@@ -169,6 +169,6 @@ MANUAL_TEST_CHECKLIST.md
 .claude/
 .agents/
 
-# Local parity test captures (generated artifacts)
+# Local parity captures and tool builds (keep git repo lean)
 tool/parity/captures/
-
+tool/parity/ios_reference/build/
