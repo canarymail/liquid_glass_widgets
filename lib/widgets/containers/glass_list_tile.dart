@@ -352,11 +352,67 @@ class GlassListTile extends StatefulWidget {
 }
 
 class _GlassListTileState extends State<GlassListTile>
-    with GlassInteractionStateMixin {
+    with GlassInteractionStateMixin, TickerProviderStateMixin {
   // Interaction state (isPressed, isFocused, pressedAndFocused)
   // is provided by GlassInteractionStateMixin.
 
+  late final AnimationController _confirmController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  );
+  late final Animation<double> _confirmAnimation = CurvedAnimation(
+    parent: _confirmController,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+
+  late final AnimationController _removeController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  late final Animation<double> _removeAnimation = CurvedAnimation(
+    parent: _removeController,
+    curve: Curves.easeInOutCubic,
+  );
+
   bool _isDeleteConfirming = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _confirmController.addStatusListener((status) {
+      if (status == AnimationStatus.dismissed && mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant GlassListTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final effectiveIsEditing =
+        widget.isEditing ?? GlassEditScope.isEditing(context);
+    if (!effectiveIsEditing && _isDeleteConfirming) {
+      _isDeleteConfirming = false;
+      _confirmController.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _confirmController.dispose();
+    _removeController.dispose();
+    super.dispose();
+  }
+
+  void _handleDeletePressed() {
+    HapticFeedback.mediumImpact();
+    _removeController.forward().then((_) {
+      if (mounted) {
+        widget.onDelete?.call();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -365,6 +421,7 @@ class _GlassListTileState extends State<GlassListTile>
 
     if (!effectiveIsEditing && _isDeleteConfirming) {
       _isDeleteConfirming = false;
+      _confirmController.value = 0.0;
     }
 
     Widget content = _buildContent(context, effectiveIsEditing);
@@ -439,6 +496,26 @@ class _GlassListTileState extends State<GlassListTile>
       );
     }
 
+    if (_removeController.isAnimating || _removeController.isCompleted) {
+      content = AnimatedBuilder(
+        animation: _removeAnimation,
+        builder: (context, child) {
+          final double progress = _removeAnimation.value;
+          return ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: (1.0 - progress).clamp(0.0, 1.0),
+              child: Opacity(
+                opacity: (1.0 - progress).clamp(0.0, 1.0),
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: content,
+      );
+    }
+
     return content;
   }
 
@@ -467,29 +544,54 @@ class _GlassListTileState extends State<GlassListTile>
     Widget? selectionAccessory;
     if (isEditing) {
       if (effectiveCanDelete) {
-        editBadge = GestureDetector(
+        final badge = GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {
               _isDeleteConfirming = !_isDeleteConfirming;
+              if (_isDeleteConfirming) {
+                _confirmController.forward();
+              } else {
+                _confirmController.reverse();
+              }
             });
           },
           child: Container(
-            width: 36,
+            width: 39,
             height: 36,
             alignment: Alignment.centerLeft,
-            child: AnimatedRotation(
-              turns: _isDeleteConfirming ? 0.25 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              child: const Icon(
-                CupertinoIcons.minus_circle_fill,
-                color: CupertinoColors.systemRed,
-                size: 25,
-              ),
+            child: const Icon(
+              CupertinoIcons.minus_circle_fill,
+              color: CupertinoColors.systemRed,
+              size: 25,
             ),
           ),
+        );
+
+        editBadge = AnimatedBuilder(
+          animation: _confirmAnimation,
+          builder: (context, child) {
+            final t = _confirmAnimation.value;
+            return SizedBox(
+              width: 39.0 * (1.0 - t),
+              height: 36.0,
+              child: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.centerLeft,
+                  minWidth: 39.0,
+                  maxWidth: 39.0,
+                  minHeight: 36.0,
+                  maxHeight: 36.0,
+                  child: Opacity(
+                    opacity: (1.0 - t).clamp(0.0, 1.0),
+                    child: child,
+                  ),
+                ),
+              ),
+            );
+          },
+          child: badge,
         );
       } else if (effectiveCanInsert) {
         editBadge = GestureDetector(
@@ -499,7 +601,7 @@ class _GlassListTileState extends State<GlassListTile>
             widget.onInsert?.call();
           },
           child: Container(
-            width: 36,
+            width: 39,
             height: 36,
             alignment: Alignment.centerLeft,
             child: const Icon(
@@ -520,7 +622,7 @@ class _GlassListTileState extends State<GlassListTile>
             widget.onSelectedChanged?.call(!widget.isSelected);
           },
           child: Container(
-            width: 36,
+            width: 39,
             height: 36,
             alignment: Alignment.centerLeft,
             child: Icon(
@@ -547,36 +649,14 @@ class _GlassListTileState extends State<GlassListTile>
 
     Widget? trailingAccessory;
     if (isEditing) {
-      if (_isDeleteConfirming) {
-        trailingAccessory = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: 8),
-            CupertinoButton(
-              color: CupertinoColors.systemRed,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              minimumSize: Size.zero,
-              borderRadius: BorderRadius.circular(6),
-              onPressed: () {
-                setState(() => _isDeleteConfirming = false);
-                widget.onDelete?.call();
-              },
-              child: const Text(
-                'Delete',
-                style: TextStyle(
-                  color: CupertinoColors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-        );
-      } else if (widget.canReorder) {
-        Widget handle = Container(
-          width: 32,
-          height: 32,
+      Widget? handle;
+      if (widget.canReorder) {
+        handle = Container(
+          width: 60,
+          height: 44,
           alignment: Alignment.centerRight,
+          color: const Color(0x00000000),
+          padding: const EdgeInsets.only(right: 4),
           child: const Icon(
             CupertinoIcons.bars,
             color: CupertinoColors.systemGrey3,
@@ -589,14 +669,63 @@ class _GlassListTileState extends State<GlassListTile>
             child: handle,
           );
         }
-        trailingAccessory = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: 8),
-            handle,
-          ],
+      }
+
+      Widget? deletePill;
+      if (effectiveCanDelete &&
+          (_isDeleteConfirming || _confirmAnimation.value > 0.0)) {
+        final deleteButton = CupertinoButton(
+          color: CupertinoColors.systemRed,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          minimumSize: const Size(0, 32),
+          borderRadius: BorderRadius.circular(100),
+          onPressed: _handleDeletePressed,
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                CupertinoIcons.trash_fill,
+                color: CupertinoColors.white,
+                size: 15,
+              ),
+              SizedBox(width: 4),
+              Text(
+                'Delete',
+                style: TextStyle(
+                  color: CupertinoColors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        deletePill = AnimatedBuilder(
+          animation: _confirmAnimation,
+          builder: (context, child) {
+            return ClipRect(
+              child: Align(
+                alignment: Alignment.centerRight,
+                widthFactor: _confirmAnimation.value,
+                child: child,
+              ),
+            );
+          },
+          child: deleteButton,
         );
       }
+
+      trailingAccessory = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (handle != null) handle,
+          if (deletePill != null) ...[
+            if (handle != null) const SizedBox(width: 8),
+            deletePill,
+          ],
+        ],
+      );
     } else if (widget.trailing != null) {
       trailingAccessory = Row(
         mainAxisSize: MainAxisSize.min,
@@ -653,10 +782,46 @@ class _GlassListTileState extends State<GlassListTile>
 
     Widget tile = Padding(padding: widget.contentPadding, child: row);
 
+    if (_isDeleteConfirming || _confirmAnimation.value > 0.0) {
+      tile = Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _confirmAnimation,
+              builder: (context, _) {
+                final double alpha = _confirmAnimation.value;
+                if (alpha <= 0.0) return const SizedBox.shrink();
+                final bool isDark =
+                    GlassTheme.brightnessOf(context) == Brightness.dark;
+                final Color platterColor =
+                    isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: platterColor.withValues(alpha: alpha),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          tile,
+        ],
+      );
+    }
+
     if (_isDeleteConfirming) {
       tile = GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTap: () => setState(() => _isDeleteConfirming = false),
+        onTap: () {
+          setState(() {
+            _isDeleteConfirming = false;
+            _confirmController.reverse();
+          });
+        },
         child: tile,
       );
     }

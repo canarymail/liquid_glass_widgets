@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
 import '../../types/glass_surface_style.dart';
+import '../shared/glass_edit_scope.dart';
 import '../shared/glass_solid_surface.dart';
 import 'glass_container.dart';
 import 'glass_divider.dart';
@@ -161,8 +162,8 @@ class GlassReorderableList extends StatelessWidget {
       animation: animation,
       builder: (context, _) {
         final double animValue = Curves.easeOutCubic.transform(animation.value);
-        final double scale = 1.0 + (0.025 * animValue);
-        final double shadowElevation = 18.0 * animValue;
+        final double scale = 1.0 + (0.012 * animValue);
+        final double shadowElevation = 20.0 * animValue;
 
         return Transform.scale(
           scale: scale,
@@ -176,9 +177,15 @@ class GlassReorderableList extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color:
-                      CupertinoColors.black.withValues(alpha: 0.32 * animValue),
+                      CupertinoColors.black.withValues(alpha: 0.18 * animValue),
                   blurRadius: shadowElevation,
                   offset: Offset(0, 8.0 * animValue),
+                ),
+                BoxShadow(
+                  color:
+                      CupertinoColors.black.withValues(alpha: 0.06 * animValue),
+                  blurRadius: 6.0 * animValue,
+                  offset: Offset(0, 2.0 * animValue),
                 ),
               ],
             ),
@@ -193,6 +200,9 @@ class GlassReorderableList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveProxyDecorator = proxyDecorator ?? _defaultProxyDecorator;
+    final effectiveSurfaceStyle =
+        InheritedGlassSurfaceStyle.maybeOf(context) ?? _surfaceStyle;
+    final editController = GlassEditScope.maybeOf(context);
 
     Widget listView = CustomScrollView(
       shrinkWrap: shrinkWrap,
@@ -201,10 +211,18 @@ class GlassReorderableList extends StatelessWidget {
         if (padding != null)
           SliverPadding(
             padding: padding!,
-            sliver: _buildSliverList(effectiveProxyDecorator),
+            sliver: _buildSliverList(
+              effectiveProxyDecorator,
+              editController,
+              effectiveSurfaceStyle,
+            ),
           )
         else
-          _buildSliverList(effectiveProxyDecorator),
+          _buildSliverList(
+            effectiveProxyDecorator,
+            editController,
+            effectiveSurfaceStyle,
+          ),
       ],
     );
 
@@ -280,7 +298,11 @@ class GlassReorderableList extends StatelessWidget {
     return listView;
   }
 
-  Widget _buildSliverList(ReorderItemProxyDecorator proxyDecorator) {
+  Widget _buildSliverList(
+    ReorderItemProxyDecorator proxyDecorator,
+    GlassEditController? editController,
+    GlassSurfaceStyle surfaceStyle,
+  ) {
     return SliverReorderableList(
       itemCount: itemCount,
       itemBuilder: (context, index) {
@@ -289,15 +311,11 @@ class GlassReorderableList extends StatelessWidget {
           return child;
         }
 
-        // Interleave a GlassDivider below item if grouped
-        return Column(
+        // Interleave a GlassDivider below item if grouped (omitted in drag proxy)
+        return _ReorderableRowWithDivider(
           key: child.key,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            child,
-            const GlassDivider(indent: 56.0),
-          ],
+          tile: child,
+          divider: const GlassDivider(indent: 56.0),
         );
       },
       // ignore: deprecated_member_use
@@ -309,7 +327,56 @@ class GlassReorderableList extends StatelessWidget {
           onReorder!(oldIndex, newIndex);
         }
       },
-      proxyDecorator: proxyDecorator,
+      proxyDecorator: (child, index, animation) {
+        Widget wrapped = child;
+        if (editController != null) {
+          wrapped = GlassEditScope(
+            controller: editController,
+            child: wrapped,
+          );
+        }
+        wrapped = InheritedGlassSurfaceStyle(
+          surfaceStyle: surfaceStyle,
+          child: wrapped,
+        );
+        wrapped = _InheritedReorderProxy(child: wrapped);
+        return proxyDecorator(wrapped, index, animation);
+      },
+    );
+  }
+}
+
+class _InheritedReorderProxy extends InheritedWidget {
+  const _InheritedReorderProxy({required super.child});
+
+  static bool isProxy(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_InheritedReorderProxy>() !=
+      null;
+
+  @override
+  bool updateShouldNotify(covariant InheritedWidget oldWidget) => false;
+}
+
+class _ReorderableRowWithDivider extends StatelessWidget {
+  const _ReorderableRowWithDivider({
+    super.key,
+    required this.tile,
+    required this.divider,
+  });
+
+  final Widget tile;
+  final Widget divider;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isProxy = _InheritedReorderProxy.isProxy(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        tile,
+        if (!isProxy) divider,
+      ],
     );
   }
 }

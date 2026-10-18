@@ -96,9 +96,9 @@ GlassListTile(
 | :--- | :--- | :--- | :--- |
 | **Ambient Scope** | `@Environment(\.editMode) var editMode` | `GlassEditScope.of(context)` / `GlassEditController` | ✅ 1:1 Scoped Architecture |
 | **Edit/Done Toggle** | `EditButton()` in navigation toolbar | `GlassEditButton()` (auto-bound to ambient controller) or `GlassEditButton.explicit()` | ✅ 1:1 UI & Haptics |
-| **Delete Indicator** | Circular red badge with centered white minus (`-`) + selection circle | Red badge (`CupertinoIcons.minus_circle_fill`) alongside selection circle, rotates into inline "Delete" pill | ✅ Verified visually (light and dark); glyph size matches (25pt glyph = 21pt disc) |
-| **Drag Reorder Handle**| 3-bar horizontal gripper (`CupertinoIcons.bars`) | 3-bar gripper, supports both `onReorderItem` and `onReorder` | ⚠️ Handle is narrower than native (42 vs 64px) |
-| **Elevation Proxy** | 1.025x scale with elevated soft specular drop shadow | 1.025x scale proxy with elevated liquid glass soft shadow | ✅ Identical visual lift |
+| **Delete Indicator** | Circular red badge with centered white minus (`-`) + selection circle. Tapping minus smoothly shifts row content left by 39pt into rounded platter background (`#E5E5EA` light, `#2C2C2E` dark), reveals inline red capsule pill with trash icon + "Delete" while keeping 3-bar reorder handle visible; tapping delete collapses row height and fades out over ~280ms | `GlassListTile` with `_confirmController` (240ms) and `_removeController` (280ms) performs identical horizontal slide, platter appearance, capsule trash button slide-in, and smooth height collapse before invoking `onDelete` | ✅ Verified side-by-side on two simulators (real injected touches, 6 frame/s contact sheets) |
+| **Drag Reorder Handle**| 3-bar horizontal gripper (`CupertinoIcons.bars`), ~60pt touch initiation target | 3-bar gripper, expanded 60×44pt touch target with transparent hit test area, supports both `onReorderItem` and `onReorder` | ✅ 1:1 Metric & Touch Target |
+| **Elevation Proxy** | Lifted proxy retains all edit accessories (badge, checkbox, handle), omits row divider, applies 1.012x scale and layered soft shadows | `proxyDecorator` preserves ambient `GlassEditScope` and surface style, omits `GlassDivider`, applies 1.012x scale and layered drop shadows | ✅ Verified side-by-side (`s_reorder` vs `f_reorder_post`) |
 | **Gesture Disambiguation**| Suppresses row swipe actions when `editMode.isEditing == true` | Automatically disables horizontal swipe gestures while in edit mode | ✅ Zero gesture collision |
 
 ---
@@ -108,9 +108,12 @@ GlassListTile(
 | Aspect | Apple SwiftUI (`.contextMenu`) | `liquid_glass_widgets` (`GlassContextMenu`) | Parity Status |
 | :--- | :--- | :--- | :--- |
 | **API Syntax** | `.contextMenu { items } preview: { previewView }` | `widget.glassContextMenu(actions: [...], previewBuilder: ...)` or `GlassContextMenu(child: ...)` | ✅ 1:1 Declarative + Extension |
-| **Touch Compression** | Target compresses to ~0.96× scale on initial touch-down | Compresses to 0.96× scale via immediate gesture response | ✅ Matches iOS compression |
-| **Haptic Lift** | Medium impact tick as item lifts to 1.02× with elevated shadow | `HapticFeedback.mediumImpact()` + 1.02× lift + 28px blur shadow | ✅ Matches UIKit / SwiftUI |
-| **Backdrop Blur** | Background defocuses behind a light glass platter and natural-size preview | Progressive Gaussian blur + single brightness-aware scrim; custom preview laid out at natural size | ✅ Verified visually (light mode); platter material close but not identical |
+| **Surface Lift** | Whole cell lifts ≈1.04× at touch+0.2s keeping its section corner shape, broad soft shadow, page undimmed; commit at ≈0.7s | Row lifts ≈1.038× (first/last rows keep the card's top/bottom corners via `InheritedGlassSectionRow`), 40px/10px soft shadow + tight contact shadow, 700ms `longPressDuration` (180ms lift trigger + 520ms commit) | ✅ Verified side-by-side on two simulators (real injected touches, 6 frame/s contact sheets) |
+| **Row → Card Morph** | ~190ms: row and preview each fade as separate white layers; shape eases into the 240pt, 34pt-radius card centred on the row; platter pops from ~0.4× beneath, 16pt gap; empty origin slot shows page background | Same layers/timings (`_kLiftSplit` 0.4, 190ms linear commit, ease-out-cubic shape after a 15% delay, platter pop 0.4→1), `originSlotColor` slot, superellipse clipping | ✅ Frame-matched |
+| **Dismissal** | Platter ghosts out first (~35ms), card eases back into the row (~110ms) with no shadow at the end, scrim fading in step | 170ms reverse: platter fade (first 25%), card ease-in-out back with reverse cross-fade, shadow factor → 0 | ✅ Frame-matched |
+| **Haptic Lift** | Medium impact tick on commit | `HapticFeedback.mediumImpact()` on commit | ✅ Matches UIKit / SwiftUI |
+| **Backdrop** | No blur; scrim rises to ≈19.5% black over the first ~50ms of the morph | `backdropBlur: 0.0` default + `0x32000000` scrim (light), `0x40000000` (dark) | ✅ Verified visually (light mode) |
+| **Platter** | 250pt wide, 10pt vertical padding + 42pt rows, no dividers, 32pt radius, hairline rim, leading 24pt icon slot | Identical metrics | ✅ Pixel-measured |
 | **Continuous Glide** | Dragging across menu items ticks haptics and highlights on release | Continuous drag tracking with `HapticFeedback.selectionClick()` | ✅ Full HIG glide-to-select |
 | **Desktop / Right-Click**| Instant context menu on right click / secondary click | `onSecondaryTapUp` triggers menu immediately without long-press delay | ✅ Desktop parity |
 
@@ -201,8 +204,7 @@ Interactive gesture tracking, spring settling physics, long-press haptics, pull-
 - Swipe-open, context-menu-open, and multi-date states have no native capture (`simctl` cannot inject touches). Flutter states were visually verified and unit-tested.
 - Elevated-dark (`#2C2C2E`, cards inside sheets) is not implemented.
 - `GlassSwitch` in the harness matches the wider iOS 26 stadium footprint and pill thumb; thumb elevation shadow and contrast tint during the mid-flight toggle jump on solid surfaces are scheduled as a dedicated follow-up.
-- The wheel picker's selection band is an 8pt rounded rect (native: capsule); dates and months are English-only.
-- Swipe platter: `solidVibrancy` provides flat fills matching native SwiftUI; the edit-mode reorder handle is narrower (42 vs 64px) and edit accessories are spaced 36pt vs native 39pt.
+- Swipe platter: `solidVibrancy` provides flat fills matching native SwiftUI. Edit-mode accessories (39pt spacing, 60pt reorder handle, platter slide and delete collapse) are verified side-by-side with native.
 
 ## 5. Verification Harness Quick Start
 
@@ -215,3 +217,17 @@ To regenerate all comparison screenshots:
 ```bash
 ./tool/parity/capture_parity.sh
 ```
+
+
+---
+
+## Live simulator parity tooling
+
+Scripts in this folder drive two simulators side by side (native SwiftUI reference left/right Device Hub windows) with **real injected touches** (macOS `CGEvent` posted on the session tap — the only path Device Hub accepts):
+
+| Tool | Purpose |
+| :--- | :--- |
+| `sim_touch.swift` | `sim_touch <flutter\|swift> <x> <y> <holdSec> [dx dy]` press/hold/drag in device points; compile with `swiftc sim_touch.swift -o /tmp/lgw/sim_touch` |
+| `record_menu.sh` | records a full open → hold → dismiss cycle on one simulator (`simctl io recordVideo`) |
+| `snap_open.sh` | full-res rest / open-menu screenshots for pixel comparison |
+| `video_sheet.swift` | labelled frame contact sheets from a recording (`video_sheet <mov> <out.png> <t0> <t1> <count> <cols> [cropY0 cropY1 thumbW]`) |

@@ -157,7 +157,9 @@ class _ParityHostState extends State<_ParityHost> {
         } catch (_) {}
         setState(() => _tab = int.parse(a[1]));
       case 'scroll':
-        if (_scroll.hasClients) _scroll.jumpTo(double.parse(a[1]));
+        if (_scroll.hasClients && _scroll.position.hasContentDimensions) {
+          _scroll.jumpTo(double.parse(a[1]));
+        }
       case 'swipe':
         final idx = int.parse(a[1]);
         if (idx >= _swipe.length) return;
