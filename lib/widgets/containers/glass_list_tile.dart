@@ -75,7 +75,10 @@ class GlassListTile extends StatefulWidget {
     this.trailingSwipeActions,
     this.allowsFullSwipe = true,
     this.fullSwipeThreshold = 0.65,
-    this.swipeActionWidth = 74.0,
+    this.swipeActionWidth,
+    this.swipeActionButtonDiameter,
+    this.swipeActionButtonSpacing,
+    this.swipeActionHorizontalPadding,
     this.swipeController,
     this.onSwipeStateChanged,
     this.swipeActionStyle,
@@ -120,7 +123,10 @@ class GlassListTile extends StatefulWidget {
     this.trailingSwipeActions,
     this.allowsFullSwipe = true,
     this.fullSwipeThreshold = 0.65,
-    this.swipeActionWidth = 74.0,
+    this.swipeActionWidth,
+    this.swipeActionButtonDiameter,
+    this.swipeActionButtonSpacing,
+    this.swipeActionHorizontalPadding,
     this.swipeController,
     this.onSwipeStateChanged,
     this.swipeActionStyle,
@@ -198,8 +204,24 @@ class GlassListTile extends StatefulWidget {
 
   /// Base width allocated for each swipe action button.
   ///
-  /// Defaults to `74.0`.
-  final double swipeActionWidth;
+  /// Defaults to null, which uses authentic iOS 26/27 circular action button geometry
+  /// ([swipeActionButtonDiameter] + [swipeActionButtonSpacing] + insets).
+  final double? swipeActionWidth;
+
+  /// Optional diameter for circular swipe action buttons.
+  ///
+  /// Defaults to null, which resolves to `50.0` logical pixels in [GlassSwipeActions].
+  final double? swipeActionButtonDiameter;
+
+  /// Optional spacing between adjacent swipe action buttons.
+  ///
+  /// Defaults to null, which resolves to `12.0` logical pixels in [GlassSwipeActions].
+  final double? swipeActionButtonSpacing;
+
+  /// Optional horizontal padding around swipe action buttons.
+  ///
+  /// Defaults to null, which resolves to `12.0` logical pixels in [GlassSwipeActions].
+  final double? swipeActionHorizontalPadding;
 
   /// Optional external controller for inspecting or triggering swipe actions.
   final GlassSwipeController? swipeController;
@@ -353,12 +375,23 @@ class _GlassListTileState extends State<GlassListTile>
     // keeping the swipe action platter flush with the card boundary.
     if (widget.contextMenuActions != null &&
         widget.contextMenuActions!.isNotEmpty) {
+      final bool inSolidSection = InheritedGlassSurfaceStyle.maybeOf(context) ==
+          GlassSurfaceStyle.solid;
+      final bool isDarkTile =
+          GlassTheme.brightnessOf(context) == Brightness.dark;
       content = GlassContextMenu(
         actions: widget.contextMenuActions!,
         previewBuilder: widget.contextMenuPreviewBuilder,
+        rowBorderRadius: 16.0,
+        rowCorners: InheritedGlassSectionRow.maybeOf(context),
+        // Native iOS leaves the pressed cell's slot empty, showing the page
+        // background (`systemGroupedBackground`) through it.
+        originSlotColor: inSolidSection
+            ? (isDarkTile ? const Color(0xFF000000) : const Color(0xFFF2F2F7))
+            : null,
         onDismissed: widget.onContextMenuDismissed,
         longPressDuration: widget.contextMenuLongPressDuration ??
-            const Duration(milliseconds: 300),
+            const Duration(milliseconds: 700),
         child: content,
       );
     }
@@ -392,10 +425,13 @@ class _GlassListTileState extends State<GlassListTile>
         allowsFullSwipe: widget.allowsFullSwipe,
         fullSwipeThreshold: widget.fullSwipeThreshold,
         actionWidth: widget.swipeActionWidth,
+        buttonDiameter: widget.swipeActionButtonDiameter ?? 50.0,
+        buttonSpacing: widget.swipeActionButtonSpacing ?? 12.0,
+        horizontalPadding: widget.swipeActionHorizontalPadding ?? 12.0,
         controller: widget.swipeController,
         onSwipeStateChanged: widget.onSwipeStateChanged,
         style: effectiveStyle,
-        onDismissed: widget.onDismissed,
+        onDismissed: widget.onDismissed ?? widget.onDelete,
         borderRadius: widget._useOwnLayer
             ? const BorderRadius.all(Radius.circular(12))
             : null,

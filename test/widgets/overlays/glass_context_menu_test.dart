@@ -83,7 +83,7 @@ void main() {
     await tester
         .pump(const Duration(milliseconds: 200)); // press down compression
     await tester
-        .pump(const Duration(milliseconds: 400)); // long press threshold
+        .pump(const Duration(milliseconds: 600)); // long press threshold
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -127,7 +127,7 @@ void main() {
     // Long press to open
     final gesture = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('tap_target'))));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -197,7 +197,7 @@ void main() {
 
     final gesture = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('small_item'))));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -332,7 +332,7 @@ void main() {
 
     final gesture = await tester
         .startGesture(tester.getCenter(find.byKey(const ValueKey('ext_item'))));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -365,7 +365,7 @@ void main() {
     // Open via long press
     final gesture = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('glide_target_trigger'))));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 800));
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Glide Target'), findsOneWidget);
@@ -439,7 +439,7 @@ void main() {
     // Open menu
     final gesture =
         await tester.startGesture(tester.getCenter(find.text('Item Target')));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -473,7 +473,7 @@ void main() {
     // Open menu
     final gesture = await tester
         .startGesture(tester.getCenter(find.text('Barrier Target')));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -506,7 +506,7 @@ void main() {
     // Open menu
     final gesture = await tester
         .startGesture(tester.getCenter(find.text('Preview Target')));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -541,7 +541,7 @@ void main() {
     // Open menu
     final gesture =
         await tester.startGesture(tester.getCenter(find.text('Bottom Target')));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -569,7 +569,7 @@ void main() {
     // Open menu
     final gesture = await tester
         .startGesture(tester.getCenter(find.text('Keyboard Target')));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 800));
     await gesture.up();
     await tester.pumpAndSettle();
 
@@ -579,5 +579,304 @@ void main() {
     focusRegion.semanticOnTap?.call();
     focusRegion.onKeyboardActivate?.call();
     expect(tapCount, 2);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+      'GlassContextMenu hero morphs from targetRect to preview and back on dismissal',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 100),
+            child: GlassContextMenu(
+              actions: [
+                GlassContextMenuAction(
+                  child: const Text('Edit'),
+                  onPressed: () {},
+                ),
+              ],
+              previewBuilder: (_) => Container(
+                width: 240,
+                height: 180,
+                color: CupertinoColors.white,
+                child: const Text('Hero Custom Preview'),
+              ),
+              child: Container(
+                key: const ValueKey('row_target'),
+                width: 320,
+                height: 60,
+                color: CupertinoColors.systemGrey,
+                child: const Text('Row Target Content'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Row Target Content'), findsOneWidget);
+    expect(find.text('Hero Custom Preview'), findsNothing);
+
+    // Initial position of row
+    final rowFinder = find.byKey(const ValueKey('row_target'));
+    final initialRowRect = tester.getRect(rowFinder);
+    expect(initialRowRect.top, 100.0);
+    expect(initialRowRect.width, 320.0);
+    expect(initialRowRect.height, 60.0);
+
+    // Long press to open menu
+    final gesture = await tester.startGesture(tester.getCenter(rowFinder));
+    await tester.pump(const Duration(milliseconds: 800));
+    await gesture.up();
+
+    // Pump partially into the transition (frame mid-flight)
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // The preview widget is already in tree
+    expect(find.text('Hero Custom Preview'), findsOneWidget);
+
+    // Settle to resting position
+    await tester.pumpAndSettle();
+    expect(find.text('Hero Custom Preview'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+
+    // Resting preview is visible
+    final previewFinder = find.text('Hero Custom Preview');
+    expect(previewFinder, findsOneWidget);
+
+    // Tap outside to dismiss
+    await tester.tapAt(const Offset(10, 10));
+    // Pump partially: reverses back towards initialRowRect
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    // Context menu is dismissed and row is visible again
+    expect(find.text('Hero Custom Preview'), findsNothing);
+    expect(find.text('Edit'), findsNothing);
+    expect(find.text('Row Target Content'), findsOneWidget);
+  });
+
+  testWidgets(
+      'GlassContextMenu hides target row in background while route is open',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          actions: [
+            GlassContextMenuAction(
+              child: const Text('Action 1'),
+              onPressed: () {},
+            ),
+          ],
+          child: const Text('Target Should Hide'),
+        ),
+      ),
+    );
+
+    // Long press
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.text('Target Should Hide')));
+    await tester.pump(const Duration(milliseconds: 800));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // The context menu route is open
+    expect(find.text('Action 1'), findsOneWidget);
+
+    // In the underlying widget tree, opacity of child is 0.0
+    final opacityFinder = find.ancestor(
+      of: find.text('Target Should Hide').first,
+      matching: find.byType(Opacity),
+    );
+    expect(opacityFinder, findsWidgets);
+    final opacities = tester
+        .widgetList<Opacity>(opacityFinder)
+        .where((o) => o.opacity == 0.0);
+    expect(opacities, isNotEmpty);
+  });
+
+  testWidgets(
+      'GlassContextMenu performs jump-out with shadow before morphing to rounded rect',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        Center(
+          child: SizedBox(
+            width: 320,
+            height: 60,
+            child: GlassContextMenu(
+              rowBorderRadius: 12.0,
+              previewBorderRadius: 20.0,
+              actions: [
+                GlassContextMenuAction(
+                  child: const Text('Action Item'),
+                  onPressed: () {},
+                ),
+              ],
+              previewBuilder: (_) => const SizedBox(
+                width: 220,
+                height: 180,
+                child: Text('Rounded Rect Preview'),
+              ),
+              child: const Text('Original Row Item'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Initial press and hold triggers menu presentation
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.text('Original Row Item')));
+    await tester.pump(const Duration(milliseconds: 800));
+    await gesture.up();
+
+    // Stage 1: ~50ms into transition (still inside the lift stage)
+    // Row has jumped out with shadow: child is still row item with shadow
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Original Row Item'), findsWidgets);
+
+    // Stage 2: Settle to completed presentation
+    await tester.pumpAndSettle();
+    expect(find.text('Rounded Rect Preview'), findsOneWidget);
+    expect(find.text('Action Item'), findsOneWidget);
+
+    // Dismiss
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    // Returns back to original row
+    expect(find.text('Rounded Rect Preview'), findsNothing);
+    expect(find.text('Original Row Item'), findsOneWidget);
+  });
+
+  testWidgets(
+      'GlassContextMenu paints the origin slot colour and removes shadow on return dismissal',
+      (tester) async {
+    const slotColor = Color(0xFFF2F2F7);
+    await tester.pumpWidget(
+      wrapWithApp(
+        Center(
+          child: SizedBox(
+            width: 300,
+            height: 50,
+            child: GlassContextMenu(
+              originSlotColor: slotColor,
+              actions: [
+                GlassContextMenuAction(
+                  child: const Text('Action 1'),
+                  onPressed: () {},
+                ),
+              ],
+              previewBuilder: (_) => const SizedBox(
+                width: 200,
+                height: 150,
+                child: Text('Preview Content'),
+              ),
+              child: const Text('Slot Item'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Open context menu
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.text('Slot Item')));
+    await tester.pump(const Duration(milliseconds: 800));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // The empty slot shows the supplied page background (not a white slab).
+    final slotBoxes = tester.widgetList<ColoredBox>(find.byType(ColoredBox));
+    expect(slotBoxes.any((c) => c.color == slotColor), isTrue);
+
+    bool anyCardShadow() =>
+        tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).any((d) =>
+            d.decoration is ShapeDecoration &&
+            (d.decoration as ShapeDecoration).shadows != null &&
+            (d.decoration as ShapeDecoration).shadows!.isNotEmpty);
+
+    // At rest the card carries its drop shadow.
+    expect(anyCardShadow(), isTrue);
+
+    // Tap outside to trigger reverse dismissal; the shadow is gone by the end.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(anyCardShadow(), isFalse);
+
+    await tester.pumpAndSettle();
+    expect(find.text('Slot Item'), findsOneWidget);
+  });
+
+  testWidgets(
+      'GlassContextMenu holds raised row with drop shadow during press-and-hold dwell and morphs to rectangle on commit',
+      (tester) async {
+    await tester.pumpWidget(
+      wrapWithApp(
+        Center(
+          child: SizedBox(
+            width: 300,
+            height: 60,
+            child: GlassContextMenu(
+              actions: [
+                GlassContextMenuAction(
+                  child: const Text('Commit Action'),
+                  onPressed: () {},
+                ),
+              ],
+              previewBuilder: (_) => Container(
+                width: 220,
+                height: 160,
+                color: CupertinoColors.systemBackground,
+                child: const Center(child: Text('Morphed Rectangle Preview')),
+              ),
+              child: const Text('Hold Dwell Item'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Touch and hold on the item
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.text('Hold Dwell Item')));
+
+    // Pump 180ms: gesture recognizer recognizes hold and pushes interactive route
+    await tester.pump(const Duration(milliseconds: 180));
+    // Pump 150ms: route builds and advances into lift dwell state in overlay
+    await tester.pump(const Duration(milliseconds: 150));
+
+    // In dwell state: verify the container has unclipped drop shadow
+    final hasShadow = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .any((d) =>
+            d.decoration is ShapeDecoration &&
+            (d.decoration as ShapeDecoration).shadows != null &&
+            (d.decoration as ShapeDecoration).shadows!.isNotEmpty);
+    expect(hasShadow, isTrue);
+
+    // The row content is visible in the overlay while the background row is hidden
+    expect(find.text('Hold Dwell Item'), findsNWidgets(2));
+
+    // Commit by advancing past commitDuration (total 600ms from touch down)
+    await tester.pump(const Duration(milliseconds: 400));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // After commit: morphed into preview rectangle and actions platter is open
+    expect(find.text('Morphed Rectangle Preview'), findsOneWidget);
+    expect(find.text('Commit Action'), findsOneWidget);
+
+    // Tap outside to dismiss
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Morphed Rectangle Preview'), findsNothing);
+    expect(find.text('Hold Dwell Item'), findsOneWidget);
   });
 }

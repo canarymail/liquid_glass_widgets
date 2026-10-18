@@ -72,17 +72,22 @@ class _ParityHostState extends State<_ParityHost> {
   String? _lastCmd;
 
   final _scroll = ScrollController();
-  final _swipe = List.generate(4, (_) => GlassSwipeController());
-  final _rowKeys = List.generate(4, (_) => GlobalKey());
+  late List<_Contact> _contacts;
+  late List<GlassSwipeController> _swipe;
+  late List<GlobalKey> _rowKeys;
   final _edit = GlassEditController(initialMode: GlassEditMode.active);
   final _expanded = ValueNotifier<List<bool>>([true, false, false]);
   final _emergencyContact = ValueNotifier<bool>(true);
   final _airDrop = ValueNotifier<bool>(true);
   final _sharePhoto = ValueNotifier<bool>(true);
+  final _activeMenuIndex = ValueNotifier<int?>(null);
 
   @override
   void initState() {
     super.initState();
+    _contacts = List.of(_initialContacts);
+    _swipe = List.generate(_contacts.length, (_) => GlassSwipeController());
+    _rowKeys = List.generate(_contacts.length, (_) => GlobalKey());
     final f = File(_cmdFile);
     if (f.existsSync()) {
       try {
@@ -91,6 +96,24 @@ class _ParityHostState extends State<_ParityHost> {
     }
     _dark.addListener(_onDarkChanged);
     _poll = Timer.periodic(const Duration(milliseconds: 250), (_) => _check());
+  }
+
+  void _deleteContact(int index) {
+    if (index < 0 || index >= _contacts.length) return;
+    setState(() {
+      _contacts.removeAt(index);
+      if (index < _swipe.length) _swipe.removeAt(index);
+      if (index < _rowKeys.length) _rowKeys.removeAt(index);
+    });
+  }
+
+  void _toggleFavorite(int index) {
+    if (index < 0 || index >= _contacts.length) return;
+    setState(() {
+      _contacts[index] = _contacts[index].copyWith(
+        favorite: !_contacts[index].favorite,
+      );
+    });
   }
 
   void _onDarkChanged() {
@@ -136,26 +159,57 @@ class _ParityHostState extends State<_ParityHost> {
       case 'scroll':
         if (_scroll.hasClients) _scroll.jumpTo(double.parse(a[1]));
       case 'swipe':
-        final c = _swipe[int.parse(a[1])];
+        final idx = int.parse(a[1]);
+        if (idx >= _swipe.length) return;
+        final c = _swipe[idx];
         switch (a[2]) {
           case 't':
             c.openTrailing();
           case 'l':
             c.openLeading();
+          case 'offset':
+            c.animateToOffset(double.parse(a[3]));
+          case 'dismiss':
+            c.dismiss();
           default:
             c.close();
         }
       case 'menu':
-        final box = _rowKeys[int.parse(a[1])].currentContext?.findRenderObject()
-            as RenderBox?;
+        final idx = int.parse(a[1]);
+        if (idx >= _rowKeys.length) return;
+        final box =
+            _rowKeys[idx].currentContext?.findRenderObject() as RenderBox?;
         if (box == null) return;
         final rect = box.localToGlobal(Offset.zero) & box.size;
+        _activeMenuIndex.value = idx;
         showGlassContextMenu<void>(
           context: context,
           targetRect: rect,
-          previewBuilder: (_) => _VipPreview(_contacts[int.parse(a[1])]),
-          actions: _menuActions(),
-        );
+          previewBuilder: (_) => _VipPreview(_contacts[idx]),
+          previewChild: _rowPreview(idx),
+          actions: _menuActions(idx),
+        ).then((_) {
+          if (mounted) _activeMenuIndex.value = null;
+        });
+      case 'menu_hold':
+        final idx = int.parse(a[1]);
+        if (idx >= _rowKeys.length) return;
+        final box =
+            _rowKeys[idx].currentContext?.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        final rect = box.localToGlobal(Offset.zero) & box.size;
+        _activeMenuIndex.value = idx;
+        showGlassContextMenu<void>(
+          context: context,
+          targetRect: rect,
+          previewBuilder: (_) => _VipPreview(_contacts[idx]),
+          previewChild: _rowPreview(idx),
+          actions: _menuActions(idx),
+          isInteractive: true,
+          commitDuration: const Duration(seconds: 10),
+        ).then((_) {
+          if (mounted) _activeMenuIndex.value = null;
+        });
       case 'edit':
         a[1] == 'on' ? _edit.startEditing() : _edit.stopEditing();
       case 'cover':
@@ -198,22 +252,72 @@ class _ParityHostState extends State<_ParityHost> {
     );
   }
 
-  List<Widget> _menuActions() => [
+  Widget _rowPreview(int index) {
+    if (index < 0 || index >= _contacts.length) return const SizedBox.shrink();
+    final c = _contacts[index];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: _Avatar(c, 44),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  c.name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  c.title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.systemGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (c.favorite)
+            const Icon(
+              CupertinoIcons.star_fill,
+              size: 15,
+              color: Color(0xFFFFCC00),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _menuActions(int index) => [
         GlassContextMenuAction(
-          icon: const Icon(CupertinoIcons.star_fill),
-          child: const Text('Favorite'),
-          onPressed: () {},
+          icon: Icon(_contacts[index].favorite
+              ? CupertinoIcons.star_slash
+              : CupertinoIcons.star_fill),
+          iconPosition: GlassContextMenuIconPosition.leading,
+          child: Text(_contacts[index].favorite ? 'Unfavorite' : 'Favorite'),
+          onPressed: () => _toggleFavorite(index),
         ),
         GlassContextMenuAction(
           icon: const Icon(CupertinoIcons.doc_on_doc),
+          iconPosition: GlassContextMenuIconPosition.leading,
           child: const Text('Copy Phone'),
           onPressed: () {},
         ),
         GlassContextMenuAction(
           icon: const Icon(CupertinoIcons.trash),
+          iconPosition: GlassContextMenuIconPosition.leading,
           isDestructive: true,
           child: const Text('Delete Contact'),
-          onPressed: () {},
+          onPressed: () => _swipe[index].dismiss(),
         ),
       ];
 
@@ -357,50 +461,60 @@ class _ParityHostState extends State<_ParityHost> {
             // Native dividers are inset to the text start and end at a 16pt
             // inset.
             if (i > 0) const GlassDivider(indent: 72, endIndent: 16),
-            KeyedSubtree(
-              key: _rowKeys[i],
-              child: GlassListTile(
-                swipeController: _swipe[i],
-                allowsFullSwipe: true,
-                contextMenuActions: _menuActions(),
-                contextMenuPreviewBuilder: (_) => _VipPreview(_contacts[i]),
-                trailingSwipeActions: [
-                  GlassSwipeAction(
-                    icon: const Icon(CupertinoIcons.trash),
-                    label: const Text('Delete'),
-                    isDestructive: true,
-                    onTap: () {},
-                  ),
-                  GlassSwipeAction(
-                    icon: const Icon(CupertinoIcons.flag_fill),
-                    label: const Text('Flag'),
-                    backgroundColor: CupertinoColors.systemOrange,
-                    onTap: () {},
-                  ),
-                ],
-                leadingSwipeActions: [
-                  GlassSwipeAction(
-                    icon: const Icon(CupertinoIcons.pin_fill),
-                    label: const Text('Pin'),
-                    backgroundColor: CupertinoColors.systemBlue,
-                    onTap: () {},
-                  ),
-                ],
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                leading: Padding(
-                    padding: const EdgeInsets.only(right: 2),
-                    child: _Avatar(_contacts[i], 44)),
-                title: Text(_contacts[i].name,
-                    style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w600)),
-                subtitle: Text(_contacts[i].title,
-                    style: const TextStyle(
-                        fontSize: 13, color: CupertinoColors.systemGrey)),
-                trailing: _contacts[i].favorite
-                    ? const Icon(CupertinoIcons.star_fill,
-                        size: 15, color: Color(0xFFFFCC00))
-                    : null,
+            ValueListenableBuilder<int?>(
+              valueListenable: _activeMenuIndex,
+              builder: (context, activeIdx, child) {
+                return Opacity(
+                  opacity: activeIdx == i ? 0.0 : 1.0,
+                  child: child,
+                );
+              },
+              child: KeyedSubtree(
+                key: _rowKeys[i],
+                child: GlassListTile(
+                  swipeController: _swipe[i],
+                  allowsFullSwipe: true,
+                  onDismissed: () => _deleteContact(i),
+                  contextMenuActions: _menuActions(i),
+                  contextMenuPreviewBuilder: (_) => _VipPreview(_contacts[i]),
+                  trailingSwipeActions: [
+                    GlassSwipeAction(
+                      icon: const Icon(CupertinoIcons.trash),
+                      label: const Text('Delete'),
+                      isDestructive: true,
+                      onTap: () => _swipe[i].dismiss(),
+                    ),
+                    GlassSwipeAction(
+                      icon: const Icon(CupertinoIcons.flag_fill),
+                      label: const Text('Flag'),
+                      backgroundColor: CupertinoColors.systemOrange,
+                      onTap: () => _toggleFavorite(i),
+                    ),
+                  ],
+                  leadingSwipeActions: [
+                    GlassSwipeAction(
+                      icon: const Icon(CupertinoIcons.pin_fill),
+                      label: const Text('Pin'),
+                      backgroundColor: CupertinoColors.systemBlue,
+                      onTap: () => _toggleFavorite(i),
+                    ),
+                  ],
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  leading: Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: _Avatar(_contacts[i], 44)),
+                  title: Text(_contacts[i].name,
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w600)),
+                  subtitle: Text(_contacts[i].title,
+                      style: const TextStyle(
+                          fontSize: 13, color: CupertinoColors.systemGrey)),
+                  trailing: _contacts[i].favorite
+                      ? const Icon(CupertinoIcons.star_fill,
+                          size: 15, color: Color(0xFFFFCC00))
+                      : null,
+                ),
               ),
             ),
           ],
@@ -733,9 +847,17 @@ class _Contact {
   final String name, title, phone;
   final List<Color> colors;
   final bool favorite;
+
+  _Contact copyWith({bool? favorite}) => _Contact(
+        name,
+        title,
+        phone,
+        colors,
+        favorite: favorite ?? this.favorite,
+      );
 }
 
-const _contacts = [
+const _initialContacts = [
   _Contact('Alex Rivera', 'Product Design Director', '+1 (408) 555-0142',
       [Color(0xFF007AFF), Color(0xFF32ADE6)],
       favorite: true),
@@ -793,7 +915,7 @@ class _VipPreview extends StatelessWidget {
             Text(c.name,
                 style:
                     const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Text(c.title,
                 style: TextStyle(
                     fontSize: 15,

@@ -45,3 +45,35 @@ class InheritedGlassSurfaceStyle extends InheritedWidget {
   bool updateShouldNotify(InheritedGlassSurfaceStyle oldWidget) =>
       surfaceStyle != oldWidget.surfaceStyle;
 }
+
+/// Exposes the corner shape of a row inside a grouped section card to
+/// descendants.
+///
+/// [GlassGroupedSection] wraps each of its rows in this scope so a row's
+/// lift/long-press presentation (e.g. [GlassListTile]'s context menu) can
+/// match the card's silhouette: the first row carries the card's top corners,
+/// the last row its bottom corners, and middle rows are square — exactly like
+/// the cell of a native iOS inset-grouped list.
+class InheritedGlassSectionRow extends InheritedWidget {
+  /// Creates a scope describing the corners of the enclosed row.
+  const InheritedGlassSectionRow({
+    required this.corners,
+    required super.child,
+    super.key,
+  });
+
+  /// The corner radii of the enclosed row within its section card.
+  final BorderRadius corners;
+
+  /// Retrieves the corners of the nearest enclosing section row, or null when
+  /// the widget is not inside a grouped section.
+  static BorderRadius? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<InheritedGlassSectionRow>()
+        ?.corners;
+  }
+
+  @override
+  bool updateShouldNotify(InheritedGlassSectionRow oldWidget) =>
+      corners != oldWidget.corners;
+}

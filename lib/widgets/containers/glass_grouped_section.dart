@@ -201,8 +201,24 @@ class GlassGroupedSection extends StatelessWidget {
     // If the user manually placed a GlassDivider in children, we don't insert
     // automatic dividers around it to prevent double-dividers.
     final processedChildren = <Widget>[];
+    final double cardRadius = shape is LiquidRoundedSuperellipse
+        ? (shape as LiquidRoundedSuperellipse).borderRadius
+        : (surfaceStyle == GlassSurfaceStyle.solid ? 26.0 : 12.0);
+    final Radius cardCorner = Radius.circular(cardRadius);
     for (var i = 0; i < children.length; i++) {
-      processedChildren.add(children[i]);
+      final bool isFirstChild = i == 0;
+      final bool isLastRow = i == children.length - 1;
+      processedChildren.add(
+        children[i] is GlassDivider
+            ? children[i]
+            : InheritedGlassSectionRow(
+                corners: BorderRadius.vertical(
+                  top: isFirstChild ? cardCorner : Radius.zero,
+                  bottom: isLastRow ? cardCorner : Radius.zero,
+                ),
+                child: children[i],
+              ),
+      );
 
       final isLastChild = i == children.length - 1;
       if (!isLastChild) {
