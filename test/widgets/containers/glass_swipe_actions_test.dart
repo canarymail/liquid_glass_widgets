@@ -1066,6 +1066,285 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.isOpen, isFalse);
     });
+
+    testWidgets(
+        'buttonDiameter, buttonSpacing, and horizontalPadding configure button geometry',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: controller,
+            buttonDiameter: 44.0,
+            buttonSpacing: 10.0,
+            horizontalPadding: 16.0,
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.flag),
+                label: Text('Flag'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 300,
+              height: 70,
+              child: Text('Configurable Tile'),
+            ),
+          ),
+        ),
+      );
+
+      // Open trailing actions without animation
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+
+      // Total width: 2 * 16 + 2 * 44 + 10 = 32 + 88 + 10 = 130
+      expect(controller.offset, -130.0);
+
+      // Delete should be at end: 16, Flag should be at end: 16 + 44 + 10 = 70
+      final deleteCenter = tester.getCenter(find.byIcon(CupertinoIcons.trash));
+      final flagCenter = tester.getCenter(find.byIcon(CupertinoIcons.flag));
+      expect(deleteCenter.dx, greaterThan(flagCenter.dx));
+      expect(deleteCenter.dx - flagCenter.dx, closeTo(54.0, 0.1));
+    });
+
+    testWidgets(
+        'buttons remain stationary horizontally during reveal drag and do not move sideways',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: controller,
+            buttonDiameter: 50.0,
+            buttonSpacing: 12.0,
+            horizontalPadding: 12.0,
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.flag),
+                label: Text('Flag'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 400,
+              height: 80,
+              child: Text('Drag Static Row'),
+            ),
+          ),
+        ),
+      );
+
+      // Partial drag to reveal Delete (offset -80)
+      controller.animateToOffset(-80.0, animated: false);
+      await tester.pump();
+      expect(find.text('Delete'), findsOneWidget);
+      final deletePosAt80 = tester.getTopLeft(find.text('Delete')).dx;
+
+      // Drag further open to resting width (offset -136)
+      controller.animateToOffset(-136.0, animated: false);
+      await tester.pump();
+      expect(find.text('Delete'), findsOneWidget);
+      expect(find.text('Flag'), findsOneWidget);
+      final deletePosAt136 = tester.getTopLeft(find.text('Delete')).dx;
+      final flagPosAt136 = tester.getTopLeft(find.text('Flag')).dx;
+
+      // Delete position must NOT move sideways during reveal (from 80 to 136)!
+      expect(deletePosAt136, equals(deletePosAt80));
+
+      // Overdrag past resting width to -180: excess = 180 - 136 = 44
+      controller.animateToOffset(-180.0, animated: false);
+      await tester.pump();
+      final flagPosAt180 = tester.getTopLeft(find.text('Flag')).dx;
+
+      // Flag shifts left by excess (44) to maintain the constant 12pt spacing
+      expect(flagPosAt136 - flagPosAt180, closeTo(44.0, 1.0));
+    });
+
+    testWidgets(
+        'buttons remain stationary horizontally during close/hide animation',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: controller,
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.flag),
+                label: Text('Flag'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 400,
+              height: 80,
+              child: Text('Closing Row'),
+            ),
+          ),
+        ),
+      );
+
+      // Fully open row
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+      final deleteInitialX = tester.getTopLeft(find.text('Delete')).dx;
+
+      // Trigger closing animation
+      controller.close(animated: true);
+      // Pump halfway through the close animation
+      await tester.pump(const Duration(milliseconds: 60));
+
+      if (find.text('Delete').evaluate().isNotEmpty) {
+        final deleteClosingX = tester.getTopLeft(find.text('Delete')).dx;
+        // Delete must remain at its exact X coordinate while scaling down/fading out
+        expect(deleteClosingX, equals(deleteInitialX));
+      }
+
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+    });
+
+    testWidgets(
+        'GlassListTile forwards swipeActionButtonDiameter, spacing, and padding',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassListTile(
+            swipeController: controller,
+            swipeActionButtonDiameter: 40.0,
+            swipeActionButtonSpacing: 8.0,
+            swipeActionHorizontalPadding: 10.0,
+            title: const Text('Forwarding Tile'),
+            trailingSwipeActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+
+      // Total width: 2 * 10 + 40 = 60
+      expect(controller.offset, -60.0);
+    });
+
+    testWidgets(
+        'full swipe primes icon alignment flick to inner edge and fades label',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: SizedBox(
+            width: 400,
+            child: GlassSwipeActions(
+              controller: controller,
+              fullSwipeThreshold: 0.65,
+              trailingActions: const [
+                GlassSwipeAction(
+                  icon: Icon(CupertinoIcons.trash),
+                  label: Text('Delete'),
+                  onTap: _noop,
+                ),
+                GlassSwipeAction(
+                  icon: Icon(CupertinoIcons.flag),
+                  label: Text('Flag'),
+                  onTap: _noop,
+                ),
+              ],
+              child: const SizedBox(
+                height: 60,
+                child: Text('Flick Test Row'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Open resting
+      controller.openTrailing(animated: false);
+      await tester.pumpAndSettle();
+
+      // In resting open, both labels are present and visible
+      expect(find.text('Delete'), findsOneWidget);
+      expect(find.text('Flag'), findsOneWidget);
+
+      // Now animate to offset past 65% of 400 = 260px (e.g. -280px)
+      controller.animateToOffset(-280.0, animated: false);
+      await tester.pump();
+
+      // Check AnimatedAlign for the icon: targetAlignment is centerStart
+      final animatedAligns =
+          tester.widgetList<AnimatedAlign>(find.byType(AnimatedAlign));
+      expect(animatedAligns, isNotEmpty);
+      expect(animatedAligns.first.alignment, AlignmentDirectional.centerStart);
+
+      // And the label for Delete is faded out (opacity 0)
+      final animatedOpacities =
+          tester.widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity));
+      expect(animatedOpacities.any((o) => o.opacity == 0.0), isTrue);
+    });
+
+    testWidgets(
+        'GlassSwipeController.dismiss programmatically executes full-swipe dismissal',
+        (tester) async {
+      final controller = GlassSwipeController();
+      var dismissed = false;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: SizedBox(
+            width: 400,
+            child: GlassSwipeActions(
+              controller: controller,
+              onDismissed: () => dismissed = true,
+              trailingActions: const [
+                GlassSwipeAction(
+                  icon: Icon(CupertinoIcons.trash),
+                  label: Text('Delete'),
+                  onTap: _noop,
+                ),
+              ],
+              child: const SizedBox(
+                height: 60,
+                child: Text('Dismiss Controller Row'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      controller.dismiss(animated: false);
+      await tester.pumpAndSettle();
+
+      expect(dismissed, isTrue);
+    });
   });
 }
 

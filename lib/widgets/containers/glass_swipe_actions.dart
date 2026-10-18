@@ -140,6 +140,16 @@ class GlassSwipeController extends ChangeNotifier {
     _state?.close(animated: animated);
   }
 
+  /// Programmatically animates to a specific horizontal offset in logical pixels.
+  void animateToOffset(double target, {bool animated = true}) {
+    _state?.animateToOffset(target, animated: animated);
+  }
+
+  /// Programmatically triggers the full-swipe dismiss animation and invokes [GlassSwipeActions.onDismissed].
+  void dismiss({bool animated = true, bool fromLeading = false}) {
+    _state?.dismiss(animated: animated, fromLeading: fromLeading);
+  }
+
   void _notify() {
     notifyListeners();
   }
@@ -188,7 +198,10 @@ class GlassSwipeActions extends StatefulWidget {
     this.trailingActions = const [],
     this.allowsFullSwipe = true,
     this.fullSwipeThreshold = 0.65,
-    this.actionWidth = 74.0,
+    this.actionWidth,
+    this.buttonDiameter = 50.0,
+    this.buttonSpacing = 12.0,
+    this.horizontalPadding = 12.0,
     this.borderRadius,
     this.controller,
     this.onSwipeStateChanged,
@@ -219,10 +232,26 @@ class GlassSwipeActions extends StatefulWidget {
   /// Defaults to `0.65` (65%).
   final double fullSwipeThreshold;
 
-  /// Base width allocated for each action button when resting open.
+  /// Optional base width allocated for each action button when resting open.
   ///
-  /// Defaults to `74.0` logical pixels.
-  final double actionWidth;
+  /// When null, defaults to authentic iOS 26/27 circular action button geometry
+  /// ([buttonDiameter] + [buttonSpacing] + insets).
+  final double? actionWidth;
+
+  /// Diameter of the circular swipe action button.
+  ///
+  /// Defaults to `50.0` logical pixels, matching native iOS 26/27.
+  final double buttonDiameter;
+
+  /// Space between adjacent swipe action buttons.
+  ///
+  /// Defaults to `12.0` logical pixels, matching native iOS 26/27.
+  final double buttonSpacing;
+
+  /// Horizontal padding between the platter outer edge and the buttons.
+  ///
+  /// Defaults to `12.0` logical pixels, matching native iOS 26/27.
+  final double horizontalPadding;
 
   /// Optional border radius used to clip the action platter and sliding child.
   ///
@@ -272,6 +301,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   double _targetOffset = 0.0;
   bool _isDragging = false;
   bool _hasFiredHaptic = false;
+  bool _isDismissing = false;
   GlassSwipeState _swipeState = GlassSwipeState.idle;
 
   /// Current horizontal offset of the primary child in logical pixels.
@@ -298,7 +328,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
     _dismissController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 320),
     );
 
     widget.controller?._attach(this);
@@ -366,10 +396,20 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     }
   }
 
+  double _totalStandardWidth(int actionCount) {
+    if (actionCount == 0) return 0.0;
+    if (widget.actionWidth != null) {
+      return actionCount * widget.actionWidth!;
+    }
+    return 2 * widget.horizontalPadding +
+        actionCount * widget.buttonDiameter +
+        (actionCount - 1) * widget.buttonSpacing;
+  }
+
   /// Programmatically opens the trailing actions.
   void openTrailing({bool animated = true}) {
     if (!mounted || widget.trailingActions.isEmpty) return;
-    final totalWidth = widget.trailingActions.length * widget.actionWidth;
+    final totalWidth = _totalStandardWidth(widget.trailingActions.length);
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final target = isRtl ? totalWidth : -totalWidth;
     _scope?.registerOpenRow(this);
@@ -379,7 +419,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   /// Programmatically opens the leading actions.
   void openLeading({bool animated = true}) {
     if (!mounted || widget.leadingActions.isEmpty) return;
-    final totalWidth = widget.leadingActions.length * widget.actionWidth;
+    final totalWidth = _totalStandardWidth(widget.leadingActions.length);
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final target = isRtl ? -totalWidth : totalWidth;
     _scope?.registerOpenRow(this);
@@ -391,6 +431,56 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     if (!mounted) return;
     _scope?.unregisterRow(this);
     _animateTo(0.0, animated: animated);
+  }
+
+  /// Programmatically animates to a specific horizontal offset in logical pixels.
+  void animateToOffset(double target, {bool animated = true}) {
+    if (!mounted) return;
+    if (target != 0.0) {
+      _scope?.registerOpenRow(this);
+    } else {
+      _scope?.unregisterRow(this);
+    }
+    _animateTo(target, animated: animated);
+  }
+
+  /// Programmatically dismisses the row via full swipe and invokes [GlassSwipeActions.onDismissed].
+  void dismiss({bool animated = true, bool fromLeading = false}) {
+    if (!mounted || _isDismissing) return;
+    _isDismissing = true;
+    final rowWidth = context.size?.width ?? 390.0;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final dismissTarget = isRtl
+        ? (fromLeading ? -rowWidth : rowWidth)
+        : (fromLeading ? rowWidth : -rowWidth);
+
+    final action = fromLeading
+        ? (widget.leadingActions.isNotEmpty
+            ? widget.leadingActions.first
+            : null)
+        : (widget.trailingActions.isNotEmpty
+            ? widget.trailingActions.first
+            : null);
+    action?.onTap();
+
+    final dismissCallback = widget.onDismissed;
+    if (dismissCallback != null) {
+      final reduceMotion = GlassAccessibilityData.of(context).reduceMotion ||
+          (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+      if (!animated || reduceMotion) {
+        _dismissController.value = 1.0;
+        dismissCallback();
+      } else {
+        _animateTo(dismissTarget);
+        _dismissController.forward().then((_) {
+          if (mounted) {
+            dismissCallback();
+          }
+        });
+      }
+    } else {
+      close(animated: animated);
+    }
   }
 
   void _animateTo(double target,
@@ -443,14 +533,14 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     // Apply rubber-band damping if full swipe is disabled
     if (!widget.allowsFullSwipe) {
       if (directionalOffset > 0) {
-        final maxLeading = widget.leadingActions.length * widget.actionWidth;
+        final maxLeading = _totalStandardWidth(widget.leadingActions.length);
         if (directionalOffset > maxLeading) {
           final excess = directionalOffset - maxLeading;
           directionalOffset = maxLeading + excess * 0.25;
           newOffset = isRtl ? -directionalOffset : directionalOffset;
         }
       } else if (directionalOffset < 0) {
-        final maxTrailing = widget.trailingActions.length * widget.actionWidth;
+        final maxTrailing = _totalStandardWidth(widget.trailingActions.length);
         if (directionalOffset.abs() > maxTrailing) {
           final excess = directionalOffset.abs() - maxTrailing;
           directionalOffset = -(maxTrailing + excess * 0.25);
@@ -493,6 +583,8 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     final thresholdDistance = widget.fullSwipeThreshold * rowWidth;
 
     if (widget.allowsFullSwipe && revealDistance >= thresholdDistance) {
+      if (_isDismissing) return;
+      _isDismissing = true;
       final isLeading = directionalOffset > 0;
       // In both leading and trailing, actions.first is the outermost action at the edge
       final action = isLeading
@@ -501,14 +593,24 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
       action.onTap();
 
-      if (widget.onDismissed != null) {
+      final dismissCallback = widget.onDismissed;
+      if (dismissCallback != null) {
         final dismissTarget = isRtl
             ? (isLeading ? -rowWidth : rowWidth)
             : (isLeading ? rowWidth : -rowWidth);
         _animateTo(dismissTarget, velocity: velocity);
-        unawaited(_dismissController.forward().then((_) {
-          widget.onDismissed?.call();
-        }));
+        final reduceMotion = GlassAccessibilityData.of(context).reduceMotion ||
+            (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+        if (reduceMotion) {
+          _dismissController.value = 1.0;
+          dismissCallback();
+        } else {
+          _dismissController.forward().then((_) {
+            if (mounted) {
+              dismissCallback();
+            }
+          });
+        }
       } else {
         close();
       }
@@ -517,7 +619,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
     // Determine resting settle target
     if (directionalOffset > 0 && widget.leadingActions.isNotEmpty) {
-      final totalLeading = widget.leadingActions.length * widget.actionWidth;
+      final totalLeading = _totalStandardWidth(widget.leadingActions.length);
       final shouldOpen =
           revealDistance > totalLeading * 0.4 || directionalVelocity > 300;
       if (shouldOpen) {
@@ -528,7 +630,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
         close();
       }
     } else if (directionalOffset < 0 && widget.trailingActions.isNotEmpty) {
-      final totalTrailing = widget.trailingActions.length * widget.actionWidth;
+      final totalTrailing = _totalStandardWidth(widget.trailingActions.length);
       final shouldOpen =
           revealDistance > totalTrailing * 0.4 || directionalVelocity < -300;
       if (shouldOpen) {
@@ -562,35 +664,74 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
 
+        final isLeading = directionalOffset > 0;
+        final isTrailing = directionalOffset < 0;
+        final revealWidth = directionalOffset.abs();
+
+        final availableHeight =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 70.0;
+        final greyProgress = (_offset.abs() / 24.0).clamp(0.0, 1.0);
+
         Widget body = Stack(
           clipBehavior: Clip.hardEdge,
           children: [
+            // Base background behind swiped row slot: prevents white solid card
+            // background from bleeding into the sliding child's rounded corners.
+            if (_offset != 0.0)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGroupedBackground
+                        .resolveFrom(context),
+                  ),
+                ),
+              ),
+
             // Background Action Platter (Revealed underneath)
-            if (directionalOffset > 0 && widget.leadingActions.isNotEmpty)
+            if (isLeading && widget.leadingActions.isNotEmpty)
               Positioned.directional(
                 textDirection: direction,
                 start: 0,
                 top: 0,
                 bottom: 0,
-                width: directionalOffset,
-                child:
-                    _buildLeadingPlatter(context, directionalOffset, rowWidth),
+                width: revealWidth,
+                child: _buildLeadingPlatter(
+                    context, revealWidth, rowWidth, availableHeight),
               )
-            else if (directionalOffset < 0 && widget.trailingActions.isNotEmpty)
+            else if (isTrailing && widget.trailingActions.isNotEmpty)
               Positioned.directional(
                 textDirection: direction,
                 end: 0,
                 top: 0,
                 bottom: 0,
-                width: directionalOffset.abs(),
+                width: revealWidth,
                 child: _buildTrailingPlatter(
-                    context, directionalOffset.abs(), rowWidth),
+                    context, revealWidth, rowWidth, availableHeight),
               ),
 
             // Sliding Primary Child
             Transform.translate(
               offset: Offset(_offset, 0.0),
-              child: widget.child,
+              child: ClipRRect(
+                borderRadius: _offset != 0.0
+                    ? BorderRadius.circular(16.0)
+                    : BorderRadius.zero,
+                child: Stack(
+                  children: [
+                    if (_offset != 0.0)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.systemGrey5
+                                .resolveFrom(context)
+                                .withValues(alpha: greyProgress),
+                          ),
+                        ),
+                      ),
+                    widget.child,
+                  ],
+                ),
+              ),
             ),
 
             // Tap blocker over shifted child: tapping shifted child snaps it closed
@@ -632,7 +773,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
             sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(
               CurvedAnimation(
                 parent: _dismissController,
-                curve: Curves.easeOutCubic,
+                curve: Curves.easeInOutCubic,
               ),
             ),
             child: body,
@@ -644,135 +785,188 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     );
   }
 
-  Widget _buildLeadingPlatter(
-      BuildContext context, double revealWidth, double rowWidth) {
+  Widget _buildLeadingPlatter(BuildContext context, double revealWidth,
+      double rowWidth, double availableHeight) {
     final actions = widget.leadingActions;
-    final totalStandardWidth = actions.length * widget.actionWidth;
+    final totalStandardWidth = _totalStandardWidth(actions.length);
     final isFullSwipe = widget.allowsFullSwipe &&
         revealWidth >= widget.fullSwipeThreshold * rowWidth;
+    final excess =
+        (revealWidth - totalStandardWidth).clamp(0.0, double.infinity);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < actions.length; i++) ...[
-          _buildActionButton(
-            context: context,
-            action: actions[i],
-            width: _computeLeadingActionWidth(
-                i, actions.length, revealWidth, totalStandardWidth),
-            isOutermost: i == 0,
-            isFullSwipe: isFullSwipe && i == 0,
-            isTrailing: false,
-          ),
+    final maxPossible =
+        (availableHeight - 8.0).clamp(24.0, widget.buttonDiameter);
+    final circleDiameter = widget.actionWidth ?? maxPossible;
+    final spacing = widget.buttonSpacing;
+    final padding = widget.horizontalPadding;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemGroupedBackground.resolveFrom(context),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < actions.length; i++) ...[
+            () {
+              final isOutermost = i == 0;
+              final double buttonWidth;
+              final double startOffset;
+              if (isOutermost) {
+                buttonWidth = circleDiameter + excess;
+                startOffset = padding;
+              } else {
+                buttonWidth = circleDiameter;
+                startOffset = padding +
+                    circleDiameter +
+                    excess +
+                    (i - 1) * (circleDiameter + spacing) +
+                    spacing;
+              }
+
+              final revealProgress = _computeActionRevealProgress(
+                  i, actions.length, revealWidth, circleDiameter, spacing);
+
+              return Positioned.directional(
+                textDirection: Directionality.of(context),
+                start: startOffset,
+                top: 0,
+                bottom: 0,
+                width: buttonWidth,
+                child: _GlassSwipeActionButton(
+                  action: actions[i],
+                  circleDiameter: circleDiameter,
+                  width: buttonWidth,
+                  isOutermost: isOutermost,
+                  isFullSwipe: isFullSwipe && isOutermost,
+                  isTrailing: false,
+                  style: widget.style,
+                  revealProgress: revealProgress,
+                  onPressed: () {
+                    actions[i].onTap();
+                    if (actions[i].closeOnTap) {
+                      close();
+                    }
+                  },
+                ),
+              );
+            }(),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildTrailingPlatter(
-      BuildContext context, double revealWidth, double rowWidth) {
+  Widget _buildTrailingPlatter(BuildContext context, double revealWidth,
+      double rowWidth, double availableHeight) {
     final actions = widget.trailingActions;
-    final totalStandardWidth = actions.length * widget.actionWidth;
+    final totalStandardWidth = _totalStandardWidth(actions.length);
     final isFullSwipe = widget.allowsFullSwipe &&
         revealWidth >= widget.fullSwipeThreshold * rowWidth;
+    final excess =
+        (revealWidth - totalStandardWidth).clamp(0.0, double.infinity);
 
-    // In SwiftUI and UIKit, actions[0] is the primary outermost action at the edge.
-    // In LTR, the platter's visual order from inner (left) to outer edge (right) is:
-    // actions[count - 1], actions[count - 2], ..., actions[0].
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < actions.length; i++) ...[
-          () {
-            final originalIndex = actions.length - 1 - i;
-            final isOutermost = originalIndex == 0;
-            return _buildActionButton(
-              context: context,
-              action: actions[originalIndex],
-              width: _computeTrailingActionWidth(originalIndex, actions.length,
-                  revealWidth, totalStandardWidth),
-              isOutermost: isOutermost,
-              isFullSwipe: isFullSwipe && isOutermost,
-              isTrailing: true,
-            );
-          }(),
+    final maxPossible =
+        (availableHeight - 8.0).clamp(24.0, widget.buttonDiameter);
+    final circleDiameter = widget.actionWidth ?? maxPossible;
+    final spacing = widget.buttonSpacing;
+    final padding = widget.horizontalPadding;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemGroupedBackground.resolveFrom(context),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < actions.length; i++) ...[
+            () {
+              final isOutermost = i == 0;
+              final double buttonWidth;
+              final double endOffset;
+              if (isOutermost) {
+                buttonWidth = circleDiameter + excess;
+                endOffset = padding;
+              } else {
+                buttonWidth = circleDiameter;
+                endOffset = padding +
+                    circleDiameter +
+                    excess +
+                    (i - 1) * (circleDiameter + spacing) +
+                    spacing;
+              }
+
+              final revealProgress = _computeActionRevealProgress(
+                  i, actions.length, revealWidth, circleDiameter, spacing);
+
+              return Positioned.directional(
+                textDirection: Directionality.of(context),
+                end: endOffset,
+                top: 0,
+                bottom: 0,
+                width: buttonWidth,
+                child: _GlassSwipeActionButton(
+                  action: actions[i],
+                  circleDiameter: circleDiameter,
+                  width: buttonWidth,
+                  isOutermost: isOutermost,
+                  isFullSwipe: isFullSwipe && isOutermost,
+                  isTrailing: true,
+                  style: widget.style,
+                  revealProgress: revealProgress,
+                  onPressed: () {
+                    actions[i].onTap();
+                    if (actions[i].closeOnTap) {
+                      close();
+                    }
+                  },
+                ),
+              );
+            }(),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  double _computeLeadingActionWidth(
-      int index, int count, double revealWidth, double totalStandardWidth) {
-    if (revealWidth <= totalStandardWidth) {
-      return revealWidth / count;
-    }
-    // Leading outermost is index 0: it absorbs extra stretch space
-    if (index == 0) {
-      return revealWidth - (count - 1) * widget.actionWidth;
-    }
-    return widget.actionWidth;
-  }
+  double _computeActionRevealProgress(int index, int count, double revealWidth,
+      double circleDiameter, double spacing) {
+    if (revealWidth <= 0.0) return 0.0;
+    final totalStandardWidth = _totalStandardWidth(count);
+    if (revealWidth >= totalStandardWidth) return 1.0;
 
-  double _computeTrailingActionWidth(int originalIndex, int count,
-      double revealWidth, double totalStandardWidth) {
-    if (revealWidth <= totalStandardWidth) {
-      return revealWidth / count;
-    }
-    // Trailing outermost is actions[0] (originalIndex == 0): it absorbs extra stretch space
-    if (originalIndex == 0) {
-      return revealWidth - (count - 1) * widget.actionWidth;
-    }
-    return widget.actionWidth;
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required GlassSwipeAction action,
-    required double width,
-    required bool isOutermost,
-    required bool isFullSwipe,
-    required bool isTrailing,
-  }) {
-    if (width <= 0.0) return const SizedBox.shrink();
-
-    return _GlassSwipeActionButton(
-      action: action,
-      width: width,
-      standardWidth: widget.actionWidth,
-      isOutermost: isOutermost,
-      isFullSwipe: isFullSwipe,
-      isTrailing: isTrailing,
-      style: widget.style,
-      onPressed: () {
-        action.onTap();
-        if (action.closeOnTap) {
-          close();
-        }
-      },
-    );
+    final step = circleDiameter + spacing;
+    // Slower, progressive reveal: outermost button (index 0) starts early,
+    // subsequent buttons reveal sequentially as row is pulled open.
+    final start = index == 0 ? 6.0 : (6.0 + index * (step * 0.7));
+    final end = (start + step * 0.9).clamp(start + 1.0, totalStandardWidth);
+    if (revealWidth <= start) return 0.0;
+    return ((revealWidth - start) / (end - start)).clamp(0.0, 1.0);
   }
 }
 
 class _GlassSwipeActionButton extends StatefulWidget {
   const _GlassSwipeActionButton({
     required this.action,
-    required this.width,
-    required this.standardWidth,
+    required this.circleDiameter,
     required this.onPressed,
+    this.width,
     this.isOutermost = false,
     this.isFullSwipe = false,
     this.isTrailing = true,
     this.style = GlassSwipeActionStyle.tintedGlass,
+    this.revealProgress = 1.0,
   });
 
   final GlassSwipeAction action;
-  final double width;
-  final double standardWidth;
+  final double circleDiameter;
+  final double? width;
   final VoidCallback onPressed;
   final bool isOutermost;
   final bool isFullSwipe;
   final bool isTrailing;
   final GlassSwipeActionStyle style;
+  final double revealProgress;
 
   @override
   State<_GlassSwipeActionButton> createState() =>
@@ -797,9 +991,11 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
             ? (widget.action.label as Text).data
             : null);
 
-    // NOTE: A BoxDecoration paints its `gradient` *instead of* its `color`
-    // when both are set, so the tint and the specular sheen are two layers:
-    // a solid tint underneath and the sheen decoration on top of it.
+    final double circleDiameter = widget.circleDiameter;
+    final double buttonHeight = circleDiameter;
+    final double buttonWidth = widget.width ?? circleDiameter;
+    final borderRadius = BorderRadius.circular(buttonHeight / 2);
+
     final Color tint;
     final BoxDecoration sheen;
     if (widget.style == GlassSwipeActionStyle.tintedGlass) {
@@ -807,17 +1003,16 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
           ? effectiveBgColor.withValues(alpha: 0.76)
           : effectiveBgColor.withValues(alpha: 0.90);
       sheen = BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: CupertinoColors.white.withValues(alpha: 0.22),
-            width: 0.75,
-          ),
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: CupertinoColors.white.withValues(alpha: 0.25),
+          width: 0.75,
         ),
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            CupertinoColors.white.withValues(alpha: 0.16),
+            CupertinoColors.white.withValues(alpha: 0.20),
             CupertinoColors.white.withValues(alpha: 0.03),
             CupertinoColors.black.withValues(alpha: 0.12),
           ],
@@ -828,21 +1023,40 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
       tint = _isPressed
           ? effectiveBgColor.withValues(alpha: 0.82)
           : effectiveBgColor;
-      sheen = const BoxDecoration();
+      sheen = BoxDecoration(borderRadius: borderRadius);
     }
 
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
-    final Alignment effectiveAlignment;
-    if (!widget.isOutermost) {
-      effectiveAlignment = Alignment.center;
-    } else if (widget.isTrailing) {
-      effectiveAlignment = isRtl ? Alignment.centerLeft : Alignment.centerRight;
-    } else {
-      effectiveAlignment = isRtl ? Alignment.centerRight : Alignment.centerLeft;
+    // Grow (scale) and fade-in (opacity) driven by revealProgress
+    // Slower, smooth reveal growth: gentle progressive scaling so the user sees it grow in gradually
+    final double progress = widget.revealProgress;
+    if (progress <= 0.001) {
+      return const SizedBox.shrink();
     }
+
+    final double baseScale = progress.clamp(0.0, 1.0);
+    final double fullSwipeScale = widget.isFullSwipe ? 1.08 : 1.0;
+    final double pressScale = _isPressed ? 0.92 : 1.0;
+    final double effectiveScale = baseScale * fullSwipeScale * pressScale;
+    final double effectiveOpacity = (progress * 1.05).clamp(0.0, 1.0);
+
+    final iconSize = (circleDiameter * 0.40).clamp(16.0, 22.0);
+    final labelFontSize = (circleDiameter * 0.22).clamp(10.0, 12.0);
+
+    // In native iOS, as the outermost action stretches into a capsule and primes
+    // full swipe, its text label fades away and the icon flicks toward the inner
+    // edge (leading for trailing swipe, trailing for leading swipe).
+    final bool hideLabel = widget.isFullSwipe ||
+        (widget.isOutermost && buttonWidth > circleDiameter + 8.0);
+    final double labelOpacity = hideLabel ? 0.0 : effectiveOpacity;
+
+    final targetAlignment = (widget.isFullSwipe && widget.isOutermost)
+        ? (widget.isTrailing
+            ? AlignmentDirectional.centerStart
+            : AlignmentDirectional.centerEnd)
+        : AlignmentDirectional.center;
 
     return SizedBox(
-      width: widget.width,
+      width: buttonWidth,
       child: Semantics(
         button: true,
         label: resolvedSemanticLabel,
@@ -853,45 +1067,69 @@ class _GlassSwipeActionButtonState extends State<_GlassSwipeActionButton> {
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
           onTap: widget.onPressed,
-          child: ColoredBox(
-            color: tint,
-            child: DecoratedBox(
-              decoration: sheen,
-              child: Container(
-                alignment: effectiveAlignment,
-                child: SizedBox(
-                  width: widget.standardWidth,
-                  child: AnimatedScale(
-                    scale: widget.isFullSwipe ? 1.08 : 1.0,
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: IconTheme(
-                      data: IconThemeData(
-                        color: effectiveFgColor,
-                        size: 22,
-                      ),
-                      child: DefaultTextStyle(
-                        style: TextStyle(
-                          color: effectiveFgColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
+          child: Center(
+            child: Transform.scale(
+              scale: effectiveScale,
+              child: Opacity(
+                opacity: effectiveOpacity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: buttonWidth,
+                        height: buttonHeight,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: tint,
+                            borderRadius: borderRadius,
+                          ),
+                          child: DecoratedBox(
+                            decoration: sheen,
+                            child: AnimatedAlign(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              alignment: targetAlignment,
+                              child: SizedBox(
+                                width: circleDiameter,
+                                height: buttonHeight,
+                                child: Center(
+                                  child: IconTheme(
+                                    data: IconThemeData(
+                                      color: effectiveFgColor,
+                                      size: iconSize,
+                                    ),
+                                    child: widget.action.icon,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            widget.action.icon,
-                            if (widget.action.label != null) ...[
-                              const SizedBox(height: 3),
-                              widget.action.label!,
-                            ],
-                          ],
-                        ),
                       ),
-                    ),
+                      if (widget.action.label != null) ...[
+                        const SizedBox(height: 3.0),
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 150),
+                          curve: Curves.easeOut,
+                          opacity: labelOpacity,
+                          child: DefaultTextStyle(
+                            style: TextStyle(
+                              color: CupertinoColors.secondaryLabel
+                                  .resolveFrom(context),
+                              fontSize: labelFontSize,
+                              fontWeight: FontWeight.normal,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            child: widget.action.label!,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
