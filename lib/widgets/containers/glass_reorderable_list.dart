@@ -39,7 +39,7 @@ import 'glass_divider.dart';
 ///   },
 /// )
 /// ```
-class GlassReorderableList extends StatelessWidget {
+class GlassReorderableList extends StatefulWidget {
   /// Creates a standard [GlassReorderableList].
   const GlassReorderableList({
     super.key,
@@ -59,6 +59,8 @@ class GlassReorderableList extends StatelessWidget {
           'Either onReorderItem or onReorder must be provided.',
         ),
         _isGrouped = false,
+        dividerIndent = 56.0,
+        dividerEndIndent = 0.0,
         _settings = null,
         _shape = null,
         _quality = null,
@@ -85,6 +87,8 @@ class GlassReorderableList extends StatelessWidget {
     this.header,
     this.footer,
     this.enableHaptics = true,
+    this.dividerIndent = 56.0,
+    this.dividerEndIndent = 0.0,
     LiquidGlassSettings? settings,
     LiquidShape? shape,
     GlassQuality? quality,
@@ -142,6 +146,21 @@ class GlassReorderableList extends StatelessWidget {
   /// Whether to trigger a selection haptic tick when an item is lifted.
   final bool enableHaptics;
 
+  /// Start inset (logical pixels) of the dividers between rows in a
+  /// [GlassReorderableList.grouped] card.
+  ///
+  /// Defaults to 56. Native iOS aligns the separator with the row title, so a
+  /// row with a leading badge and icon typically needs a larger value
+  /// (e.g. 124 for the edit-mode layout).
+  final double dividerIndent;
+
+  /// End inset (logical pixels) of the dividers between rows in a
+  /// [GlassReorderableList.grouped] card.
+  ///
+  /// Defaults to 0. Native inset-grouped lists stop the separator 16pt short
+  /// of the card's trailing edge.
+  final double dividerEndIndent;
+
   final bool _isGrouped;
   final LiquidGlassSettings? _settings;
   final LiquidShape? _shape;
@@ -149,12 +168,19 @@ class GlassReorderableList extends StatelessWidget {
   final bool? _useOwnLayer;
   final GlassSurfaceStyle _surfaceStyle;
 
+  @override
+  State<GlassReorderableList> createState() => _GlassReorderableListState();
+}
+
+class _GlassReorderableListState extends State<GlassReorderableList> {
+  int? _draggedIndex;
+
   Widget _defaultProxyDecorator(
     Widget child,
     int index,
     Animation<double> animation,
   ) {
-    if (enableHaptics && animation.status == AnimationStatus.forward) {
+    if (widget.enableHaptics && animation.status == AnimationStatus.forward) {
       HapticFeedback.selectionClick();
     }
 
@@ -162,35 +188,69 @@ class GlassReorderableList extends StatelessWidget {
       animation: animation,
       builder: (context, _) {
         final double animValue = Curves.easeOutCubic.transform(animation.value);
-        final double scale = 1.0 + (0.012 * animValue);
+        final double scale = 1.0 + (0.035 * animValue);
         final double shadowElevation = 20.0 * animValue;
 
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            decoration: BoxDecoration(
-              // A solid card is opaque, so the lifted row must be too.
-              color: _isGrouped && _surfaceStyle == GlassSurfaceStyle.solid
-                  ? resolveGlassSolidSurfaceColor(context)
-                  : null,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color:
-                      CupertinoColors.black.withValues(alpha: 0.18 * animValue),
-                  blurRadius: shadowElevation,
-                  offset: Offset(0, 8.0 * animValue),
-                ),
-                BoxShadow(
-                  color:
-                      CupertinoColors.black.withValues(alpha: 0.06 * animValue),
-                  blurRadius: 6.0 * animValue,
-                  offset: Offset(0, 2.0 * animValue),
-                ),
-              ],
-            ),
-            child: child,
-          ),
+        // Native iOS scales the lifted row about the finger. In edit mode the
+        // finger is on the grabber (centre ≈27.8pt in from the trailing edge),
+        // so the row grows mostly leftwards instead of about its centre.
+        final bool fromGrabber = GlassEditScope.maybeOf(this.context) != null;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double w = constraints.maxWidth;
+            final Alignment scaleAlignment = fromGrabber && w.isFinite && w > 0
+                ? Alignment(1.0 - (2 * 27.8 / w), 0)
+                : Alignment.center;
+            return Transform.scale(
+              scale: scale,
+              alignment: scaleAlignment,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Shadow layer: clipped to the *outside* of the row so a
+                  // translucent fill isn't darkened by the shadow beneath it.
+                  Positioned.fill(
+                    child: ClipPath(
+                      clipper: const _OutsideRectClipper(),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: CupertinoColors.black
+                                  .withValues(alpha: 0.18 * animValue),
+                              blurRadius: shadowElevation,
+                              offset: Offset(0, 8.0 * animValue),
+                            ),
+                            BoxShadow(
+                              color: CupertinoColors.black
+                                  .withValues(alpha: 0.06 * animValue),
+                              blurRadius: 6.0 * animValue,
+                              offset: Offset(0, 2.0 * animValue),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      // Native iOS 27 lifts the row with a slightly translucent
+                      // card fill: the rows passing underneath stay faintly
+                      // visible.
+                      color: widget._isGrouped &&
+                              widget._surfaceStyle == GlassSurfaceStyle.solid
+                          ? resolveGlassSolidSurfaceColor(context)
+                              .withValues(alpha: 1.0 - (0.24 * animValue))
+                          : null,
+                      borderRadius: BorderRadius.zero,
+                    ),
+                    child: child,
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
       child: child,
@@ -199,18 +259,19 @@ class GlassReorderableList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveProxyDecorator = proxyDecorator ?? _defaultProxyDecorator;
+    final effectiveProxyDecorator =
+        widget.proxyDecorator ?? _defaultProxyDecorator;
     final effectiveSurfaceStyle =
-        InheritedGlassSurfaceStyle.maybeOf(context) ?? _surfaceStyle;
+        InheritedGlassSurfaceStyle.maybeOf(context) ?? widget._surfaceStyle;
     final editController = GlassEditScope.maybeOf(context);
 
     Widget listView = CustomScrollView(
-      shrinkWrap: shrinkWrap,
-      physics: physics,
+      shrinkWrap: widget.shrinkWrap,
+      physics: widget.physics,
       slivers: [
-        if (padding != null)
+        if (widget.padding != null)
           SliverPadding(
-            padding: padding!,
+            padding: widget.padding!,
             sliver: _buildSliverList(
               effectiveProxyDecorator,
               editController,
@@ -226,16 +287,20 @@ class GlassReorderableList extends StatelessWidget {
       ],
     );
 
-    if (_isGrouped) {
+    if (widget._isGrouped) {
       final card = GlassContainer.card(
-        useOwnLayer: _useOwnLayer ?? false,
+        useOwnLayer: widget._useOwnLayer ?? false,
         padding: EdgeInsets.zero,
         margin: EdgeInsets.zero,
-        shape: _shape,
-        settings: _settings,
-        quality: _quality,
-        surfaceStyle: _surfaceStyle,
-        clipBehavior: _surfaceStyle == GlassSurfaceStyle.solid
+        shape: widget._shape,
+        settings: widget._settings,
+        quality: widget._quality,
+        surfaceStyle: widget._surfaceStyle,
+        color: _draggedIndex != null &&
+                effectiveSurfaceStyle == GlassSurfaceStyle.solid
+            ? const Color(0x00000000)
+            : null,
+        clipBehavior: widget._surfaceStyle == GlassSurfaceStyle.solid
             ? Clip.antiAlias
             : Clip.none,
         child: listView,
@@ -245,7 +310,7 @@ class GlassReorderableList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (header != null)
+          if (widget.header != null)
             Padding(
               padding: const EdgeInsetsDirectional.only(
                 start: 16.0,
@@ -259,11 +324,11 @@ class GlassReorderableList extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                   letterSpacing: 0.2,
                 ),
-                child: header!,
+                child: widget.header!,
               ),
             ),
           card,
-          if (footer != null)
+          if (widget.footer != null)
             Padding(
               padding: const EdgeInsetsDirectional.only(
                 start: 16.0,
@@ -276,21 +341,21 @@ class GlassReorderableList extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
-                child: footer!,
+                child: widget.footer!,
               ),
             ),
         ],
       );
     }
 
-    if (header != null || footer != null) {
+    if (widget.header != null || widget.footer != null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (header != null) header!,
+          if (widget.header != null) widget.header!,
           Flexible(child: listView),
-          if (footer != null) footer!,
+          if (widget.footer != null) widget.footer!,
         ],
       );
     }
@@ -304,27 +369,101 @@ class GlassReorderableList extends StatelessWidget {
     GlassSurfaceStyle surfaceStyle,
   ) {
     return SliverReorderableList(
-      itemCount: itemCount,
+      itemCount: widget.itemCount,
+      onReorderStart: (int index) {
+        setState(() {
+          _draggedIndex = index;
+        });
+      },
+      onReorderEnd: (int index) {
+        setState(() {
+          _draggedIndex = null;
+        });
+      },
       itemBuilder: (context, index) {
-        final child = itemBuilder(context, index);
-        if (!_isGrouped || index == itemCount - 1) {
+        final child = widget.itemBuilder(context, index);
+        if (!widget._isGrouped) {
           return child;
+        }
+
+        // When an item is actively being dragged in a solid grouped list,
+        // native iOS splits the card into separate rounded cards around the
+        // dragged item/gap, showing the screen background between segments.
+        if (_draggedIndex != null && surfaceStyle == GlassSurfaceStyle.solid) {
+          if (index == _draggedIndex) {
+            // For the item being dragged, in-list placeholder is empty and proxy uses this tile.
+            return _ReorderableRowWithDivider(
+              key: child.key,
+              tile: child,
+              divider: GlassDivider(
+                indent: widget.dividerIndent,
+                endIndent: widget.dividerEndIndent,
+              ),
+              showDivider: false,
+            );
+          }
+
+          final bool isAbove = index < _draggedIndex!;
+          final bool isLastInSegment = isAbove
+              ? index == _draggedIndex! - 1
+              : index == widget.itemCount - 1;
+
+          // Native cuts the card flat at the gap: only the real outer card
+          // corners (top of the first row, bottom of the last) stay rounded.
+          final bool roundTop = isAbove && index == 0;
+          final bool roundBottom = !isAbove && index == widget.itemCount - 1;
+          final BorderRadius borderRadius = BorderRadius.vertical(
+            top: Radius.circular(roundTop ? 26 : 0),
+            bottom: Radius.circular(roundBottom ? 26 : 0),
+          );
+
+          final bool showDivider = isAbove || !isLastInSegment;
+
+          return _ReorderableRowWithDivider(
+            key: child.key,
+            tile: child,
+            divider: GlassDivider(
+              indent: widget.dividerIndent,
+              endIndent: widget.dividerEndIndent,
+            ),
+            decoration: BoxDecoration(
+              color: resolveGlassSolidSurfaceColor(context),
+              borderRadius: borderRadius,
+            ),
+            borderRadius: borderRadius,
+            showDivider: showDivider,
+          );
+        }
+
+        if (index == widget.itemCount - 1) {
+          return _ReorderableRowWithDivider(
+            key: child.key,
+            tile: child,
+            divider: GlassDivider(
+              indent: widget.dividerIndent,
+              endIndent: widget.dividerEndIndent,
+            ),
+            showDivider: false,
+          );
         }
 
         // Interleave a GlassDivider below item if grouped (omitted in drag proxy)
         return _ReorderableRowWithDivider(
           key: child.key,
           tile: child,
-          divider: const GlassDivider(indent: 56.0),
+          divider: GlassDivider(
+            indent: widget.dividerIndent,
+            endIndent: widget.dividerEndIndent,
+          ),
         );
       },
       // ignore: deprecated_member_use
       onReorder: (int oldIndex, int newIndex) {
-        if (onReorderItem != null) {
+        if (widget.onReorderItem != null) {
           final adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
-          onReorderItem!(oldIndex, adjusted);
+          widget.onReorderItem!(oldIndex, adjusted);
         } else {
-          onReorder!(oldIndex, newIndex);
+          widget.onReorder!(oldIndex, newIndex);
         }
       },
       proxyDecorator: (child, index, animation) {
@@ -362,21 +501,55 @@ class _ReorderableRowWithDivider extends StatelessWidget {
     super.key,
     required this.tile,
     required this.divider,
+    this.decoration,
+    this.borderRadius,
+    this.showDivider = true,
   });
 
   final Widget tile;
   final Widget divider;
+  final Decoration? decoration;
+  final BorderRadius? borderRadius;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
     final bool isProxy = _InheritedReorderProxy.isProxy(context);
-    return Column(
+    Widget content = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         tile,
-        if (!isProxy) divider,
+        if (!isProxy && showDivider) divider,
       ],
     );
+    if (!isProxy && decoration != null) {
+      content = Container(
+        decoration: decoration,
+        clipBehavior:
+            (borderRadius != null && borderRadius != BorderRadius.zero)
+                ? Clip.antiAlias
+                : Clip.none,
+        child: content,
+      );
+    }
+    return content;
   }
+}
+
+/// Clips to everything *outside* the widget's bounds (even-odd), used to keep
+/// a drop shadow from showing through a translucent surface.
+class _OutsideRectClipper extends CustomClipper<Path> {
+  const _OutsideRectClipper();
+
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Rect.fromLTRB(-400, -400, size.width + 400, size.height + 400))
+      ..addRect(Offset.zero & size);
+  }
+
+  @override
+  bool shouldReclip(_OutsideRectClipper oldClipper) => false;
 }

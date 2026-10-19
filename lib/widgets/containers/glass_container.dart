@@ -143,6 +143,7 @@ class GlassContainer extends StatelessWidget {
     this.allowElevation = false,
     this.glowIntensity = 0.0,
     this.platformViewBackdrop = false,
+    this.color,
   }) : _surfaceStyle = GlassSurfaceStyle.glass;
 
   /// Creates a card-like container with opinionated defaults.
@@ -175,6 +176,7 @@ class GlassContainer extends StatelessWidget {
     this.clipBehavior = Clip.none,
     this.width,
     this.height,
+    this.color,
     GlassSurfaceStyle surfaceStyle = GlassSurfaceStyle.glass,
   })  : shape = shape ??
             (surfaceStyle == GlassSurfaceStyle.solid
@@ -230,6 +232,10 @@ class GlassContainer extends StatelessWidget {
   ///
   /// The glass effect is not applied to the margin area.
   final EdgeInsetsGeometry? margin;
+
+  /// Explicit surface color override, used primarily by solid containers
+  /// to provide custom backgrounds or transparency during interactive animations.
+  final Color? color;
 
   // ===========================================================================
   // Glass Effect Properties
@@ -458,7 +464,7 @@ class GlassContainer extends StatelessWidget {
 
     return DecoratedBox(
       decoration: ShapeDecoration(
-        color: resolveGlassSolidSurfaceColor(context),
+        color: color ?? resolveGlassSolidSurfaceColor(context),
         shape: shape,
       ),
       child: inner,

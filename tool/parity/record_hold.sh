@@ -8,6 +8,8 @@ SWIFT_ID="6BC12202-1931-4614-8D15-45D4330C4F22"
 FLUTTER_ID="03F92F78-8215-4980-9D92-F0F910F78573"
 ID=$FLUTTER_ID; [ "$TARGET" = "swift" ] && ID=$SWIFT_ID
 OUT=/tmp/lgw/$NAME
+/tmp/lgw/sim_touch $TARGET 200 790 0.05   # prime: first click only focuses the window
+sleep 0.5
 xcrun simctl io $ID recordVideo --codec h264 --force $OUT.mov >/dev/null 2>&1 &
 REC=$!
 sleep 1.5

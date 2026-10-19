@@ -452,21 +452,30 @@ void main() {
       await gesture.moveBy(const Offset(0, 20));
       await tester.pump(const Duration(milliseconds: 400));
 
-      final lifted = tester
-          .widgetList<Container>(find.byType(Container))
-          .map((c) => c.decoration)
-          .whereType<BoxDecoration>()
-          .where((d) => (d.boxShadow ?? const []).isNotEmpty)
-          .toList();
+      // The lift shadow and the row fill are separate layers: the fill
+      // `DecoratedBox` directly follows the shadow `DecoratedBox`.
+      final boxes =
+          tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).toList();
+      final shadowAt = boxes.indexWhere((b) {
+        final d = b.decoration;
+        return d is BoxDecoration && (d.boxShadow ?? const []).isNotEmpty;
+      });
+      final lifted =
+          shadowAt < 0 ? null : boxes[shadowAt + 1].decoration as BoxDecoration;
       await gesture.up();
       await tester.pumpAndSettle();
-      expect(lifted, isNotEmpty, reason: 'no lifted drag proxy found');
-      return lifted.first;
+      expect(lifted, isNotNull, reason: 'no lifted drag proxy found');
+      return lifted!;
     }
 
-    testWidgets('solid: the lifted row is opaque (card fill)', (tester) async {
+    testWidgets(
+        'solid: the lifted row is a translucent card fill (native iOS 27)',
+        (tester) async {
       final d = await liftFirstRow(tester, GlassSurfaceStyle.solid);
-      expect(d.color!.toARGB32(), _darkFill.toARGB32());
+      // Same RGB as the card, but slightly see-through while lifted.
+      expect(
+          d.color!.toARGB32() & 0x00FFFFFF, _darkFill.toARGB32() & 0x00FFFFFF);
+      expect(d.color!.a, inInclusiveRange(0.7, 0.85));
     });
 
     testWidgets('glass: the lifted row keeps its previous (no fill) look',

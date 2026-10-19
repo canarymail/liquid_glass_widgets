@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
@@ -12,6 +13,16 @@ import '../shared/glass_edit_scope.dart';
 import '../shared/glass_focus_region.dart';
 import '../shared/glass_interaction_state_mixin.dart';
 import '../shared/glass_solid_surface.dart';
+
+/// iOS 26/27 system red (`#FF383C`) used by edit-mode delete controls.
+const Color _kEditRedLight = Color(0xFFFF383C);
+
+/// Dark-appearance system red (`#FF4245`).
+const Color _kEditRedDark = Color(0xFFFF4245);
+
+/// Distance (pt) the row slides left to reveal the delete cell, matching
+/// native iOS.
+const double _kDeleteShift = 80.0;
 
 /// A glass-aesthetic list tile following iOS 26 grouped row design.
 ///
@@ -377,6 +388,10 @@ class _GlassListTileState extends State<GlassListTile>
 
   bool _isDeleteConfirming = false;
 
+  /// Pointer that went down on the grabber, so the row-wide hold listener
+  /// doesn't start a second drag for the same touch.
+  int? _grabberPointer;
+
   @override
   void initState() {
     super.initState();
@@ -540,11 +555,14 @@ class _GlassListTileState extends State<GlassListTile>
     final effectiveCanDelete = widget.canDelete || widget.onDelete != null;
     final effectiveCanInsert = widget.canInsert || widget.onInsert != null;
 
+    final bool isDarkEdit = GlassTheme.brightnessOf(context) == Brightness.dark;
+    final Color editRed = isDarkEdit ? _kEditRedDark : _kEditRedLight;
+
     Widget? editBadge;
     Widget? selectionAccessory;
     if (isEditing) {
       if (effectiveCanDelete) {
-        final badge = GestureDetector(
+        editBadge = GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
             HapticFeedback.selectionClick();
@@ -561,37 +579,12 @@ class _GlassListTileState extends State<GlassListTile>
             width: 39,
             height: 36,
             alignment: Alignment.centerLeft,
-            child: const Icon(
+            child: Icon(
               CupertinoIcons.minus_circle_fill,
-              color: CupertinoColors.systemRed,
+              color: editRed,
               size: 25,
             ),
           ),
-        );
-
-        editBadge = AnimatedBuilder(
-          animation: _confirmAnimation,
-          builder: (context, child) {
-            final t = _confirmAnimation.value;
-            return SizedBox(
-              width: 39.0 * (1.0 - t),
-              height: 36.0,
-              child: ClipRect(
-                child: OverflowBox(
-                  alignment: Alignment.centerLeft,
-                  minWidth: 39.0,
-                  maxWidth: 39.0,
-                  minHeight: 36.0,
-                  maxHeight: 36.0,
-                  child: Opacity(
-                    opacity: (1.0 - t).clamp(0.0, 1.0),
-                    child: child,
-                  ),
-                ),
-              ),
-            );
-          },
-          child: badge,
         );
       } else if (effectiveCanInsert) {
         editBadge = GestureDetector(
@@ -649,83 +642,34 @@ class _GlassListTileState extends State<GlassListTile>
 
     Widget? trailingAccessory;
     if (isEditing) {
-      Widget? handle;
       if (widget.canReorder) {
-        handle = Container(
-          width: 60,
+        Widget handle = Container(
+          width: 48,
           height: 44,
           alignment: Alignment.centerRight,
           color: const Color(0x00000000),
-          padding: const EdgeInsets.only(right: 4),
-          child: const Icon(
-            CupertinoIcons.bars,
-            color: CupertinoColors.systemGrey3,
-            size: 20,
+          // Native 3-bar grabber: 21pt wide, 1.33pt bars on a 4.67pt pitch,
+          // right edge 17.3pt in from the card edge.
+          child: CustomPaint(
+            size: const Size(22.3, 10),
+            painter: _ReorderGrabberPainter(
+              color: isDarkEdit
+                  ? const Color(0x998E8E93)
+                  : const Color(0xA0A3A3A7),
+            ),
           ),
         );
         if (widget.reorderIndex != null) {
-          handle = ReorderableDragStartListener(
-            index: widget.reorderIndex!,
-            child: handle,
+          handle = Listener(
+            onPointerDown: (event) => _grabberPointer = event.pointer,
+            child: _InstantReorderDragStartListener(
+              index: widget.reorderIndex!,
+              child: handle,
+            ),
           );
         }
+        trailingAccessory = handle;
       }
-
-      Widget? deletePill;
-      if (effectiveCanDelete &&
-          (_isDeleteConfirming || _confirmAnimation.value > 0.0)) {
-        final deleteButton = CupertinoButton(
-          color: CupertinoColors.systemRed,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          minimumSize: const Size(0, 32),
-          borderRadius: BorderRadius.circular(100),
-          onPressed: _handleDeletePressed,
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                CupertinoIcons.trash_fill,
-                color: CupertinoColors.white,
-                size: 15,
-              ),
-              SizedBox(width: 4),
-              Text(
-                'Delete',
-                style: TextStyle(
-                  color: CupertinoColors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-        );
-
-        deletePill = AnimatedBuilder(
-          animation: _confirmAnimation,
-          builder: (context, child) {
-            return ClipRect(
-              child: Align(
-                alignment: Alignment.centerRight,
-                widthFactor: _confirmAnimation.value,
-                child: child,
-              ),
-            );
-          },
-          child: deleteButton,
-        );
-      }
-
-      trailingAccessory = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (handle != null) handle,
-          if (deletePill != null) ...[
-            if (handle != null) const SizedBox(width: 8),
-            deletePill,
-          ],
-        ],
-      );
     } else if (widget.trailing != null) {
       trailingAccessory = Row(
         mainAxisSize: MainAxisSize.min,
@@ -782,37 +726,122 @@ class _GlassListTileState extends State<GlassListTile>
 
     Widget tile = Padding(padding: widget.contentPadding, child: row);
 
-    if (_isDeleteConfirming || _confirmAnimation.value > 0.0) {
-      tile = Stack(
-        children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _confirmAnimation,
-              builder: (context, _) {
-                final double alpha = _confirmAnimation.value;
-                if (alpha <= 0.0) return const SizedBox.shrink();
-                final bool isDark =
-                    GlassTheme.brightnessOf(context) == Brightness.dark;
-                final Color platterColor =
-                    isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: DecoratedBox(
+    final bool showSelectedHighlight =
+        isEditing && widget.canSelect && widget.isSelected;
+    final Color selectedHighlight =
+        isDarkEdit ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6);
+
+    if (effectiveCanDelete && isEditing) {
+      final Color platterColor = showSelectedHighlight
+          ? selectedHighlight
+          : (isDarkEdit ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA));
+      final Color pageColor =
+          isDarkEdit ? const Color(0xFF000000) : const Color(0xFFF2F2F7);
+      final Color labelColor =
+          isDarkEdit ? const Color(0x99EBEBF5) : const Color(0x993C3C43);
+
+      // Native iOS: a 60x48 red button with an outline trash glyph and the
+      // "Delete" caption *underneath* it, sitting in the vacated strip.
+      final deleteCell = Semantics(
+        button: true,
+        label: 'Delete',
+        excludeSemantics: true,
+        onTap: _handleDeletePressed,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _handleDeletePressed,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4.3),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 48,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: platterColor.withValues(alpha: alpha),
-                      borderRadius: BorderRadius.circular(10),
+                      color: editRed,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.trash,
+                      color: CupertinoColors.white,
+                      size: 22,
                     ),
                   ),
-                );
-              },
+                  const SizedBox(height: 7),
+                  Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: labelColor,
+                      fontSize: 13,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          tile,
-        ],
+        ),
+      );
+
+      tile = AnimatedBuilder(
+        animation: _confirmAnimation,
+        builder: (context, child) {
+          final double t = _confirmAnimation.value;
+          if (t <= 0.0 && !_isDeleteConfirming) {
+            return child!;
+          }
+
+          return ClipRect(
+            child: Stack(
+              children: [
+                // 1. Platter (the row's own grey background) plus the
+                //    page-colour strip it leaves behind as it slides left.
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _DeletePlatterPainter(
+                      platterColor: platterColor,
+                      pageColor: pageColor,
+                      progress: t,
+                    ),
+                  ),
+                ),
+                // 2. Main content translated left
+                Transform.translate(
+                  offset: Offset(-_kDeleteShift * t, 0.0),
+                  child: child,
+                ),
+                // 3. Delete cell sliding in from the right with the content
+                Positioned(
+                  right: 0.0,
+                  top: 0.0,
+                  bottom: 0.0,
+                  width: _kDeleteShift,
+                  child: Transform.translate(
+                    offset: Offset((1.0 - t) * _kDeleteShift, 0.0),
+                    child: deleteCell,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        child: tile,
       );
     }
 
+    if (showSelectedHighlight) {
+      tile = ColoredBox(color: selectedHighlight, child: tile);
+    }
+
+    // Native rows toggle selection when tapped in edit mode; while the
+    // delete confirmation is showing, a tap on the row dismisses it instead.
     if (_isDeleteConfirming) {
       tile = GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -821,6 +850,37 @@ class _GlassListTileState extends State<GlassListTile>
             _isDeleteConfirming = false;
             _confirmController.reverse();
           });
+        },
+        child: tile,
+      );
+    } else if (isEditing && widget.canSelect) {
+      tile = GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onSelectedChanged?.call(!widget.isSelected);
+        },
+        child: tile,
+      );
+    }
+
+    // Press-and-hold anywhere on the row lifts it for reordering. The grabber
+    // itself lifts instantly (handled by its own listener), so touches that
+    // started there are skipped.
+    if (isEditing &&
+        widget.canReorder &&
+        widget.reorderIndex != null &&
+        !_isDeleteConfirming) {
+      tile = Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          if (_grabberPointer == event.pointer) return;
+          SliverReorderableList.maybeOf(context)?.startItemDragReorder(
+            index: widget.reorderIndex!,
+            event: event,
+            recognizer: DelayedMultiDragGestureRecognizer(debugOwner: this)
+              ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context),
+          );
         },
         child: tile,
       );
@@ -871,5 +931,147 @@ class _GlassListTileState extends State<GlassListTile>
     }
 
     return tile;
+  }
+}
+
+/// Paints the native 3-bar reorder grabber (21pt wide, 1.33pt bars, 4.67pt
+/// pitch). The bars are left-aligned in the painted box so the box's extra
+/// width becomes the native right inset.
+class _ReorderGrabberPainter extends CustomPainter {
+  const _ReorderGrabberPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double barWidth = 21.0;
+    const double barThickness = 4.0 / 3.0;
+    const double pitch = 14.0 / 3.0;
+    final paint = Paint()..color = color;
+    final double top = (size.height - (2 * pitch + barThickness)) / 2;
+    for (var i = 0; i < 3; i++) {
+      final double y = top + i * pitch;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, y, barWidth, barThickness),
+          const Radius.circular(barThickness / 2),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ReorderGrabberPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// Paints the grey platter that follows a row sliding left to reveal the
+/// delete cell, plus the page-coloured strip it leaves behind (native iOS
+/// shows the page background there, not the card).
+class _DeletePlatterPainter extends CustomPainter {
+  const _DeletePlatterPainter({
+    required this.platterColor,
+    required this.pageColor,
+    required this.progress,
+  });
+
+  final Color platterColor;
+  final Color pageColor;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double right = size.width - _kDeleteShift * progress;
+
+    // Vacated strip.
+    canvas.drawRect(
+      Rect.fromLTRB(right, 0, size.width, size.height),
+      Paint()..color = pageColor,
+    );
+
+    final double radius = (size.height / 2) < 28.0 ? (size.height / 2) : 28.0;
+    final rect = Rect.fromLTRB(0, 0, right, size.height);
+    final rrect = RRect.fromRectAndCorners(
+      rect,
+      topRight: Radius.circular(radius),
+      bottomRight: Radius.circular(radius),
+    );
+
+    // Page colour in the corner voids so the platter ends look cut out.
+    final voids = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(rect),
+      Path()..addRRect(rrect),
+    );
+    canvas.drawPath(
+      voids,
+      Paint()..color = pageColor.withValues(alpha: progress),
+    );
+    canvas.drawRRect(
+      rrect,
+      Paint()..color = platterColor.withValues(alpha: progress),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DeletePlatterPainter oldDelegate) =>
+      oldDelegate.platterColor != platterColor ||
+      oldDelegate.pageColor != pageColor ||
+      oldDelegate.progress != progress;
+}
+
+/// Reorder grabber listener that lifts the row the instant it is touched.
+///
+/// Flutter's [ReorderableDragStartListener] only starts the drag once the
+/// pointer has moved past the touch slop, so the row stays put under a
+/// stationary finger. Native iOS lifts the row as soon as the grabber is
+/// pressed (before any movement), which this reproduces.
+class _InstantReorderDragStartListener extends ReorderableDragStartListener {
+  const _InstantReorderDragStartListener({
+    required super.index,
+    required super.child,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer() {
+    return _InstantMultiDragGestureRecognizer(debugOwner: this);
+  }
+}
+
+/// Multi-drag recognizer that claims the gesture arena on pointer-down.
+class _InstantMultiDragGestureRecognizer extends MultiDragGestureRecognizer {
+  _InstantMultiDragGestureRecognizer({super.debugOwner});
+
+  _InstantPointerState? _lastState;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    _lastState?.acceptNow();
+  }
+
+  @override
+  MultiDragPointerState createNewPointerState(PointerDownEvent event) {
+    return _lastState = _InstantPointerState(
+      event.position,
+      event.kind,
+      gestureSettings,
+    );
+  }
+
+  @override
+  String get debugDescription => 'instant multidrag';
+}
+
+class _InstantPointerState extends MultiDragPointerState {
+  _InstantPointerState(
+      super.initialPosition, super.kind, super.gestureSettings);
+
+  void acceptNow() => resolve(GestureDisposition.accepted);
+
+  @override
+  void accepted(GestureMultiDragStartCallback starter) {
+    starter(initialPosition);
   }
 }

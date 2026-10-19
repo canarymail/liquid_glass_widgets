@@ -96,9 +96,9 @@ GlassListTile(
 | :--- | :--- | :--- | :--- |
 | **Ambient Scope** | `@Environment(\.editMode) var editMode` | `GlassEditScope.of(context)` / `GlassEditController` | ✅ 1:1 Scoped Architecture |
 | **Edit/Done Toggle** | `EditButton()` in navigation toolbar | `GlassEditButton()` (auto-bound to ambient controller) or `GlassEditButton.explicit()` | ✅ 1:1 UI & Haptics |
-| **Delete Indicator** | Circular red badge with centered white minus (`-`) + selection circle. Tapping minus smoothly shifts row content left by 39pt into rounded platter background (`#E5E5EA` light, `#2C2C2E` dark), reveals inline red capsule pill with trash icon + "Delete" while keeping 3-bar reorder handle visible; tapping delete collapses row height and fades out over ~280ms | `GlassListTile` with `_confirmController` (240ms) and `_removeController` (280ms) performs identical horizontal slide, platter appearance, capsule trash button slide-in, and smooth height collapse before invoking `onDelete` | ✅ Verified side-by-side on two simulators (real injected touches, 6 frame/s contact sheets) |
-| **Drag Reorder Handle**| 3-bar horizontal gripper (`CupertinoIcons.bars`), ~60pt touch initiation target | 3-bar gripper, expanded 60×44pt touch target with transparent hit test area, supports both `onReorderItem` and `onReorder` | ✅ 1:1 Metric & Touch Target |
-| **Elevation Proxy** | Lifted proxy retains all edit accessories (badge, checkbox, handle), omits row divider, applies 1.012x scale and layered soft shadows | `proxyDecorator` preserves ambient `GlassEditScope` and surface style, omits `GlassDivider`, applies 1.012x scale and layered drop shadows | ✅ Verified side-by-side (`s_reorder` vs `f_reorder_post`) |
+| **Delete Indicator** | Circular red (`#FF383C`) badge + selection circle. Tapping minus slides the row (including its `#E5E5EA` / `#D1D1D6`-selected platter) 80pt left; the platter ends in ~28pt rounded corners and the vacated strip shows the *page* background. A 60×48pt red capsule with an outline white trash glyph (~17×20pt) and a 13pt secondary-label "Delete" caption **underneath** sits in the strip (4.3pt below the row top, 10pt margins) | `GlassListTile` `_confirmController` slides the row 80pt over `_DeletePlatterPainter` (platter + page-colour strip), delete cell slides in from the right; `_removeController` (280ms) collapses the row before `onDelete`. Row tap toggles selection (grey `#D1D1D6` / `#3A3A3C` highlight) or, while confirming, cancels the confirmation | ✅ Re-measured at 3x against the native capture (platter edge, button box, glyph, caption position) |
+| **Drag Reorder Handle**| 3 bars, each 1.33pt thick on a 4.67pt pitch, 21pt wide, right edge 17.3pt in from the card; ≈ rgba(163,163,167,0.63) | `_ReorderGrabberPainter` with the same metrics inside a 48×44pt transparent touch target; supports both `onReorderItem` and `onReorder` | ✅ Pixel-measured (`png_probe.py`) |
+| **Elevation Proxy** | Lifted row is ≈76% opaque (rows beneath show through), scales ≈1.035×, square corners, shadow only outside the row, omits the divider, retains all edit accessories | `proxyDecorator` default: 1.035× scale, card fill at α≈0.76 (solid grouped), outside-only layered shadow (`_OutsideRectClipper`), omits `GlassDivider`, preserves ambient `GlassEditScope` and surface style; grouped card splits into 26pt-rounded segments around the gap | ✅ Verified side-by-side (translucency visible in mid-drag frames) |
 | **Gesture Disambiguation**| Suppresses row swipe actions when `editMode.isEditing == true` | Automatically disables horizontal swipe gestures while in edit mode | ✅ Zero gesture collision |
 
 ---
@@ -176,7 +176,7 @@ While the public API ergonomics and visual surfaces achieve near-complete fideli
 
 **Method.** The native app (`tool/parity/ios_reference/ParityApp.swift`, stock SwiftUI linked against the iOS 27 SDK) and the Flutter harness (`example/lib/harnesses/ios_parity_harness.dart`) mirror each other screen for screen. Both run on the same iPhone 18 Pro / iOS 27 simulator with the locale set to **en_US** (the simulator default, en_AU, changes date formats and the first weekday). Captures live in `tool/parity/captures/` (`native_*.png`, `native_dark_*.png`, `flutter_*.png`).
 
-**Harness commands** (written to `/tmp/lgw_parity_cmd.txt`): `tab N`, `scroll px`, `swipe row t|l|c`, `menu row`, `edit on|off`, `cover`, `expand N on|off`, `dark on|off`, `pop`. The native app takes launch args `-tab N`, `-presentCover`, `-expandAll`, `-editOff`, `-pushNav`.
+**Harness commands** (written to `/tmp/lgw_parity_cmd.txt`): `tab N`, `scroll px`, `swipe row t|l|c`, `menu row`, `edit on|off`, `cover`, `expand N on|off`, `dark on|off`, `pop`, `ptr down|move|up x y` (injects a touch at logical coordinates, so gestures can be scripted with the simulator window in the background). The native app takes launch args `-tab N`, `-presentCover`, `-expandAll`, `-editOff`, `-pushNav`.
 
 **Verified against native (static frames).** Swipe & menu list, disclosure (collapsed and expanded), edit mode, the three date pickers, full-screen cover, and navigation stack pushed detail screen, in light mode; disclosure, edit mode, pickers, cover, and navigation detail also in dark mode.
 
@@ -192,7 +192,8 @@ Interactive gesture tracking, spring settling physics, long-press haptics, pull-
   - Flutter: sub-row divider pitch = **65.00pt** (exact match).
 - **Edit Mode Row Pitch (Tab 2):**
   - Native: multi-line rows wrap to 2 lines at 76.33pt pitch; single-line row is 57.33pt pitch.
-  - Flutter: single-line `GlassListTile` with edit accessories renders at 65.00pt pitch.
+  - Flutter: the harness now uses 16pt / w400 titles with SF's -0.32pt tracking, a 44pt handle floor and split vertical padding, giving 57.3pt / 76.4pt rows. Title text x, minus/selection circle centres and handle position agree with native to ≤ 1pt. Native wraps with a different line-breaking strategy (e.g. "iPhone 18 Pro / Glass Prototype"), so some titles break at different words.
+  - Grouped-card dividers still start at the library default 56pt inset rather than the title (native: 124pt).
 - **Card Surface (`GlassSurfaceStyle.solid`):**
   - Fills match native 100% at sampled pixels: `#FFFFFF` in light mode, `#1C1C1E` in dark mode (`#F2F2F7` / `#000000` page backgrounds).
   - Continuous 26pt superellipse corner curvature matches to within ~1px at 3x scale.
@@ -204,7 +205,7 @@ Interactive gesture tracking, spring settling physics, long-press haptics, pull-
 - Swipe-open, context-menu-open, and multi-date states have no native capture (`simctl` cannot inject touches). Flutter states were visually verified and unit-tested.
 - Elevated-dark (`#2C2C2E`, cards inside sheets) is not implemented.
 - `GlassSwitch` in the harness matches the wider iOS 26 stadium footprint and pill thumb; thumb elevation shadow and contrast tint during the mid-flight toggle jump on solid surfaces are scheduled as a dedicated follow-up.
-- Swipe platter: `solidVibrancy` provides flat fills matching native SwiftUI. Edit-mode accessories (39pt spacing, 60pt reorder handle, platter slide and delete collapse) are verified side-by-side with native.
+- Swipe platter: `solidVibrancy` provides flat fills matching native SwiftUI. Edit-mode accessories (39pt spacing, 48×44pt reorder handle, 80pt platter slide, vertical delete cell and delete collapse) are verified side-by-side with native.
 
 ## 5. Verification Harness Quick Start
 

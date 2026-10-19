@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
@@ -327,6 +328,58 @@ void main() {
       expect(selected, isTrue);
     });
 
+    testWidgets('tapping the row body toggles selection in edit mode',
+        (tester) async {
+      bool? selected;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassListTile(
+            isEditing: true,
+            title: const Text('Selectable Item'),
+            canSelect: true,
+            isSelected: false,
+            onSelectedChanged: (val) => selected = val,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Selectable Item'));
+      expect(selected, isTrue);
+    });
+
+    testWidgets('delete confirmation shows the trash icon with Delete beneath',
+        (tester) async {
+      var deleted = false;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassListTile(
+            isEditing: true,
+            title: const Text('Row'),
+            onDelete: () => deleted = true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(CupertinoIcons.minus_circle_fill));
+      await tester.pumpAndSettle();
+
+      final icon = find.byIcon(CupertinoIcons.trash);
+      final label = find.text('Delete');
+      expect(icon, findsOneWidget);
+      expect(label, findsOneWidget);
+      // The caption sits underneath the button, not inline beside it.
+      expect(
+        tester.getTopLeft(label).dy,
+        greaterThan(tester.getBottomLeft(icon).dy),
+      );
+
+      await tester.tap(label);
+      await tester.pumpAndSettle();
+      expect(deleted, isTrue);
+    });
+
     testWidgets('shows reorder bars handle when canReorder is true',
         (tester) async {
       await tester.pumpWidget(
@@ -340,8 +393,97 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(CupertinoIcons.bars), findsOneWidget);
-      expect(find.byType(ReorderableDragStartListener), findsOneWidget);
+      expect(find.byType(CustomPaint), findsWidgets);
+      expect(_reorderGrabber(), findsOneWidget);
+    });
+
+    testWidgets('pressing the grabber lifts the row before any movement',
+        (tester) async {
+      final haptics = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            haptics.add(call.arguments as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassReorderableList.grouped(
+            itemCount: 3,
+            itemBuilder: (context, index) => GlassListTile(
+              key: ValueKey('item $index'),
+              isEditing: true,
+              title: Text('Item $index'),
+              canReorder: true,
+              reorderIndex: index,
+            ),
+            onReorder: (oldIndex, newIndex) {},
+          ),
+        ),
+      );
+
+      final handle = _reorderGrabber().first;
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump();
+
+      // No pointer movement yet: the lift (and its haptic tick) has begun.
+      expect(haptics, contains('HapticFeedbackType.selectionClick'));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('press-and-hold on the row body lifts it; a tap does not',
+        (tester) async {
+      final haptics = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            haptics.add(call.arguments as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassReorderableList.grouped(
+            itemCount: 3,
+            itemBuilder: (context, index) => GlassListTile(
+              key: ValueKey('item $index'),
+              isEditing: true,
+              title: Text('Item $index'),
+              canReorder: true,
+              reorderIndex: index,
+            ),
+            onReorder: (oldIndex, newIndex) {},
+          ),
+        ),
+      );
+
+      // A quick tap on the body never lifts the row.
+      await tester.tap(find.text('Item 1'));
+      await tester.pumpAndSettle();
+      expect(haptics, isEmpty);
+
+      // Holding the body past the long-press delay does.
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('Item 1')),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(haptics, contains('HapticFeedbackType.selectionClick'));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('inherits edit mode from ambient GlassEditScope',
@@ -437,7 +579,7 @@ void main() {
       expect(find.text('Item 1'), findsOneWidget);
 
       // Drag to reorder Item 1 downwards
-      final handle = find.byIcon(CupertinoIcons.bars).first;
+      final handle = _reorderGrabber().first;
       await tester.drag(handle, const Offset(0, 100));
       await tester.pumpAndSettle();
 
@@ -472,7 +614,7 @@ void main() {
         ),
       );
 
-      final handle = find.byIcon(CupertinoIcons.bars).first;
+      final handle = _reorderGrabber().first;
       await tester.drag(handle, const Offset(0, 100));
       await tester.pumpAndSettle();
 
@@ -483,3 +625,8 @@ void main() {
 }
 
 void _noop() {}
+
+/// Matches the reorder grabber, including subclasses of
+/// [ReorderableDragStartListener] (`find.byType` only matches the exact type).
+Finder _reorderGrabber() =>
+    find.byWidgetPredicate((w) => w is ReorderableDragStartListener);

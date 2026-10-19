@@ -17,6 +17,8 @@
 //   cover                present the full-screen cover
 //   expand <0-2> on|off  expand / collapse a disclosure group
 //   dark on|off          switch the harness to dark / light appearance
+//   ptr down|move|up x y inject a touch at logical (x, y) — works with the
+//                        simulator window in the background
 //
 //   cd example && flutter run -t lib/harnesses/ios_parity_harness.dart -d <udid>
 library;
@@ -25,6 +27,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart' show GestureBinding;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 const _cmdFile = '/tmp/lgw_parity_cmd.txt';
@@ -70,6 +73,7 @@ class _ParityHostState extends State<_ParityHost> {
   int _tab = 0;
   Timer? _poll;
   String? _lastCmd;
+  Offset _lastPtr = Offset.zero;
 
   final _scroll = ScrollController();
   late List<_Contact> _contacts;
@@ -138,6 +142,18 @@ class _ParityHostState extends State<_ParityHost> {
 
   void _run(List<String> a) {
     switch (a[0]) {
+      case 'ptr':
+        // ptr down|move|up <x> <y> — inject a touch at logical coordinates.
+        final pos = Offset(double.parse(a[2]), double.parse(a[3]));
+        final binding = GestureBinding.instance;
+        final PointerEvent event = switch (a[1]) {
+          'down' => PointerDownEvent(position: pos, pointer: 77),
+          'move' =>
+            PointerMoveEvent(position: pos, delta: pos - _lastPtr, pointer: 77),
+          _ => PointerUpEvent(position: pos, pointer: 77),
+        };
+        _lastPtr = pos;
+        binding.handlePointerEvent(event);
       case 'dark':
         _dark.value = a[1] == 'on';
         setState(() {});
@@ -680,6 +696,8 @@ class _ParityHostState extends State<_ParityHost> {
     'Adaptive Liquid Glass Chrome',
   ];
 
+  final Set<String> _selected = {'Vision Pro Ultra Lensing'};
+
   Widget _editMode() {
     return AnimatedBuilder(
       animation: _edit,
@@ -691,6 +709,8 @@ class _ParityHostState extends State<_ParityHost> {
           GlassReorderableList.grouped(
             surfaceStyle: GlassSurfaceStyle.solid,
             padding: EdgeInsets.zero,
+            dividerIndent: 124,
+            dividerEndIndent: 16,
             header:
                 _sectionHeader('Edit Mode & Reordering (EditButton + ForEach)'),
             itemCount: _items.length,
@@ -700,12 +720,43 @@ class _ParityHostState extends State<_ParityHost> {
             }),
             itemBuilder: (context, i) => GlassListTile(
               key: ValueKey(_items[i]),
-              leading: const Icon(CupertinoIcons.app,
-                  color: CupertinoColors.systemBlue),
-              title: Text(_items[i], style: const TextStyle(fontSize: 17)),
+              // Native row = 57.3pt (one line) / 76.3pt (two lines): 16pt text,
+              // 19pt line, 19pt vertical inset. The 44pt handle sets the floor,
+              // so the inset is split between the tile and the title.
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6.5),
+              title: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.64),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 3.6),
+                    CustomPaint(
+                      size: const Size(16, 16),
+                      painter:
+                          _DashedSquirclePainter(CupertinoColors.systemBlue),
+                    ),
+                    const SizedBox(width: 10.4),
+                    Expanded(
+                      child: Text(
+                        _items[i],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          height: 1.19,
+                          letterSpacing: -0.32,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               canReorder: true,
               reorderIndex: i,
               canSelect: true,
+              isSelected: _selected.contains(_items[i]),
+              onSelectedChanged: (v) => setState(() {
+                v ? _selected.add(_items[i]) : _selected.remove(_items[i]);
+              }),
               onDelete: () => setState(() => _items.removeAt(i)),
             ),
           ),
@@ -1004,4 +1055,35 @@ class _NavDetail extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Dashed rounded square, approximating SF Symbol `app.dashed`.
+class _DashedSquirclePainter extends CustomPainter {
+  const _DashedSquirclePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final rrect = RRect.fromRectAndRadius(
+      (Offset.zero & size).deflate(0.6),
+      const Radius.circular(4),
+    );
+    final path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      double d = 0;
+      while (d < metric.length) {
+        canvas.drawPath(metric.extractPath(d, d + 2.6), paint);
+        d += 4.2;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedSquirclePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
