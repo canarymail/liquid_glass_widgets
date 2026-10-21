@@ -98,6 +98,8 @@ class GlassListTile extends StatefulWidget {
     this.contextMenuPreviewBuilder,
     this.onContextMenuDismissed,
     this.contextMenuLongPressDuration,
+    this.contextMenuQuality,
+    this.contextMenuSettings,
     this.isEditing,
     this.canDelete = false,
     this.onDelete,
@@ -146,6 +148,8 @@ class GlassListTile extends StatefulWidget {
     this.contextMenuPreviewBuilder,
     this.onContextMenuDismissed,
     this.contextMenuLongPressDuration,
+    this.contextMenuQuality,
+    this.contextMenuSettings,
     this.isEditing,
     this.canDelete = false,
     this.onDelete,
@@ -266,6 +270,14 @@ class GlassListTile extends StatefulWidget {
 
   /// Duration the user must press before the context menu activates.
   final Duration? contextMenuLongPressDuration;
+
+  /// Optional glass quality override for the context menu action platter.
+  ///
+  /// Defaults to [GlassQuality.premium] when supported by the device.
+  final GlassQuality? contextMenuQuality;
+
+  /// Optional liquid glass shader settings for the context menu action platter.
+  final LiquidGlassSettings? contextMenuSettings;
 
   // ===========================================================================
   // Edit Mode Properties
@@ -461,6 +473,8 @@ class _GlassListTileState extends State<GlassListTile>
         originSlotColor: inSolidSection
             ? (isDarkTile ? const Color(0xFF000000) : const Color(0xFFF2F2F7))
             : null,
+        quality: widget.contextMenuQuality,
+        settings: widget.contextMenuSettings,
         onDismissed: widget.onContextMenuDismissed,
         longPressDuration: widget.contextMenuLongPressDuration ??
             const Duration(milliseconds: 700),

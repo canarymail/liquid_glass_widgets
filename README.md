@@ -1035,7 +1035,6 @@ Run any demo directly on your device:
 | **Apple Podcasts** | `cd example && flutter run -t lib/apple_podcasts/apple_podcasts_demo.dart` |
 | **Apple News** | `cd example && flutter run -t lib/apple_news/apple_news_demo.dart` |
 | **Apple Messages** | `cd example && flutter run -t lib/apple_messages/apple_messages_demo.dart` |
-| **Apple Contacts** | `cd example && flutter run -t lib/apple_contacts/apple_contacts_demo.dart` |
 | **Widget Showcase** | `cd example && flutter run` |
 | **Wanderlust** | `cd example/showcase && flutter pub get && flutter run` |
 

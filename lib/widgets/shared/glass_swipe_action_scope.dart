@@ -7,6 +7,9 @@ import 'package:flutter/cupertino.dart';
 abstract class GlassSwipeActionsControllerInterface {
   /// Closes the swipe actions row with animation.
   void close({bool animated = true});
+
+  /// Returns `true` if [globalPosition] lies within this swipe row's bounds.
+  bool containsGlobalPoint(Offset globalPosition);
 }
 
 /// A scope that coordinates mutual exclusivity and automatic dismissal for
@@ -44,6 +47,7 @@ class GlassSwipeActionScope extends StatefulWidget {
     super.key,
     required this.child,
     this.closeOnScroll = true,
+    this.closeOnTapOutside = true,
   });
 
   /// The child subtree containing swipe action widgets.
@@ -54,6 +58,12 @@ class GlassSwipeActionScope extends StatefulWidget {
   ///
   /// Defaults to `true`, matching native iOS behavior.
   final bool closeOnScroll;
+
+  /// Whether tapping or clicking outside the currently open swipe action row
+  /// should automatically close it.
+  ///
+  /// Defaults to `true`, matching native iOS behavior.
+  final bool closeOnTapOutside;
 
   /// Retrieves the nearest [GlassSwipeActionScopeState] from the widget tree,
   /// or null if none is found.
@@ -102,6 +112,19 @@ class GlassSwipeActionScopeState extends State<GlassSwipeActionScope> {
   @override
   Widget build(BuildContext context) {
     Widget result = widget.child;
+
+    if (widget.closeOnTapOutside) {
+      result = Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          final openRow = _openRow;
+          if (openRow != null && !openRow.containsGlobalPoint(event.position)) {
+            closeOpenRow();
+          }
+        },
+        child: result,
+      );
+    }
 
     if (widget.closeOnScroll) {
       result = NotificationListener<ScrollNotification>(

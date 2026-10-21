@@ -588,6 +588,7 @@ void main() {
               ),
               GlassSwipeActions(
                 controller: ctrl2,
+                closeOnTapOutside: false,
                 style: GlassSwipeActionStyle.solidVibrancy,
                 trailingActions: const [
                   GlassSwipeAction(
@@ -1344,6 +1345,175 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(dismissed, isTrue);
+    });
+
+    testWidgets(
+        'tapping outside an open swipe row automatically closes it without blocking action taps',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActionScope(
+            child: Column(
+              children: [
+                const SizedBox(
+                  width: 400,
+                  height: 60,
+                  child: Text('Header Outside Area'),
+                ),
+                GlassSwipeActions(
+                  controller: controller,
+                  trailingActions: const [
+                    GlassSwipeAction(
+                      icon: Icon(CupertinoIcons.trash),
+                      label: Text('Delete'),
+                      onTap: _noop,
+                    ),
+                  ],
+                  child: const SizedBox(
+                    width: 400,
+                    height: 60,
+                    child: Text('Swipeable Row'),
+                  ),
+                ),
+                const SizedBox(
+                  width: 400,
+                  height: 60,
+                  child: Text('Another Row Below'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Open the swipe row
+      await tester.drag(find.text('Swipeable Row'), const Offset(-100, 0));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+      expect(find.text('Delete'), findsOneWidget);
+
+      // Tap outside on another row
+      await tester.tap(find.text('Another Row Below'));
+      await tester.pumpAndSettle();
+
+      expect(controller.isOpen, isFalse);
+      expect(controller.offset, 0.0);
+      expect(find.text('Delete'), findsNothing);
+    });
+
+    testWidgets(
+        'swiping to close an open row with both leading and trailing actions docks at 0 without opening opposite side',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassSwipeActions(
+            controller: controller,
+            leadingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.pin),
+                label: Text('Pin'),
+                onTap: _noop,
+              ),
+            ],
+            trailingActions: const [
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.trash),
+                label: Text('Delete'),
+                onTap: _noop,
+              ),
+              GlassSwipeAction(
+                icon: Icon(CupertinoIcons.flag),
+                label: Text('Flag'),
+                onTap: _noop,
+              ),
+            ],
+            child: const SizedBox(
+              width: 400,
+              height: 60,
+              child: Text('Bidirectional Row'),
+            ),
+          ),
+        ),
+      );
+
+      // Swipe left to open trailing actions
+      await tester.drag(find.text('Bidirectional Row'), const Offset(-140, 0));
+      await tester.pumpAndSettle();
+      expect(controller.swipeState, GlassSwipeState.openTrailing);
+      expect(controller.offset, lessThan(0.0));
+
+      // Swipe right generously (200px) to close trailing actions: must dock at 0.0
+      // and NEVER cross over into opening leading actions ('Pin').
+      await tester.drag(find.byType(GlassSwipeActions), const Offset(200, 0));
+      await tester.pumpAndSettle();
+
+      expect(controller.isOpen, isFalse);
+      expect(controller.swipeState, GlassSwipeState.idle);
+      expect(controller.offset, 0.0);
+      expect(find.text('Pin'), findsNothing);
+      expect(find.text('Delete'), findsNothing);
+    });
+
+    testWidgets(
+        'solid dark section swipe row maintains opaque card-to-grey surface while closing without black transparency',
+        (tester) async {
+      final controller = GlassSwipeController();
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          theme: const CupertinoThemeData(brightness: Brightness.dark),
+          home: GlassTheme(
+            data: const GlassThemeData(brightness: Brightness.dark),
+            child: GlassGroupedSection(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              children: [
+                GlassListTile(
+                  swipeController: controller,
+                  title: const Text('Dark Solid Row'),
+                  trailingSwipeActions: const [
+                    GlassSwipeAction(
+                      icon: Icon(CupertinoIcons.trash),
+                      label: Text('Delete'),
+                      onTap: _noop,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Open trailing actions
+      controller.openTrailing(animated: false);
+      await tester.pump();
+      expect(controller.isOpen, isTrue);
+
+      // Animate to a near-closed offset (-8.0px, within the 24px fade zone)
+      controller.animateToOffset(-8.0, animated: false);
+      await tester.pump();
+
+      // Find the sliding child's DecoratedBox inside ClipRRect
+      final clipRRect = find.descendant(
+        of: find.byType(GlassSwipeActions),
+        matching: find.byType(ClipRRect),
+      );
+      expect(clipRRect, findsWidgets);
+      final decoratedBoxes = tester.widgetList<DecoratedBox>(
+        find.descendant(
+          of: clipRRect.first,
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      expect(decoratedBoxes, isNotEmpty);
+      final boxDecoration = decoratedBoxes.first.decoration as BoxDecoration;
+      // Must be 100% opaque (alpha == 1.0) and never pure black (#000000)
+      expect(boxDecoration.color!.a, closeTo(1.0, 0.001));
+      expect(boxDecoration.color, isNot(equals(const Color(0xFF000000))));
     });
   });
 }

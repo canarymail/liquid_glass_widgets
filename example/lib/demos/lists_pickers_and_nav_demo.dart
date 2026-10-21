@@ -13,6 +13,32 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Theme, ThemeData;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+/// Dark-mode pill / button glass settings matching the Apple Music example.
+const _kDarkPillGlassSettings = LiquidGlassSettings(
+  glassColor: Color(0xCC1C1C1E),
+  thickness: 30,
+  blur: 2,
+  lightIntensity: 0.18,
+  chromaticAberration: 0.01,
+  saturation: 1.2,
+  fresnelStrength: 0.0,
+);
+
+/// Dark-mode bottom tab bar glass settings matching the Apple Music example.
+const _kDarkBarGlassSettings = LiquidGlassSettings(
+  glassColor: Color(0xAA1C1C1E),
+  thickness: 30,
+  blur: 2,
+  chromaticAberration: 0.01,
+  lightAngle: GlassDefaults.lightAngle,
+  lightIntensity: 0.2,
+  ambientStrength: 0,
+  refractiveIndex: 1.2,
+  fresnelStrength: 0.0,
+  saturation: 1.2,
+  specularSharpness: GlassSpecularSharpness.medium,
+);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LiquidGlassWidgets.initialize();
@@ -45,7 +71,6 @@ class ListsPickersAndNavDemoPage extends StatefulWidget {
 class _ListsPickersAndNavDemoPageState
     extends State<ListsPickersAndNavDemoPage> {
   int _tab = 0;
-  bool? _isDarkOverride;
 
   final _scroll = ScrollController();
   late List<_Contact> _contacts;
@@ -106,21 +131,32 @@ class _ListsPickersAndNavDemoPageState
   }
 
   bool _resolveIsDark(BuildContext context) =>
-      _isDarkOverride ??
-      (CupertinoTheme.brightnessOf(context) == Brightness.dark);
+      CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
   void _presentCover(BuildContext context) {
+    final isDark = _resolveIsDark(context);
+    final buttonSettings = isDark ? _kDarkPillGlassSettings : null;
     showGlassFullScreenCover<void>(
       context: context,
-      builder: (ctx) => GlassFullScreenCover(
-        title: const Text('Modal Cover'),
-        leading: GlassFullScreenCoverBarButton(
-          label: 'Cancel',
-          onPressed: () => Navigator.of(ctx).maybePop(),
+      builder: (ctx) => GlassTheme(
+        data: const GlassThemeData.ios27(),
+        child: CupertinoTheme(
+          data: CupertinoThemeData(
+            brightness: isDark ? Brightness.dark : Brightness.light,
+          ),
+          child: GlassFullScreenCover(
+            title: const Text('Modal Cover'),
+            settings: buttonSettings,
+            leading: GlassFullScreenCoverBarButton(
+              label: 'Cancel',
+              settings: buttonSettings,
+              onPressed: () => Navigator.of(ctx).maybePop(),
+            ),
+            closeButtonLabel: 'Done',
+            onDismiss: () {},
+            child: const _CoverBody(),
+          ),
         ),
-        closeButtonLabel: 'Done',
-        onDismiss: () {},
-        child: const _CoverBody(),
       ),
     );
   }
@@ -156,8 +192,8 @@ class _ListsPickersAndNavDemoPageState
     final VoidCallback? onExitDemo =
         canPopOuter ? () => Navigator.of(context).maybePop() : null;
 
-    final ios27Settings =
-        isDark ? LiquidGlassSettings.ios27Dark : LiquidGlassSettings.ios27Light;
+    final pageSettings =
+        isDark ? _kDarkPillGlassSettings : LiquidGlassSettings.ios27Light;
 
     return GlassTheme(
       data: const GlassThemeData.ios27(),
@@ -185,13 +221,24 @@ class _ListsPickersAndNavDemoPageState
               return GlassScaffold(
                 backgroundColor:
                     isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
-                settings: ios27Settings,
+                settings: pageSettings,
                 bottomEdgeFade: !(_tab == 4 && _navPath.isNotEmpty),
                 bottomBar: GlassTabBar.bottom(
                   selectedIndex: _tab,
                   onTabSelected: (idx) => setState(() => _tab = idx),
                   quality: GlassQuality.premium,
                   backgroundQuality: GlassQuality.premium,
+                  settings: isDark ? _kDarkBarGlassSettings : null,
+                  indicatorColor: isDark
+                      ? CupertinoColors.label
+                          .resolveFrom(themedContext)
+                          .withValues(alpha: 0.20)
+                      : null,
+                  unselectedIconColor: isDark
+                      ? CupertinoColors.label
+                          .resolveFrom(themedContext)
+                          .withValues(alpha: 0.9)
+                      : null,
                   tabs: const [
                     GlassTab(
                       icon: Icon(CupertinoIcons.hand_draw),
@@ -274,37 +321,12 @@ class _ListsPickersAndNavDemoPageState
               onPressed: onExitDemo,
             ),
           ),
-        Positioned(
-          top: 60,
-          right: 16,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GlassIconButton(
-                size: 44,
-                useOwnLayer: true,
-                icon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    isDark
-                        ? CupertinoIcons.sun_max_fill
-                        : CupertinoIcons.moon_fill,
-                    key: ValueKey(isDark),
-                    size: 20,
-                    color: isDark
-                        ? CupertinoColors.systemYellow
-                        : CupertinoColors.systemIndigo,
-                  ),
-                ),
-                onPressed: () => setState(() => _isDarkOverride = !isDark),
-              ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing,
-              ],
-            ],
+        if (trailing != null)
+          Positioned(
+            top: 60,
+            right: 16,
+            child: trailing,
           ),
-        ),
       ],
     );
   }
@@ -1079,7 +1101,7 @@ class _VipPreview extends StatelessWidget {
         width: 240,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          color: resolveGlassSolidSurfaceColor(context),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(

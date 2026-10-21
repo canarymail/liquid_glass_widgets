@@ -36,6 +36,32 @@ const _cmdFile = '/tmp/lgw_parity_cmd.txt';
 /// Driven by command rather than the OS so captures are deterministic.
 final _dark = ValueNotifier<bool>(false);
 
+/// Dark-mode pill / button glass settings matching the Apple Music example.
+const _kDarkPillGlassSettings = LiquidGlassSettings(
+  glassColor: Color(0xCC1C1C1E),
+  thickness: 30,
+  blur: 2,
+  lightIntensity: 0.18,
+  chromaticAberration: 0.01,
+  saturation: 1.2,
+  fresnelStrength: 0.0,
+);
+
+/// Dark-mode bottom tab bar glass settings matching the Apple Music example.
+const _kDarkBarGlassSettings = LiquidGlassSettings(
+  glassColor: Color(0xAA1C1C1E),
+  thickness: 30,
+  blur: 2,
+  chromaticAberration: 0.01,
+  lightAngle: GlassDefaults.lightAngle,
+  lightIntensity: 0.2,
+  ambientStrength: 0,
+  refractiveIndex: 1.2,
+  fresnelStrength: 0.0,
+  saturation: 1.2,
+  specularSharpness: GlassSpecularSharpness.medium,
+);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LiquidGlassWidgets.initialize();
@@ -152,6 +178,46 @@ class _ParityHostState extends State<_ParityHost> {
 
   void _run(List<String> a) {
     switch (a[0]) {
+      case 'tap':
+        final pos = Offset(double.parse(a[1]), double.parse(a[2]));
+        final binding = GestureBinding.instance;
+        binding
+            .handlePointerEvent(PointerDownEvent(position: pos, pointer: 78));
+        Future.delayed(const Duration(milliseconds: 40), () {
+          binding
+              .handlePointerEvent(PointerUpEvent(position: pos, pointer: 78));
+        });
+      case 'drag':
+        final start = Offset(double.parse(a[1]), double.parse(a[2]));
+        final end = Offset(double.parse(a[3]), double.parse(a[4]));
+        final steps = a.length > 5 ? int.parse(a[5]) : 16;
+        final binding = GestureBinding.instance;
+        var prev = start;
+        var now = Duration.zero;
+        binding.handlePointerEvent(
+          PointerDownEvent(position: start, pointer: 79, timeStamp: now),
+        );
+        for (var i = 1; i <= steps; i++) {
+          Future.delayed(Duration(milliseconds: 16 * i), () {
+            final t = i / steps;
+            final cur = Offset.lerp(start, end, t)!;
+            final ts = Duration(milliseconds: 16 * i);
+            binding.handlePointerEvent(
+              PointerMoveEvent(
+                position: cur,
+                delta: cur - prev,
+                pointer: 79,
+                timeStamp: ts,
+              ),
+            );
+            prev = cur;
+            if (i == steps) {
+              binding.handlePointerEvent(
+                PointerUpEvent(position: end, pointer: 79, timeStamp: ts),
+              );
+            }
+          });
+        }
       case 'ptr':
         // ptr down|move|up <x> <y> — inject a touch at logical coordinates.
         final pos = Offset(double.parse(a[2]), double.parse(a[3]));
@@ -287,12 +353,16 @@ class _ParityHostState extends State<_ParityHost> {
   }
 
   void _presentCover() {
+    final isDark = _dark.value;
+    final buttonSettings = isDark ? _kDarkPillGlassSettings : null;
     showGlassFullScreenCover<void>(
       context: context,
       builder: (ctx) => GlassFullScreenCover(
         title: const Text('Modal Cover'),
+        settings: buttonSettings,
         leading: GlassFullScreenCoverBarButton(
           label: 'Cancel',
+          settings: buttonSettings,
           onPressed: () => Navigator.of(ctx).maybePop(),
         ),
         closeButtonLabel: 'Done',
@@ -385,19 +455,26 @@ class _ParityHostState extends State<_ParityHost> {
         : pages[_tab];
 
     final isDark = _dark.value;
-    final ios27Settings =
-        isDark ? LiquidGlassSettings.ios27Dark : LiquidGlassSettings.ios27Light;
+    final pageSettings =
+        isDark ? _kDarkPillGlassSettings : LiquidGlassSettings.ios27Light;
 
     return GlassScaffold(
       backgroundColor:
           isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
-      settings: ios27Settings,
+      settings: pageSettings,
       bottomEdgeFade: !(_tab == 4 && _navPath.isNotEmpty),
       bottomBar: GlassTabBar.bottom(
         selectedIndex: _tab,
         onTabSelected: (idx) => setState(() => _tab = idx),
         quality: GlassQuality.premium,
         backgroundQuality: GlassQuality.premium,
+        settings: isDark ? _kDarkBarGlassSettings : null,
+        indicatorColor: isDark
+            ? CupertinoColors.label.resolveFrom(context).withValues(alpha: 0.20)
+            : null,
+        unselectedIconColor: isDark
+            ? CupertinoColors.label.resolveFrom(context).withValues(alpha: 0.9)
+            : null,
         tabs: const [
           GlassTab(
             icon: Icon(CupertinoIcons.hand_draw),
@@ -1094,7 +1171,7 @@ class _VipPreview extends StatelessWidget {
         width: 240,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          color: resolveGlassSolidSurfaceColor(context),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(

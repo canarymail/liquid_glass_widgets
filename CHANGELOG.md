@@ -21,7 +21,7 @@
 
 - **Solid card surfaces (`GlassSurfaceStyle`, `GlassContainer.card`):** Added `enum GlassSurfaceStyle { glass, solid }` and `GlassContainer.card` (plus `surfaceStyle` on `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDatePicker`, and `GlassMultiDatePicker`). `GlassSurfaceStyle.solid` bypasses the glass shader to render a flat, opaque inset-grouped card (`#FFFFFF` light, `#1C1C1E` dark, and `#2C2C2E` inside elevated modal sheets/covers). `solid` ignores `settings`, `quality` and `useOwnLayer`. Defaults to `glass` in 1.x, so nothing changes unless you opt in; the default flips to `solid` for list sections, date pickers and `GlassContainer.card` in 2.0.0 (see `docs/ROADMAP.md`).
 
-- **Example demos:** Added `example/lib/demos/lists_pickers_and_nav_demo.dart` ("Lists, Pickers & Nav"), `example/lib/demos/swipe_and_disclosure_demo.dart` ("Swipe & Disclosure"), and `example/lib/apple_contacts/apple_contacts_demo.dart` showcasing swipe actions, context menus, disclosure groups, edit/reorder, date pickers, full-screen covers, and `GlassNavigationStack`.
+- **Example demos:** Added `example/lib/demos/lists_pickers_and_nav_demo.dart` ("Lists, Pickers & Nav") and `example/lib/demos/swipe_and_disclosure_demo.dart` ("Swipe & Disclosure") showcasing swipe actions, context menus, disclosure groups, edit/reorder, date pickers, full-screen covers, and `GlassNavigationStack`.
 
 ## Deprecations
 

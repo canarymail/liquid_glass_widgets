@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../theme/glass_theme.dart';
+import '../../theme/glass_theme_data.dart';
+import '../../theme/glass_theme_helpers.dart';
 import '../../types/glass_quality.dart';
 import '../containers/glass_container.dart';
 import '../shared/glass_focus_region.dart';
@@ -511,6 +513,8 @@ Future<T?> showGlassContextMenu<T>({
   Duration commitDuration = const Duration(milliseconds: 520),
 }) {
   assert(actions.isNotEmpty, 'Context menu actions must not be empty.');
+  final capturedGlassTheme = GlassTheme.maybeOf(context)?.data;
+  final capturedCupertinoTheme = CupertinoTheme.of(context);
   return Navigator.of(context, rootNavigator: true).push<T>(
     _GlassContextMenuRoute<T>(
       targetRect: targetRect,
@@ -532,6 +536,8 @@ Future<T?> showGlassContextMenu<T>({
       routeStaticKey: routeStaticKey,
       isInteractive: isInteractive,
       commitDuration: commitDuration,
+      capturedGlassTheme: capturedGlassTheme,
+      capturedCupertinoTheme: capturedCupertinoTheme,
     ),
   );
 }
@@ -567,6 +573,8 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
     this.routeStaticKey,
     this.isInteractive = false,
     this.commitDuration = const Duration(milliseconds: 520),
+    this.capturedGlassTheme,
+    this.capturedCupertinoTheme,
   });
 
   final Rect targetRect;
@@ -582,6 +590,8 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
   final LiquidGlassSettings? glassSettings;
   final GlassQuality? quality;
   final double backdropBlur;
+  final GlassThemeData? capturedGlassTheme;
+  final CupertinoThemeData? capturedCupertinoTheme;
 
   /// Optional override for the dimming scrim. When null the scrim adapts to
   /// the ambient brightness.
@@ -693,7 +703,7 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    return _GlassContextMenuRouteStatic(
+    Widget page = _GlassContextMenuRouteStatic(
       key: routeStaticKey,
       route: this,
       targetRect: targetRect,
@@ -714,6 +724,13 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
       enableHaptics: enableHaptics,
       animation: animation,
     );
+    if (capturedCupertinoTheme != null) {
+      page = CupertinoTheme(data: capturedCupertinoTheme!, child: page);
+    }
+    if (capturedGlassTheme != null) {
+      page = GlassTheme(data: capturedGlassTheme!, child: page);
+    }
+    return page;
   }
 }
 
@@ -930,6 +947,12 @@ class _GlassContextMenuRouteStaticState
     final Color platterBorder =
         isDark ? const Color(0x33FFFFFF) : const Color(0x4D000000);
 
+    final effectivePlatterQuality = GlassThemeHelpers.resolveQuality(
+      context,
+      widgetQuality: widget.quality,
+      fallback: GlassQuality.premium,
+    );
+
     Widget buildPlatter({bool isMeasurement = false}) {
       return DecoratedBox(
         decoration: BoxDecoration(
@@ -948,7 +971,7 @@ class _GlassContextMenuRouteStaticState
           margin: EdgeInsets.zero,
           shape: LiquidRoundedSuperellipse(borderRadius: widget.borderRadius),
           settings: platterSettings,
-          quality: widget.quality,
+          quality: effectivePlatterQuality,
           child: ClipRSuperellipse(
             borderRadius: BorderRadius.circular(widget.borderRadius),
             child: DecoratedBox(

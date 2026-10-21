@@ -3,7 +3,6 @@ import 'package:liquid_glass_widgets_example/constants/glass_settings.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'package:liquid_glass_widgets_example/apple_contacts/apple_contacts_demo.dart';
 import 'package:liquid_glass_widgets_example/apple_mail/apple_mail_demo.dart';
 import 'package:liquid_glass_widgets_example/apple_messages/apple_messages_demo.dart';
 import 'package:liquid_glass_widgets_example/apple_music/apple_music_demo.dart';
@@ -611,21 +610,6 @@ class _DemosTab extends StatelessWidget {
                   SizedBox(height: 24),
 
                   // Large featured cards
-                  _LargeDemoCard(
-                    title: 'Apple Contacts',
-                    subtitle:
-                        'iOS 26/27 parity benchmark · swipe actions, reorderable list, context menus, date picker & modal sheets',
-                    icon: CupertinoIcons.person_2_fill,
-                    gradient: const [
-                      Color(0xFF3A1C71),
-                      Color(0xFFD76D77),
-                    ],
-                    destination: const GlassNavigationStack(
-                      root: ContactsListView(),
-                    ),
-                  ),
-                  SizedBox(height: 14),
-
                   _LargeDemoCard(
                     title: 'Apple Mail',
                     subtitle:

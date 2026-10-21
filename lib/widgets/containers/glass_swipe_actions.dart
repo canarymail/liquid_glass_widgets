@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/glass_theme.dart';
+import '../../types/glass_surface_style.dart';
 import '../../utils/glass_spring.dart';
 import '../shared/glass_accessibility_scope.dart';
+import '../shared/glass_solid_surface.dart';
 import '../shared/glass_swipe_action_scope.dart';
 
 /// The current visual and interaction state of a [GlassSwipeActions] row.
@@ -206,6 +210,7 @@ class GlassSwipeActions extends StatefulWidget {
     this.controller,
     this.onSwipeStateChanged,
     this.enableHaptics = true,
+    this.closeOnTapOutside = true,
     this.clipBehavior = Clip.antiAlias,
     this.style = GlassSwipeActionStyle.tintedGlass,
     this.onDismissed,
@@ -269,6 +274,12 @@ class GlassSwipeActions extends StatefulWidget {
   /// Defaults to `true`.
   final bool enableHaptics;
 
+  /// Whether tapping or clicking anywhere outside this row while it is open
+  /// automatically closes it.
+  ///
+  /// Defaults to `true`, matching native iOS behavior.
+  final bool closeOnTapOutside;
+
   /// Clip behavior applied when [borderRadius] is non-null.
   ///
   /// Defaults to [Clip.antiAlias].
@@ -299,7 +310,10 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
   double _offset = 0.0;
   double _targetOffset = 0.0;
+  double _closingFromSign = 0.0;
+  int _dragStartSide = 0;
   bool _isDragging = false;
+  bool _isSnappingToZero = false;
   bool _hasFiredHaptic = false;
   bool _isDismissing = false;
   GlassSwipeState _swipeState = GlassSwipeState.idle;
@@ -318,6 +332,33 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       _offset.abs() > 0.5;
 
   @override
+  bool containsGlobalPoint(Offset globalPosition) {
+    if (!mounted) return false;
+    final renderObject = context.findRenderObject();
+    if (renderObject is RenderBox &&
+        renderObject.hasSize &&
+        renderObject.attached) {
+      final localPosition = renderObject.globalToLocal(globalPosition);
+      return renderObject.size.contains(localPosition);
+    }
+    return false;
+  }
+
+  void _handleGlobalPointerEvent(PointerEvent event) {
+    if (event is! PointerDownEvent) return;
+    if (!mounted ||
+        !widget.closeOnTapOutside ||
+        !isOpen ||
+        _isDragging ||
+        _isDismissing) {
+      return;
+    }
+    if (!containsGlobalPoint(event.position)) {
+      close();
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _springController = SingleSpringController(
@@ -331,6 +372,8 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       duration: const Duration(milliseconds: 320),
     );
 
+    GestureBinding.instance.pointerRouter
+        .addGlobalRoute(_handleGlobalPointerEvent);
     widget.controller?._attach(this);
   }
 
@@ -353,6 +396,8 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
   @override
   void dispose() {
+    GestureBinding.instance.pointerRouter
+        .removeGlobalRoute(_handleGlobalPointerEvent);
     widget.controller?._detach(this);
     _scope?.unregisterRow(this);
     _springController.removeListener(_onSpringUpdate);
@@ -362,13 +407,25 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   }
 
   void _onSpringUpdate() {
-    if (!mounted) return;
+    if (!mounted || _isSnappingToZero) return;
     setState(() {
-      _offset = _springController.value;
-      if (!_isDragging) {
-        if ((_offset - _targetOffset).abs() < 1.0) {
+      final rawValue = _springController.value;
+      if (!_isDragging && _targetOffset == 0.0) {
+        final crossedZero =
+            _closingFromSign != 0.0 && (rawValue * _closingFromSign <= 0.0);
+        if (rawValue.abs() < 0.5 || crossedZero) {
+          _isSnappingToZero = true;
+          _springController.setValue(0.0);
+          _isSnappingToZero = false;
+          _offset = 0.0;
+          _closingFromSign = 0.0;
           _updateSettledState();
+          return;
         }
+      }
+      _offset = rawValue;
+      if (!_isDragging && (_offset - _targetOffset).abs() < 1.0) {
+        _updateSettledState();
       }
     });
   }
@@ -428,9 +485,13 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
   @override
   void close({bool animated = true}) {
+    _closeWithVelocity(0.0, animated: animated);
+  }
+
+  void _closeWithVelocity(double velocity, {bool animated = true}) {
     if (!mounted) return;
     _scope?.unregisterRow(this);
-    _animateTo(0.0, animated: animated);
+    _animateTo(0.0, animated: animated, velocity: velocity);
   }
 
   /// Programmatically animates to a specific horizontal offset in logical pixels.
@@ -487,11 +548,15 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       {bool animated = true, double velocity = 0.0}) {
     if (!mounted) return;
     _targetOffset = target;
+    _closingFromSign = target == 0.0 ? _offset.sign : 0.0;
     final reduceMotion = GlassAccessibilityData.of(context).reduceMotion ||
         (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
 
-    if (!animated || reduceMotion) {
+    if (!animated || reduceMotion || (_offset - target).abs() < 0.5) {
+      _closingFromSign = 0.0;
+      _isSnappingToZero = true;
       _springController.setValue(target);
+      _isSnappingToZero = false;
       if (mounted) {
         setState(() {
           _offset = target;
@@ -499,7 +564,12 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
         });
       }
     } else {
+      _springController.spring = target == 0.0
+          ? GlassSpring.smooth(duration: const Duration(milliseconds: 300))
+          : GlassSpring.snappy();
+      _isSnappingToZero = true;
       _springController.setValue(_offset);
+      _isSnappingToZero = false;
       _springController.animateTo(target, fromVelocity: velocity);
     }
   }
@@ -508,6 +578,15 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     if (!mounted) return;
     _isDragging = true;
     _hasFiredHaptic = false;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final startDirectionalOffset = isRtl ? -_offset : _offset;
+    if (startDirectionalOffset > 1.0) {
+      _dragStartSide = 1;
+    } else if (startDirectionalOffset < -1.0) {
+      _dragStartSide = -1;
+    } else {
+      _dragStartSide = 0;
+    }
     _setSwipeState(GlassSwipeState.dragging);
     _scope?.registerOpenRow(this);
     _springController.setValue(_offset);
@@ -520,6 +599,16 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     final delta = details.primaryDelta ?? 0.0;
     double newOffset = _offset + delta;
     double directionalOffset = isRtl ? -newOffset : newOffset;
+
+    // If the gesture started while one side was already open, prevent a
+    // single closing swipe from crossing zero into the opposite side's actions.
+    if (_dragStartSide == 1 && directionalOffset < 0) {
+      newOffset = 0.0;
+      directionalOffset = 0.0;
+    } else if (_dragStartSide == -1 && directionalOffset > 0) {
+      newOffset = 0.0;
+      directionalOffset = 0.0;
+    }
 
     // Disallow swiping if no actions exist on that side
     if (directionalOffset > 0 && widget.leadingActions.isEmpty) {
@@ -620,28 +709,36 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     // Determine resting settle target
     if (directionalOffset > 0 && widget.leadingActions.isNotEmpty) {
       final totalLeading = _totalStandardWidth(widget.leadingActions.length);
-      final shouldOpen =
-          revealDistance > totalLeading * 0.4 || directionalVelocity > 300;
+      final isClosingFlick = directionalVelocity < -250;
+      final shouldOpen = !isClosingFlick &&
+          (_dragStartSide == 1
+              ? revealDistance > totalLeading * 0.7
+              : (revealDistance > totalLeading * 0.4 ||
+                  directionalVelocity > 300));
       if (shouldOpen) {
         final target = isRtl ? -totalLeading : totalLeading;
         _animateTo(target, velocity: velocity);
         _setSwipeState(GlassSwipeState.openLeading);
       } else {
-        close();
+        _closeWithVelocity(velocity);
       }
     } else if (directionalOffset < 0 && widget.trailingActions.isNotEmpty) {
       final totalTrailing = _totalStandardWidth(widget.trailingActions.length);
-      final shouldOpen =
-          revealDistance > totalTrailing * 0.4 || directionalVelocity < -300;
+      final isClosingFlick = directionalVelocity > 250;
+      final shouldOpen = !isClosingFlick &&
+          (_dragStartSide == -1
+              ? revealDistance > totalTrailing * 0.7
+              : (revealDistance > totalTrailing * 0.4 ||
+                  directionalVelocity < -300));
       if (shouldOpen) {
         final target = isRtl ? totalTrailing : -totalTrailing;
         _animateTo(target, velocity: velocity);
         _setSwipeState(GlassSwipeState.openTrailing);
       } else {
-        close();
+        _closeWithVelocity(velocity);
       }
     } else {
-      close();
+      _closeWithVelocity(velocity);
     }
   }
 
@@ -670,19 +767,34 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
         final availableHeight =
             constraints.maxHeight.isFinite ? constraints.maxHeight : 70.0;
+        final isVisuallyOpen = _offset.abs() >= 0.5;
         final greyProgress = (_offset.abs() / 24.0).clamp(0.0, 1.0);
+        final inSolidSurface = InheritedGlassSurfaceStyle.maybeOf(context) ==
+            GlassSurfaceStyle.solid;
+        final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
+        final pageColor =
+            isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7);
+        final swipedHighlightColor =
+            isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+        final Color swipedRowColor = inSolidSurface
+            ? Color.lerp(
+                resolveGlassSolidSurfaceColor(context),
+                swipedHighlightColor,
+                greyProgress,
+              )!
+            : swipedHighlightColor.withValues(alpha: 0.35 * greyProgress);
 
         Widget body = Stack(
           clipBehavior: Clip.hardEdge,
           children: [
-            // Base background behind swiped row slot: prevents white solid card
-            // background from bleeding into the sliding child's rounded corners.
-            if (_offset != 0.0)
+            // Base background behind swiped row slot in solid cards: prevents
+            // solid card background from bleeding into the sliding child's
+            // rounded corners while keeping the sliding row itself opaque.
+            if (isVisuallyOpen && inSolidSurface)
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: CupertinoColors.systemGroupedBackground
-                        .resolveFrom(context),
+                    color: pageColor,
                   ),
                 ),
               ),
@@ -695,8 +807,8 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
                 top: 0,
                 bottom: 0,
                 width: revealWidth,
-                child: _buildLeadingPlatter(
-                    context, revealWidth, rowWidth, availableHeight),
+                child: _buildLeadingPlatter(context, revealWidth, rowWidth,
+                    availableHeight, inSolidSurface, pageColor),
               )
             else if (isTrailing && widget.trailingActions.isNotEmpty)
               Positioned.directional(
@@ -705,26 +817,31 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
                 top: 0,
                 bottom: 0,
                 width: revealWidth,
-                child: _buildTrailingPlatter(
-                    context, revealWidth, rowWidth, availableHeight),
+                child: _buildTrailingPlatter(context, revealWidth, rowWidth,
+                    availableHeight, inSolidSurface, pageColor),
               ),
 
             // Sliding Primary Child
             Transform.translate(
               offset: Offset(_offset, 0.0),
               child: ClipRRect(
-                borderRadius: _offset != 0.0
-                    ? BorderRadius.circular(16.0)
+                borderRadius: isVisuallyOpen
+                    ? BorderRadiusDirectional.horizontal(
+                        start: isLeading
+                            ? Radius.circular(16.0 * greyProgress)
+                            : Radius.zero,
+                        end: isTrailing
+                            ? Radius.circular(16.0 * greyProgress)
+                            : Radius.zero,
+                      ).resolve(direction)
                     : BorderRadius.zero,
                 child: Stack(
                   children: [
-                    if (_offset != 0.0)
+                    if (isVisuallyOpen)
                       Positioned.fill(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: CupertinoColors.systemGrey5
-                                .resolveFrom(context)
-                                .withValues(alpha: greyProgress),
+                            color: swipedRowColor,
                           ),
                         ),
                       ),
@@ -785,8 +902,14 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     );
   }
 
-  Widget _buildLeadingPlatter(BuildContext context, double revealWidth,
-      double rowWidth, double availableHeight) {
+  Widget _buildLeadingPlatter(
+    BuildContext context,
+    double revealWidth,
+    double rowWidth,
+    double availableHeight,
+    bool inSolidSurface,
+    Color pageColor,
+  ) {
     final actions = widget.leadingActions;
     final totalStandardWidth = _totalStandardWidth(actions.length);
     final isFullSwipe = widget.allowsFullSwipe &&
@@ -802,11 +925,17 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGroupedBackground.resolveFrom(context),
+        color: inSolidSurface ? pageColor : const Color(0x00000000),
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => close(),
+            ),
+          ),
           for (var i = 0; i < actions.length; i++) ...[
             () {
               final isOutermost = i == 0;
@@ -857,8 +986,14 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
     );
   }
 
-  Widget _buildTrailingPlatter(BuildContext context, double revealWidth,
-      double rowWidth, double availableHeight) {
+  Widget _buildTrailingPlatter(
+    BuildContext context,
+    double revealWidth,
+    double rowWidth,
+    double availableHeight,
+    bool inSolidSurface,
+    Color pageColor,
+  ) {
     final actions = widget.trailingActions;
     final totalStandardWidth = _totalStandardWidth(actions.length);
     final isFullSwipe = widget.allowsFullSwipe &&
@@ -874,11 +1009,17 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGroupedBackground.resolveFrom(context),
+        color: inSolidSurface ? pageColor : const Color(0x00000000),
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => close(),
+            ),
+          ),
           for (var i = 0; i < actions.length; i++) ...[
             () {
               final isOutermost = i == 0;

@@ -129,8 +129,10 @@ example/showcase/IMAGE_GUIDE.md
 example/showcase/QUICKSTART.md
 example/showcase/SHOWCASE_SUMMARY.md
 
-# Local-only playground (never commit)
+# Local-only playground / WIP demos (never commit)
 example/lib/playground/
+example/lib/apple_contacts/
+example/test/apple_contacts_demo_test.dart
 
 # Root-level scratch/debug scripts and output (not for repo)
 test_output.txt
