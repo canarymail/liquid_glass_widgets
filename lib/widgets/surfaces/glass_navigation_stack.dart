@@ -122,7 +122,7 @@ class GlassNavigationStack extends StatefulWidget {
   /// Returns the nearest enclosing [GlassNavigationStackState], or null if none found.
   static GlassNavigationStackState? maybeOf(BuildContext context) {
     return context
-        .dependOnInheritedWidgetOfExactType<_GlassNavigationStackScope>()
+        .getInheritedWidgetOfExactType<_GlassNavigationStackScope>()
         ?.state;
   }
 
@@ -130,69 +130,150 @@ class GlassNavigationStack extends StatefulWidget {
   State<GlassNavigationStack> createState() => GlassNavigationStackState();
 }
 
+class _StackRouteEntry {
+  _StackRouteEntry(this.value, this.route);
+
+  final dynamic value;
+  final Route<void> route;
+  bool poppedProgrammatically = false;
+}
+
 /// State for [GlassNavigationStack].
 class GlassNavigationStackState extends State<GlassNavigationStack> {
   late GlobalKey<NavigatorState> _navigatorKey;
+  final GlassNavigationPath _internalPath = GlassNavigationPath();
   GlassNavigationPath? _path;
+  final List<_StackRouteEntry> _entries = <_StackRouteEntry>[];
+  bool _isSyncingFromNavigator = false;
 
   /// The navigator key used by this stack.
   GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
+  /// The active navigation path driving this stack.
+  GlassNavigationPath get effectivePath => _path ?? _internalPath;
+
   /// The active navigation path, if any.
-  GlassNavigationPath? get path => _path;
+  GlassNavigationPath? get path => _path ?? _internalPath;
 
   @override
   void initState() {
     super.initState();
     _navigatorKey = widget.navigatorKey ?? GlobalKey<NavigatorState>();
     _path = widget.path;
-    _path?.addListener(_handlePathChanged);
+    effectivePath.addListener(_handlePathChanged);
+    if (effectivePath.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handlePathChanged();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(covariant GlassNavigationStack oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.navigatorKey != widget.navigatorKey &&
-        widget.navigatorKey != null) {
-      _navigatorKey = widget.navigatorKey!;
+    var navigatorReplaced = false;
+    if (oldWidget.navigatorKey != widget.navigatorKey) {
+      for (final entry in _entries) {
+        entry.poppedProgrammatically = true;
+      }
+      _entries.clear();
+      _navigatorKey = widget.navigatorKey ?? GlobalKey<NavigatorState>();
+      navigatorReplaced = true;
     }
-    if (oldWidget.path != widget.path) {
-      _path?.removeListener(_handlePathChanged);
+    final pathReplaced = oldWidget.path != widget.path;
+    if (pathReplaced) {
+      effectivePath.removeListener(_handlePathChanged);
       _path = widget.path;
-      _path?.addListener(_handlePathChanged);
+      effectivePath.addListener(_handlePathChanged);
+    }
+    if (navigatorReplaced || pathReplaced) {
+      // Bring the navigator in line with the new path once it has built:
+      // keep the routes both paths share, pop the rest, push what is new.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _reconcile();
+        }
+      });
     }
   }
 
   @override
   void dispose() {
-    _path?.removeListener(_handlePathChanged);
+    effectivePath.removeListener(_handlePathChanged);
+    _internalPath.dispose();
     super.dispose();
   }
 
   void _handlePathChanged() {
-    if (!mounted || _path == null) return;
+    if (!mounted || _isSyncingFromNavigator) return;
+    _reconcile();
+  }
 
+  /// Brings the navigator in line with [effectivePath].
+  void _reconcile() {
     final nav = _navigatorKey.currentState;
     if (nav == null) return;
 
-    final targetLength = _path!.length;
+    final elems = effectivePath.elements;
+    final targetLength = elems.length;
 
-    // Pop until at root if path was cleared
-    if (targetLength == 0) {
-      nav.popUntil((route) => route.isFirst);
-      return;
+    var keep = 0;
+    while (keep < _entries.length &&
+        keep < targetLength &&
+        _entries[keep].value == elems[keep]) {
+      keep++;
     }
 
-    // Push the newest element
-    final latest = _path!.elements.last;
-    final builder = widget.destinations[latest.runtimeType];
-    if (builder != null) {
-      nav.push(
-        CupertinoPageRoute<void>(
-          builder: (context) => builder(context, latest),
-        ),
-      );
+    // Pop routes the path no longer has.
+    while (_entries.length > keep) {
+      final entry = _entries.removeLast();
+      entry.poppedProgrammatically = true;
+      if (entry.route.isActive) {
+        if (entry.route.isCurrent && nav.canPop()) {
+          nav.pop();
+        } else {
+          nav.removeRoute(entry.route);
+        }
+      }
     }
+
+    // Push any newly appended elements in order.
+    while (_entries.length < targetLength) {
+      if (!_pushValueRoute(nav, elems[_entries.length])) {
+        break;
+      }
+    }
+  }
+
+  bool _pushValueRoute(NavigatorState nav, dynamic value) {
+    GlassNavigationDestinationBuilder<dynamic>? builder =
+        widget.destinations[value.runtimeType];
+    builder ??= widget.destinations[dynamic] ?? widget.destinations[Object];
+    if (builder == null) return false;
+
+    final resolvedBuilder = builder;
+    final route = CupertinoPageRoute<void>(
+      builder: (context) => GlassNavigationTitleScope(
+        child: resolvedBuilder(context, value),
+      ),
+    );
+    final entry = _StackRouteEntry(value, route);
+    _entries.add(entry);
+
+    nav.push<void>(route).then((_) {
+      if (!mounted || entry.poppedProgrammatically) return;
+      _entries.remove(entry);
+      final activePath = effectivePath;
+      if (activePath.length > _entries.length) {
+        _isSyncingFromNavigator = true;
+        try {
+          activePath.pop();
+        } finally {
+          _isSyncingFromNavigator = false;
+        }
+      }
+    });
+    return true;
   }
 
   /// Pushes a destination widget directly onto the stack.
@@ -200,7 +281,9 @@ class GlassNavigationStackState extends State<GlassNavigationStack> {
     final nav = _navigatorKey.currentState;
     if (nav == null) return Future.value(null);
     return nav.push<T>(
-      CupertinoPageRoute<T>(builder: (context) => destination),
+      CupertinoPageRoute<T>(
+        builder: (context) => GlassNavigationTitleScope(child: destination),
+      ),
     );
   }
 
@@ -216,6 +299,7 @@ class GlassNavigationStackState extends State<GlassNavigationStack> {
   Widget build(BuildContext context) {
     return _GlassNavigationStackScope(
       state: this,
+      root: widget.root,
       child: GlassNavigationShell(
         enabled: widget.enabled,
         effectTransition: widget.effectTransition,
@@ -225,7 +309,11 @@ class GlassNavigationStackState extends State<GlassNavigationStack> {
           onGenerateRoute: (settings) {
             return CupertinoPageRoute<void>(
               settings: settings,
-              builder: (context) => widget.root,
+              builder: (context) {
+                context.dependOnInheritedWidgetOfExactType<
+                    _GlassNavigationStackScope>();
+                return GlassNavigationTitleScope(child: widget.root);
+              },
             );
           },
         ),
@@ -237,14 +325,16 @@ class GlassNavigationStackState extends State<GlassNavigationStack> {
 class _GlassNavigationStackScope extends InheritedWidget {
   const _GlassNavigationStackScope({
     required this.state,
+    required this.root,
     required super.child,
   });
 
   final GlassNavigationStackState state;
+  final Widget root;
 
   @override
   bool updateShouldNotify(_GlassNavigationStackScope oldWidget) =>
-      state != oldWidget.state;
+      state != oldWidget.state || root != oldWidget.root;
 }
 
 /// A navigational tap target providing 100% parity with SwiftUI's `NavigationLink`.
@@ -266,6 +356,8 @@ class GlassNavigationLink<T> extends StatelessWidget {
     this.subtitle,
     this.leading,
     this.trailing,
+    this.contentPadding,
+    this.titleStyle,
     this.child,
     this.onTap,
     this.enabled = true,
@@ -292,6 +384,12 @@ class GlassNavigationLink<T> extends StatelessWidget {
   /// Trailing accessory widget. Defaults to a subtle disclosure chevron.
   final Widget? trailing;
 
+  /// Optional padding inside the tile around the content row.
+  final EdgeInsetsGeometry? contentPadding;
+
+  /// Optional text style for [title].
+  final TextStyle? titleStyle;
+
   /// Custom widget content. If null, renders a standard [GlassListTile].
   final Widget? child;
 
@@ -309,8 +407,8 @@ class GlassNavigationLink<T> extends StatelessWidget {
     // 1. Try appending value to ambient GlassNavigationStack path
     if (value != null) {
       final stack = GlassNavigationStack.maybeOf(context);
-      if (stack != null && stack.path != null) {
-        stack.path!.append(value);
+      if (stack != null) {
+        stack.effectivePath.append(value);
         return;
       }
     }
@@ -338,15 +436,20 @@ class GlassNavigationLink<T> extends StatelessWidget {
       );
     }
 
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+
     return GlassListTile(
       leading: leading,
       title: title ?? const SizedBox.shrink(),
       subtitle: subtitle,
+      contentPadding: contentPadding ??
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      titleStyle: titleStyle,
       trailing: trailing ??
-          const Icon(
-            CupertinoIcons.chevron_right,
-            size: 16,
-            color: CupertinoColors.tertiaryLabel,
+          Icon(
+            isRtl ? CupertinoIcons.chevron_left : CupertinoIcons.chevron_right,
+            size: 15,
+            color: CupertinoColors.tertiaryLabel.resolveFrom(context),
           ),
       onTap: () => _handleTap(context),
     );
@@ -355,13 +458,105 @@ class GlassNavigationLink<T> extends StatelessWidget {
 
 /// Convenient extension providing SwiftUI-like `.navigationTitle(...)` ergonomics.
 extension GlassNavigationTitleExtension on Widget {
-  /// Wraps this widget in a default title header annotation.
+  /// Annotates this widget with a navigation title that drives enclosing or
+  /// descendant [GlassAppBar] / [GlassAppBar.pinned] bars (when their explicit
+  /// `title` is null) as well as header accessibility semantics.
   Widget navigationTitle(String title) {
     return _GlassNavigationTitle(title: title, child: this);
   }
 }
 
-class _GlassNavigationTitle extends StatelessWidget {
+/// Scope that coordinates `.navigationTitle(...)` declarations inside a page
+/// or route with an enclosing [GlassScaffold] or [GlassAppBar].
+class GlassNavigationTitleScope extends StatefulWidget {
+  /// Creates a [GlassNavigationTitleScope].
+  const GlassNavigationTitleScope({super.key, required this.child});
+
+  /// The widget subtree within this title scope.
+  final Widget child;
+
+  /// Returns the title [ValueNotifier] from the nearest enclosing scope, if any.
+  static ValueNotifier<String?>? maybeNotifierOf(BuildContext context) {
+    return context
+        .getInheritedWidgetOfExactType<_InheritedNavigationTitleScope>()
+        ?.notifier;
+  }
+
+  /// Resolves the active navigation title from an ancestor `.navigationTitle`
+  /// wrapper, if any.
+  static String? maybeTitleOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_InheritedNavigationTitle>()
+        ?.title;
+  }
+
+  @override
+  State<GlassNavigationTitleScope> createState() =>
+      _GlassNavigationTitleScopeState();
+}
+
+class _NavigationTitleNotifier extends ValueNotifier<String?> {
+  _NavigationTitleNotifier() : super(null);
+
+  void publish(String title, {required bool Function() isActive}) {
+    if (value == title) return;
+    if (!hasListeners) {
+      value = title;
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (isActive()) {
+          value = title;
+        }
+      });
+    }
+  }
+}
+
+class _GlassNavigationTitleScopeState extends State<GlassNavigationTitleScope> {
+  final _NavigationTitleNotifier _notifier = _NavigationTitleNotifier();
+
+  @override
+  void dispose() {
+    _notifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _InheritedNavigationTitleScope(
+      notifier: _notifier,
+      child: widget.child,
+    );
+  }
+}
+
+class _InheritedNavigationTitleScope extends InheritedWidget {
+  const _InheritedNavigationTitleScope({
+    required this.notifier,
+    required super.child,
+  });
+
+  final _NavigationTitleNotifier notifier;
+
+  @override
+  bool updateShouldNotify(_InheritedNavigationTitleScope oldWidget) =>
+      notifier != oldWidget.notifier;
+}
+
+class _InheritedNavigationTitle extends InheritedWidget {
+  const _InheritedNavigationTitle({
+    required this.title,
+    required super.child,
+  });
+
+  final String title;
+
+  @override
+  bool updateShouldNotify(_InheritedNavigationTitle oldWidget) =>
+      title != oldWidget.title;
+}
+
+class _GlassNavigationTitle extends StatefulWidget {
   const _GlassNavigationTitle({
     required this.title,
     required this.child,
@@ -371,11 +566,47 @@ class _GlassNavigationTitle extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_GlassNavigationTitle> createState() => _GlassNavigationTitleState();
+}
+
+class _GlassNavigationTitleState extends State<_GlassNavigationTitle> {
+  _NavigationTitleNotifier? _notifier;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _notifier = context
+        .getInheritedWidgetOfExactType<_InheritedNavigationTitleScope>()
+        ?.notifier;
+    _publishTitle(widget.title);
+  }
+
+  @override
+  void didUpdateWidget(covariant _GlassNavigationTitle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title != widget.title) {
+      _publishTitle(widget.title);
+    }
+  }
+
+  void _publishTitle(String title) {
+    final notifier = _notifier;
+    if (notifier == null) return;
+    notifier.publish(
+      title,
+      isActive: () => mounted && _notifier == notifier,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Semantics(
-      header: true,
-      label: title,
-      child: child,
+    return _InheritedNavigationTitle(
+      title: widget.title,
+      child: Semantics(
+        header: true,
+        label: widget.title,
+        child: widget.child,
+      ),
     );
   }
 }

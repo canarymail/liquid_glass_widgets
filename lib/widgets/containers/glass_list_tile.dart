@@ -698,7 +698,7 @@ class _GlassListTileState extends State<GlassListTile>
             // A minimum (not fixed) width so a larger leading widget, such as
             // a 44pt avatar, keeps its natural size.
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 32),
+              constraints: const BoxConstraints(minWidth: 28),
               child: widget.leading,
             ),
           ),

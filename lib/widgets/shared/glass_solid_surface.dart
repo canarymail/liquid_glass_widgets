@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../../theme/glass_theme.dart';
 import '../../types/glass_surface_style.dart';
@@ -9,16 +9,27 @@ const Color kGlassSolidSurfaceLight = Color(0xFFFFFFFF);
 /// Fill of a `GlassSurfaceStyle.solid` card in dark mode (`#1C1C1E`).
 const Color kGlassSolidSurfaceDark = Color(0xFF1C1C1E);
 
+/// Fill of a `GlassSurfaceStyle.solid` card in elevated dark mode (`#2C2C2E`),
+/// used inside modal sheets and full-screen covers.
+const Color kGlassSolidSurfaceDarkElevated = Color(0xFF2C2C2E);
+
 /// Resolves the fill of a `GlassSurfaceStyle.solid` card.
 ///
-/// Mirrors iOS `secondarySystemGroupedBackground` (without its elevated-dark
-/// variant). Brightness comes from [GlassTheme.brightnessOf], the package's
-/// single brightness authority, so the card always agrees with the text and
-/// highlight colours of `GlassListTile` and friends.
-Color resolveGlassSolidSurfaceColor(BuildContext context) =>
-    GlassTheme.brightnessOf(context) == Brightness.dark
-        ? kGlassSolidSurfaceDark
-        : kGlassSolidSurfaceLight;
+/// Mirrors iOS `secondarySystemGroupedBackground`: `#FFFFFF` in light mode,
+/// `#1C1C1E` in base dark mode, and `#2C2C2E` in elevated dark mode (inside
+/// [GlassModalSheet], [GlassFullScreenCover], or any subtree with
+/// [CupertinoUserInterfaceLevelData.elevated]). Brightness comes from
+/// [GlassTheme.brightnessOf], the package's single brightness authority, so
+/// the card always agrees with the text and highlight colours of
+/// `GlassListTile` and friends.
+Color resolveGlassSolidSurfaceColor(BuildContext context) {
+  if (GlassTheme.brightnessOf(context) != Brightness.dark) {
+    return kGlassSolidSurfaceLight;
+  }
+  final isElevated = CupertinoUserInterfaceLevel.maybeOf(context) ==
+      CupertinoUserInterfaceLevelData.elevated;
+  return isElevated ? kGlassSolidSurfaceDarkElevated : kGlassSolidSurfaceDark;
+}
 
 /// An inherited widget that exposes the active [GlassSurfaceStyle] to
 /// descendant widgets (e.g. allowing [GlassListTile] to automatically default to

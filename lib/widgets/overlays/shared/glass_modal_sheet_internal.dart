@@ -106,11 +106,14 @@ class _SheetLayout extends StatelessWidget {
       onDismiss: onDismiss,
     );
 
-    final contentZone = _SheetContent(
-      scrollController: scrollController,
-      isFullScreen: contentScrollProgress > _kTopDetentThreshold,
-      padding: padding,
-      child: child,
+    final contentZone = CupertinoUserInterfaceLevel(
+      data: CupertinoUserInterfaceLevelData.elevated,
+      child: _SheetContent(
+        scrollController: scrollController,
+        isFullScreen: contentScrollProgress > _kTopDetentThreshold,
+        padding: padding,
+        child: child,
+      ),
     );
 
     return Positioned(

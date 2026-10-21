@@ -113,8 +113,11 @@ class _ContactsListViewState extends State<ContactsListView> {
                     useOwnLayer: true,
                     settings: LiquidGlassSettings.ios27Dark,
                     onTap: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
+                      final nav = Navigator.of(context);
+                      if (nav.canPop()) {
+                        nav.pop();
+                      } else {
+                        Navigator.of(context, rootNavigator: true).maybePop();
                       }
                     },
                   ),

@@ -7,6 +7,7 @@ import 'glass_disclosure_group.dart';
 import 'glass_divider.dart';
 import 'glass_list_tile.dart';
 import '../shared/glass_solid_surface.dart';
+import '../surfaces/glass_navigation_stack.dart';
 
 /// A convenience wrapper that groups [GlassListTile]s inside a card
 /// ([GlassContainer.card]).
@@ -232,11 +233,18 @@ class GlassGroupedSection extends StatelessWidget {
         // Compute indent based on whether the current tile has a leading widget.
         final double indent =
             ((currentChild is GlassListTile && currentChild.leading != null) ||
+                    (currentChild is GlassNavigationLink &&
+                        currentChild.leading != null) ||
                     (currentChild is GlassDisclosureGroup &&
                         currentChild.leading != null))
                 ? (dividerIndent ?? 56.0)
                 : 16.0;
-        processedChildren.add(GlassDivider(indent: indent));
+        processedChildren.add(
+          GlassDivider(
+            indent: indent,
+            endIndent: surfaceStyle == GlassSurfaceStyle.solid ? 16.0 : 0.0,
+          ),
+        );
       }
     }
 

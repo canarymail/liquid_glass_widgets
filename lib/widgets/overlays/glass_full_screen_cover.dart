@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
+import '../../theme/glass_theme.dart';
 import '../../types/glass_quality.dart';
 import '../interactive/glass_button.dart';
 
@@ -120,7 +121,7 @@ class GlassFullScreenCoverBar extends StatelessWidget {
       effectiveTrailing = _buildCloseButton(context);
     }
 
-    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
+    final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
 
     // iOS 26: the navigation bar background is transparent — only the toolbar
     // buttons are glass. [backgroundColor] remains available as an opt-in.
@@ -219,12 +220,13 @@ class GlassFullScreenCoverBarButton extends StatelessWidget {
       stretch: 0.15,
       onTap: onPressed,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 17,
             fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w400,
+            letterSpacing: -0.41,
             color: CupertinoColors.label.resolveFrom(context),
           ),
         ),
@@ -444,7 +446,7 @@ class _GlassFullScreenCoverState extends State<GlassFullScreenCover>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
+    final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
     final bgColor = widget.backgroundColor ??
         (isDark
             ? CupertinoColors.systemBackground.darkColor
@@ -498,7 +500,12 @@ class _GlassFullScreenCoverState extends State<GlassFullScreenCover>
               child: Column(
                 children: [
                   if (topBar != null) topBar,
-                  Expanded(child: widget.child),
+                  Expanded(
+                    child: CupertinoUserInterfaceLevel(
+                      data: CupertinoUserInterfaceLevelData.elevated,
+                      child: widget.child,
+                    ),
+                  ),
                 ],
               ),
             ),

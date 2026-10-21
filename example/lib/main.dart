@@ -36,6 +36,8 @@ import 'package:liquid_glass_widgets_example/demos/tab_bar_menu_demo.dart'
     show TabBarMenuDemoPage;
 import 'package:liquid_glass_widgets_example/demos/swipe_and_disclosure_demo.dart'
     show SwipeAndDisclosureDemoPage;
+import 'package:liquid_glass_widgets_example/demos/lists_pickers_and_nav_demo.dart'
+    show ListsPickersAndNavDemoPage;
 import 'package:liquid_glass_widgets_example/pages/containers_page.dart';
 import 'package:liquid_glass_widgets_example/pages/feedback_page.dart';
 import 'package:liquid_glass_widgets_example/pages/input_page.dart';
@@ -618,7 +620,9 @@ class _DemosTab extends StatelessWidget {
                       Color(0xFF3A1C71),
                       Color(0xFFD76D77),
                     ],
-                    destination: const ContactsListView(),
+                    destination: const GlassNavigationStack(
+                      root: ContactsListView(),
+                    ),
                   ),
                   SizedBox(height: 14),
 
@@ -766,6 +770,20 @@ class _ExamplesTab extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  SizedBox(height: 14),
+
+                  // Large card: Lists, Pickers & Nav
+                  _LargeDemoCard(
+                    title: 'Lists, Pickers & Nav',
+                    subtitle:
+                        'Swipe & context menus · edit & reorder · disclosure · date pickers · full-screen cover & NavigationStack',
+                    icon: CupertinoIcons.square_stack_3d_up_fill,
+                    gradient: const [
+                      Color(0xFF1A2980),
+                      Color(0xFF26D0CE),
+                    ],
+                    destination: const ListsPickersAndNavDemoPage(),
                   ),
                   SizedBox(height: 14),
 

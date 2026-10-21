@@ -20,11 +20,13 @@ Glass in the iOS 26 design system is reserved for the **navigation and control l
 
 ### Rule 2: NEVER Nest Refractive Glass inside Refractive Glass
 Placing refractive glass widgets inside another refractive glass container is an optical and performance anti-pattern.
-- **CRITICAL ANTI-PATTERN:** Placing `GlassButton`, `GlassIconButton`, `GlassSegmentedControl`, `GlassSlider`, or `GlassSwitch` inside a `GlassContainer.card`, `GlassGroupedSection`, or `GlassContainer`.
-- **Why?** Interactive glass controls provide their own refractive surface. Nesting creates severe double-refraction distortion, clips spring jelly animations, and wastes GPU fill-rate.
+- **CRITICAL ANTI-PATTERN:** Placing `GlassButton`, `GlassIconButton` or `GlassChip` inside a `GlassContainer.card`, `GlassGroupedSection`, or `GlassContainer`.
+- **Why?** These controls provide their own persistent refractive surface. Nesting creates severe double-refraction distortion, clips spring jelly animations, and wastes GPU fill-rate.
+- **Exception — `GlassSwitch`, `GlassSlider`, `GlassSegmentedControl`:** their glass is transient (only the thumb or pill turns to glass while it is touched or moving; at rest they look flat), so they are safe inside a `GlassContainer.card` / `GlassGroupedSection` with `surfaceStyle: GlassSurfaceStyle.solid`, which has no glass layer at all. This is the native iOS Settings pattern. On a default `glass` card, prefer placing them outside the card.
 - **Correct Pattern:**
-  - In a `GlassContainer.card` or `GlassGroupedSection`: Use standard text, icons, and non-refractive controls (or `GlassListTile` which is specifically designed without an internal glass layer).
-  - Outside the card / on the page platter: Use `GlassSegmentedControl`, `GlassButton`, `GlassSlider`, or standalone `GlassSwitch(useOwnLayer: true)`.
+  - In a `solid` card or `GlassGroupedSection`: standard text and icons, `GlassListTile`, `GlassSwitch`, `GlassSlider` and `GlassSegmentedControl`.
+  - In a `glass` card: standard text, icons, and non-refractive controls (or `GlassListTile`, which has no internal glass layer).
+  - Outside the card / on the page platter: `GlassSegmentedControl`, `GlassButton`, `GlassSlider`, or standalone `GlassSwitch(useOwnLayer: true)`.
 
 ### Rule 3: Single Public Import
 - **ALWAYS**: `import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';`
@@ -175,14 +177,21 @@ When generating Flutter UI, replace standard Flutter widgets with their native l
 | Bottom nav that collapses to selected tab on scroll | `GlassTabBar.minimizable` | Minimizes to a single pill on scroll; supports an optional trailing action button. |
 | `ElevatedButton` / `CupertinoButton` | `GlassButton` | Refractive button with squeeze & stretch physics and touch glow. |
 | `IconButton` | `GlassIconButton` | Refractive circular/squircle button with `onPressed`. |
-| `PopupMenuButton` / Context Menu | `GlassPullDownButton` | Combined trigger button and `GlassMenu`. |
-| `CupertinoSegmentedControl` | `GlassSegmentedControl<T>` | Fluid animated glass indicator with jelly physics. Do NOT wrap in `GlassContainer.card`. |
+| `PopupMenuButton` / Pull-Down Menu | `GlassPullDownButton` | Combined trigger button and `GlassMenu`. |
+| `CupertinoSegmentedControl` | `GlassSegmentedControl<T>` | Fluid animated glass indicator with jelly physics. Fine inside `solid` cards; on a `glass` card place it outside. |
 | `Switch` / `CupertinoSwitch` | `GlassSwitch` | Fluid spring jump animation. Use `useOwnLayer: true` when standalone. |
 | `Slider` / `CupertinoSlider` | `GlassSlider` | Glass track with draggable jelly thumb and haptic snaps. |
 | `Card` | `GlassContainer.card` | Container for grouping content (`surfaceStyle: GlassSurfaceStyle.solid` for flat list cards). Content inside stays opaque. |
 | Grouped `ListView` | `GlassGroupedSection` | Inset grouped list container with automatic dividers between `GlassListTile`s. |
 | `ListTile` | `GlassListTile` | Grouped row item. Shares parent glass layer inside `GlassGroupedSection`. |
 | `Divider` | `GlassDivider` | Refractive subtle separator line. |
+| `Dismissible` / SwiftUI `.swipeActions` | `GlassSwipeActions` (or `GlassListTile.trailingSwipeActions` / `leadingSwipeActions`) | Leading/trailing circular action buttons with full-swipe. Wrap the list in `GlassSwipeActionScope` so only one row is open. See Section 6. |
+| `ExpansionTile` / SwiftUI `DisclosureGroup` | `GlassDisclosureGroup` | Rotating-chevron accordion. Use inside `GlassGroupedSection`. |
+| `ReorderableListView` + edit toggle | `GlassEditScope` + `GlassEditButton` + `GlassReorderableList.grouped` | Edit mode with delete badges, reorder grabbers, selection. See Section 6. |
+| Long-press context menu / SwiftUI `.contextMenu` | `GlassContextMenu` (or `.glassContextMenu()`, `GlassListTile.contextMenuActions`) | Row-lift menu with optional `previewBuilder`. Use `GlassPullDownButton` for tap-triggered menus. |
+| Full-screen `showDialog` / `.fullScreenCover` | `showGlassFullScreenCover` + `GlassFullScreenCover` | Edge-to-edge slide-up cover with swipe-down dismiss. |
+| `showDatePicker` / `CupertinoDatePicker` | `GlassDatePicker` (`.compact`, `.graphical`, `.wheel`), `GlassMultiDatePicker` | `showGlassDatePicker(...)` returns `DateTime?`. |
+| `Navigator.push` rows / SwiftUI `NavigationStack` | `GlassNavigationStack` + `GlassNavigationLink` | Typed `value` routing via `destinations`, or a `destination` builder. |
 | `TextField` / `CupertinoTextField` | `GlassTextField` | Input field with glowing refractive focus border. |
 | `showModalBottomSheet` | `GlassModalSheet.show` | Multi-detent fluid sheet (peek, half, full) with spring physics. |
 | `showDialog` / `CupertinoAlertDialog` | `GlassDialog.show` | Liquid glass modal alert with `GlassDialogAction` buttons. |
@@ -283,7 +292,113 @@ GlassMaterialize(
 
 ---
 
-## 6. Advanced Navigation: Gel Morph with `GlassNavigationShell`
+## 6. Lists, Pickers & Declarative Navigation
+
+Use `surfaceStyle: GlassSurfaceStyle.solid` on list cards (`GlassGroupedSection`, `GlassReorderableList.grouped`, date pickers). For an app-wide iOS 27 material pass `theme: const GlassThemeData.ios27()` to `LiquidGlassWidgets.wrap()` (or wrap a subtree in `GlassTheme(data: const GlassThemeData.ios27(), ...)`).
+
+### Swipe actions, context menu, disclosure
+```dart
+GlassSwipeActionScope(               // one open row at a time; wrap the whole list
+  child: ListView(children: [
+    GlassGroupedSection(
+      surfaceStyle: GlassSurfaceStyle.solid,
+      children: [
+        GlassListTile(
+          title: const Text('Alex Rivera'),
+          trailingSwipeActions: [
+            GlassSwipeAction(
+              icon: const Icon(CupertinoIcons.trash),
+              label: const Text('Delete'),
+              isDestructive: true,
+              onTap: _delete,        // GlassSwipeAction uses onTap
+            ),
+          ],
+          onDismissed: _delete,      // full-swipe collapse
+          contextMenuActions: [
+            GlassContextMenuAction(
+              icon: const Icon(CupertinoIcons.star),
+              child: const Text('Favorite'),   // label is `child`, handler is `onPressed`
+              onPressed: _favorite,
+            ),
+          ],
+        ),
+        GlassDisclosureGroup(
+          title: const Text('Privacy'),
+          children: [
+            GlassListTile(
+              title: const Text('AirDrop'),
+              trailing: GlassSwitch(value: _airDrop, onChanged: (v) => setState(() => _airDrop = v)),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ]),
+)
+```
+
+### Edit mode and reordering
+`GlassEditScope` provides ambient edit state; `GlassEditButton` toggles it. `GlassListTile` reacts via `canDelete`/`onDelete`, `canReorder`/`reorderIndex`, `canSelect`/`isSelected`/`onSelectedChanged`:
+```dart
+GlassEditScope(
+  child: Column(children: [
+    const GlassEditButton(),
+    GlassReorderableList.grouped(
+      surfaceStyle: GlassSurfaceStyle.solid,
+      itemCount: items.length,
+      onReorderItem: (oldIndex, newIndex) =>
+          setState(() => items.insert(newIndex, items.removeAt(oldIndex))),
+      itemBuilder: (context, i) => GlassListTile(
+        key: ValueKey(items[i]),      // key required
+        title: Text(items[i]),
+        canReorder: true,
+        reorderIndex: i,
+        canDelete: true,
+        onDelete: () => setState(() => items.removeAt(i)),
+      ),
+    ),
+  ]),
+)
+```
+
+### Full-screen cover and date pickers
+```dart
+showGlassFullScreenCover<void>(
+  context: context,
+  builder: (ctx) => GlassFullScreenCover(
+    title: const Text('New Contact'),
+    closeButtonLabel: 'Done',
+    child: const ContactForm(),
+  ),
+);
+
+GlassDatePicker.compact(
+  initialDateTime: DateTime.now(),
+  mode: GlassDatePickerMode.dateAndTime,
+  surfaceStyle: GlassSurfaceStyle.solid,
+  onDateTimeChanged: (d) => setState(() => _date = d),
+)
+```
+`GlassDatePicker.graphical` and `.wheel` share these parameters; `GlassMultiDatePicker(selectedDates: Set<DateTime>, onDatesChanged: ...)` selects multiple days.
+
+### Navigation stack
+```dart
+GlassNavigationStack(
+  path: _path,                                     // optional GlassNavigationPath; _path.append(value) pushes
+  destinations: {String: (context, value) => DetailPage(value as String)},
+  root: const HomePage(),
+)
+
+// Inside a GlassGroupedSection on the root page:
+GlassNavigationLink<String>(value: 'Optics', title: const Text('Optics'))
+// or: GlassNavigationLink(destination: (ctx) => const DetailPage(), title: ...)
+
+// Inside a page, `.navigationTitle('Detail')` supplies the title of a GlassAppBar / GlassAppBar.pinned that has `title: null`.
+```
+
+---
+
+## 7. Advanced Navigation: Gel Morph with `GlassNavigationShell`
 
 To achieve the signature iOS 26 navigation bar transition — where the capsule swells, bounces, and cross-fades icons between routes:
 
@@ -329,13 +444,13 @@ GlassAppBar.pinned(
 
 ---
 
-## 7. Common Agent Pitfalls (Checklist before outputting code)
+## 8. Common Agent Pitfalls (Checklist before outputting code)
 
 - [ ] **Did you import the public API only?** (`import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';`). Never import `src/`.
 - [ ] **Did you call `await LiquidGlassWidgets.initialize()` in `main()`?** Shaders must be pre-warmed.
 - [ ] **Did you wrap your app in `LiquidGlassWidgets.wrap()`?** Required for theme and accessibility scaling.
 - [ ] **Are you using `GlassScaffold` instead of `Scaffold`?** Prevents z-index glitches with glass nav bars.
-- [ ] **Did you avoid nesting glass in glass?** Never put `GlassButton`, `GlassSlider`, or `GlassSwitch` directly inside `GlassContainer.card` or `GlassGroupedSection`.
+- [ ] **Did you avoid nesting glass in glass?** Never put `GlassButton`, `GlassIconButton` or `GlassChip` directly inside `GlassContainer.card` or `GlassGroupedSection`. `GlassSwitch`, `GlassSlider` and `GlassSegmentedControl` are fine inside `solid` cards (their glass is transient); on `glass` cards keep them outside.
 - [ ] **Did you use `GlassTabBar.bottom` instead of `GlassBottomBar`?** `GlassBottomBar` is deleted.
 - [ ] **`GlassButton` uses `onTap`, not `onPressed`.** (`GlassButton(onTap: () {})`) — the opposite of `ElevatedButton`.
 - [ ] **`GlassIconButton` uses `onPressed`, not `onTap`.** (`GlassIconButton(onPressed: () {})`).
@@ -344,3 +459,7 @@ GlassAppBar.pinned(
 - [ ] **`GlassBarItem.icon` uses `onTap` (required), not `onPressed`.**
 - [ ] **Nested menus use `GlassMenuItem(submenu: [...])`.** The parent row still needs `onTap: () {}` (required, never called). Don't open a second `GlassMenu` from `onTap`.
 - [ ] **`tintColor` on `GlassBarItem` requires `background: GlassBarItemBackground.separate`.** A shared-background item cannot be tinted (asserts in debug mode). The foreground icon colour is flipped automatically — do not also set a manual `Icon(color:)` on the child.
+- [ ] **`GlassSwipeAction` uses `onTap`; `GlassContextMenuAction` uses `child` + `onPressed`.** Wrap swipeable lists in `GlassSwipeActionScope`.
+- [ ] **Don't hand-roll `Dismissible`, `ExpansionTile`, `showDatePicker` or a `ReorderableListView` edit mode** — use `GlassSwipeActions`, `GlassDisclosureGroup`, `GlassDatePicker` and `GlassEditScope` + `GlassReorderableList`.
+- [ ] **`GlassReorderableList` items need a stable `key`**, and either `onReorder` or `onReorderItem` must be provided.
+- [ ] **`GlassCard` is deprecated.** Use `GlassContainer.card`.

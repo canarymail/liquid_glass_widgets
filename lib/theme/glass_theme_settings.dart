@@ -1,5 +1,6 @@
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
 import '../src/engine/liquid_glass_settings.dart';
@@ -68,7 +69,61 @@ class GlassThemeSettings {
     this.rimLight,
     this.bodyShade,
     this.lensModel,
+    this.shadowElevation,
+    this.shadow,
   });
+
+  /// iOS 27 `glassEffect(.regular)` in the light appearance, matching
+  /// [LiquidGlassSettings.ios27Light].
+  static const GlassThemeSettings ios27Light = GlassThemeSettings(
+    glassColor: Color(0x87F8F8F8),
+    saturation: 2.1,
+    blur: 0.6,
+    blurWeight: 0.8,
+    frost: 14,
+    frostOpacity: 0.73,
+    frostClamp: 0.4,
+    frostWeight: 2.0,
+    thickness: 32,
+    refractiveIndex: 1.24,
+    lensModel: GlassLensModel.paraxial,
+    lightAngle: 1.5707963267948966,
+    lightIntensity: 0,
+    fresnelStrength: 0,
+    chromaticAberration: 0,
+    edgeAbsorption: 0.035,
+    rimShade: 1,
+    rimLight: 1,
+    shadow: [
+      BoxShadow(color: Color(0x04000000), blurRadius: 10, offset: Offset(0, 7)),
+    ],
+  );
+
+  /// iOS 27 `glassEffect(.regular)` in the dark appearance, matching
+  /// [LiquidGlassSettings.ios27Dark].
+  static const GlassThemeSettings ios27Dark = GlassThemeSettings(
+    glassColor: Color(0x1FFFFFFF),
+    saturation: 1.4,
+    blur: 0.6,
+    blurWeight: 2.5,
+    frost: 14,
+    frostOpacity: 0.85,
+    frostClamp: -0.45,
+    frostWeight: 0.5,
+    thickness: 32,
+    refractiveIndex: 1.24,
+    lensModel: GlassLensModel.paraxial,
+    lightAngle: -1.5707963267948966,
+    lightIntensity: 0,
+    fresnelStrength: 0,
+    chromaticAberration: 0,
+    edgeAbsorption: 0.035,
+    rimShade: 1,
+    rimShadeEnds: 0,
+    rimLight: 1.15,
+    bodyShade: 0.28,
+    shadowElevation: 0,
+  );
 
   /// See [LiquidGlassSettings.visibility].
   final double? visibility;
@@ -139,6 +194,12 @@ class GlassThemeSettings {
   /// See [LiquidGlassSettings.lensModel].
   final GlassLensModel? lensModel;
 
+  /// See [LiquidGlassSettings.shadowElevation].
+  final double? shadowElevation;
+
+  /// See [LiquidGlassSettings.shadow].
+  final List<BoxShadow>? shadow;
+
   /// Returns a new [LiquidGlassSettings] by applying this override onto [base].
   ///
   /// Only non-null fields in this override replace the corresponding
@@ -163,8 +224,8 @@ class GlassThemeSettings {
       glowIntensity: base.glowIntensity,
       specularSharpness: specularSharpness ?? base.specularSharpness,
       standardOpacityMultiplier: base.standardOpacityMultiplier,
-      shadowElevation: base.shadowElevation,
-      shadow: base.shadow,
+      shadowElevation: shadowElevation ?? base.shadowElevation,
+      shadow: shadow ?? base.shadow,
       whitenStrength: base.whitenStrength,
       whitenGated: base.whitenGated,
       edgeAbsorption: edgeAbsorption ?? base.edgeAbsorption,
@@ -233,6 +294,11 @@ class GlassThemeSettings {
       rimLight: _lerpDoubleField(a.rimLight, b.rimLight, t),
       bodyShade: _lerpDoubleField(a.bodyShade, b.bodyShade, t),
       lensModel: t < 0.5 ? a.lensModel : b.lensModel,
+      shadowElevation:
+          _lerpDoubleField(a.shadowElevation, b.shadowElevation, t),
+      shadow: (a.shadow == null || b.shadow == null)
+          ? (t < 0.5 ? a.shadow : b.shadow)
+          : BoxShadow.lerpList(a.shadow, b.shadow, t),
     );
   }
 
@@ -271,6 +337,8 @@ class GlassThemeSettings {
     double? rimLight,
     double? bodyShade,
     GlassLensModel? lensModel,
+    double? shadowElevation,
+    List<BoxShadow>? shadow,
   }) {
     return GlassThemeSettings(
       visibility: visibility ?? this.visibility,
@@ -296,6 +364,8 @@ class GlassThemeSettings {
       rimLight: rimLight ?? this.rimLight,
       bodyShade: bodyShade ?? this.bodyShade,
       lensModel: lensModel ?? this.lensModel,
+      shadowElevation: shadowElevation ?? this.shadowElevation,
+      shadow: shadow ?? this.shadow,
     );
   }
 
@@ -326,7 +396,9 @@ class GlassThemeSettings {
           rimShadeEnds == other.rimShadeEnds &&
           rimLight == other.rimLight &&
           bodyShade == other.bodyShade &&
-          lensModel == other.lensModel;
+          lensModel == other.lensModel &&
+          shadowElevation == other.shadowElevation &&
+          listEquals(shadow, other.shadow);
 
   @override
   int get hashCode => Object.hashAll([
@@ -353,6 +425,8 @@ class GlassThemeSettings {
         rimLight,
         bodyShade,
         lensModel,
+        shadowElevation,
+        shadow == null ? null : Object.hashAll(shadow!),
       ]);
 
   @override

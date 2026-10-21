@@ -157,7 +157,7 @@ modal_sheet_showcase/.flutter-plugins
 modal_sheet_showcase/.flutter-plugins-dependencies
 modal_sheet_showcase/pubspec.lock
 docs/SQUIRCLE_GEOMETRY_FINDINGS.md
-tools/build_hero_webp.sh
+tools/
 
 # Generated API documentation
 doc/
@@ -168,7 +168,4 @@ MANUAL_TEST_CHECKLIST.md
 # Agent configuration and documentation
 .claude/
 .agents/
-
-# Local parity captures and tool builds (keep git repo lean)
-tool/parity/captures/
-tool/parity/ios_reference/build/
+__pycache__/

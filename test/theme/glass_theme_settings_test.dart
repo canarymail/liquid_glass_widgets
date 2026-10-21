@@ -93,4 +93,34 @@ void main() {
       expect(settingsA.hashCode, isNot(equals(settingsC.hashCode)));
     });
   });
+
+  group('shadow override', () {
+    List<BoxShadow> makeShadow() => [
+          const BoxShadow(color: Color(0x33000000), blurRadius: 8),
+        ];
+
+    test('== and hashCode compare shadow lists by value', () {
+      final a = GlassThemeSettings(shadow: makeShadow(), shadowElevation: 1);
+      final b = GlassThemeSettings(shadow: makeShadow(), shadowElevation: 1);
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+      expect(a, isNot(const GlassThemeSettings(shadowElevation: 1)));
+    });
+
+    test('lerp interpolates shadows and falls back to a step when one is null',
+        () {
+      const a = GlassThemeSettings(
+        shadow: [BoxShadow(color: Color(0xFF000000), blurRadius: 0)],
+      );
+      const b = GlassThemeSettings(
+        shadow: [BoxShadow(color: Color(0xFF000000), blurRadius: 10)],
+      );
+      final mid = GlassThemeSettings.lerp(a, b, 0.5)!;
+      expect(mid.shadow!.single.blurRadius, 5);
+
+      final stepped =
+          GlassThemeSettings.lerp(a, const GlassThemeSettings(), 0.7)!;
+      expect(stepped.shadow, isNull);
+    });
+  });
 }
