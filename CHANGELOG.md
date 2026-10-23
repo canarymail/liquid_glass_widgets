@@ -1,3 +1,29 @@
+# 1.14.2
+
+## Features
+
+- **Hold adaptive quality measurement during heavy app work (PR #445):** `GlassAdaptiveScope.holdMeasurement()` returns a `GlassMeasurementHold` that suspends Phase 2 warm-up and Phase 3 runtime frame-timing measurement while open (plus `GlassAdaptiveScope.settleFramesAfterHold` frames after the last nested hold is released), preventing CPU/GPU-heavy app tasks such as on-device model loading from falsely demoting capable devices.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the contribution (#445).
+
+## Bug Fixes
+
+- **`ProgressiveBlur` did not repaint when an ancestor moved its retained layer (PR #444):** `_RenderProgressiveBlur` now mixes in `TransformTrackingRenderObjectMixin` and marks itself for paint when its global transform changes, preventing misplaced or missing blur regions after route transitions or animated ancestor transforms over a `RepaintBoundary`.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#444).
+
+- **Open `GlassMenuItem.submenu` cards stayed stale when `GlassMenu.items` changed (PR #443):** Open submenu levels now track their parent row's `sourceIndex` and rebuild their header and child rows in `didUpdateWidget`, allowing live parent titles and updated submenu checkmarks to update in place while the submenu card is open.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#443).
+
+- **`GlassDialog` two-action row clipped long or large-scale labels (PR #442):** `GlassDialog` now measures two-action labels with `TextPainter` against half the dialog width (accounting for `DefaultTextStyle`, `Directionality`, and `MediaQuery.textScalerOf`) and stacks the actions vertically when either label does not fit on one line, matching native iOS alert layout.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#442).
+
+- **`GlassButton` press highlight bled outside the button shape when `blur: 0` (PR #441):** The ambient base light overlay in `GlassButton` is now clipped directly to `ShapeBorderClipper(shape: widget.shape)` so buttons without a blur layer do not show a rectangular press highlight around rounded or circular shapes.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#441).
+
 # 1.14.1
 
 ## Bug Fixes

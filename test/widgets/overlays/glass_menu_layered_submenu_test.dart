@@ -513,5 +513,32 @@ void main() {
       expect(find.text('Oldest (on)'), findsOneWidget);
       expect(find.text('Newest (on)'), findsNothing);
     });
+
+    testWidgets(
+        'shrinking submenu rows while hovered on the last row clears hover safely',
+        (tester) async {
+      final c = GlassMenuController();
+      await tester.pumpWidget(host(c, items: sortItems('Sort', 'Newest')));
+      c.open();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sort'));
+      await tester.pumpAndSettle();
+
+      // Glide onto the last submenu row ('Oldest', index 3 in the card list)
+      c.glideTo(tester.getCenter(find.text('Oldest')));
+      await tester.pump();
+
+      // Shrink submenu to 1 child while root items.length stays 2
+      await tester.pumpWidget(host(c, items: [
+        GlassMenuItem(title: 'Open', onTap: () {}),
+        GlassMenuItem(title: 'Sort', onTap: () {}, submenu: [
+          GlassMenuItem(title: 'Newest', onTap: () {}),
+        ]),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Newest'), findsOneWidget);
+    });
   });
 }

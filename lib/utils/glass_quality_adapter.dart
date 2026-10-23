@@ -306,7 +306,9 @@ class GlassQualityAdapter {
   static void _release() {
     if (_holds == 0) return;
     _holds--;
-    if (_holds == 0) _settle = settleFramesAfterHold;
+    if (_holds == 0) {
+      _settle = settleFramesAfterHold > 0 ? settleFramesAfterHold : 0;
+    }
   }
 
   /// Clears every hold. For tests only.

@@ -356,6 +356,7 @@ class GlassDialog extends StatelessWidget {
   ///
   /// Mirrors iOS: two actions whose labels would wrap are stacked instead.
   bool _labelsFitSideBySide(BuildContext context, double width) {
+    if (actions.length < 2) return true;
     // Two buttons and the 8 pt gap between them; the label keeps clear of
     // the button's 12 pt corners on both sides.
     final labelWidth = (width - 8) / 2 - 2 * 12;

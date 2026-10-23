@@ -26,7 +26,7 @@ Bring Apple's Liquid Glass to your Flutter app — from the iOS 26 original to t
 
 ```yaml
 dependencies:
-  liquid_glass_widgets: ^1.14.1
+  liquid_glass_widgets: ^1.14.2
 ```
 
 ```bash
@@ -765,7 +765,7 @@ try {
 ```
 
 While a hold is open, no scope counts frames (warm-up or runtime). After the
-last hold is released, `GlassQualityAdapter.settleFramesAfterHold` (default
+last hold is released, `GlassAdaptiveScope.settleFramesAfterHold` (default
 120) further frames are skipped before measuring resumes.
 
 ### GPU Budget Monitoring

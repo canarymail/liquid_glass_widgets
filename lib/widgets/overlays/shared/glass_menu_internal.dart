@@ -86,8 +86,9 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
       _refreshOpenLevels();
       // BUG 12 FIX: Clear hover state if items shrink while menu is open
       // to prevent RangeError when the selection pill tries to measure
-      // a now-deleted index.
-      if (widget.items.length < oldWidget.items.length) {
+      // a now-deleted index (including inside an open submenu card).
+      if (widget.items.length < oldWidget.items.length ||
+          (_hoveredIndex != null && _hoveredIndex! >= _items.length)) {
         _hoveredIndex = null;
         _hoveredIndexNotifier.value = null;
       }

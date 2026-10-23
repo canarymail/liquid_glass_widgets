@@ -248,5 +248,18 @@ void main() {
 
       expect(inRow, findsNothing);
     });
+
+    testWidgets('keeps a single long action in the horizontal row',
+        (tester) async {
+      await pumpDialog(tester, [
+        GlassDialogAction(
+          label: 'Continue without saving',
+          onPressed: () {},
+          isPrimary: true,
+        ),
+      ]);
+
+      expect(inRow, findsOneWidget);
+    });
   });
 }

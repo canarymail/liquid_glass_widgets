@@ -1085,8 +1085,31 @@ void main() {
 
     test('a hold is safe when no adapter exists', () {
       final hold = GlassAdaptiveScope.holdMeasurement();
+      expect(GlassAdaptiveScope.measurementHeld, isTrue);
+      expect(GlassAdaptiveScope.settleFramesAfterHold, 20);
+      GlassAdaptiveScope.settleFramesAfterHold = 20;
       expect(hold.release, returnsNormally);
       expect(GlassQualityAdapter.measurementHeld, isFalse);
+      expect(GlassAdaptiveScope.measurementHeld, isFalse);
+    });
+
+    test('releasing a hold after resetMeasurementHoldsForTesting is a no-op',
+        () {
+      final hold = GlassAdaptiveScope.holdMeasurement();
+      GlassQualityAdapter.resetMeasurementHoldsForTesting();
+      expect(hold.release, returnsNormally);
+      expect(GlassQualityAdapter.measurementHeld, isFalse);
+    });
+
+    test('live frame timings callback respects measurement hold', () {
+      final adapter = _makeAdapter();
+      adapter.start();
+      addTearDown(adapter.stop);
+
+      final hold = GlassAdaptiveScope.holdMeasurement();
+      PlatformDispatcher.instance.onReportTimings?.call(_frames(20, 40000));
+      expect(adapter.currentQuality, GlassQuality.premium);
+      hold.release();
     });
   });
 }
