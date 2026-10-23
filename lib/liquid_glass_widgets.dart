@@ -120,7 +120,7 @@ export 'widgets/overlays/glass_toast.dart';
 export 'widgets/overlays/glass_popover.dart';
 // Widgets - Effects
 export 'widgets/effects/glass_materialize.dart';
-export 'widgets/effects/progressive_blur.dart';
+export 'widgets/effects/progressive_blur.dart' hide RenderProgressiveBlur;
 // Widgets - Surfaces
 export 'widgets/surfaces/glass_app_bar.dart';
 export 'widgets/surfaces/glass_bar_item.dart';
