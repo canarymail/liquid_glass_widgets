@@ -167,33 +167,35 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
         final double pushDy =
             isHandoff ? (finalDy + _verticalOffset) * rawValue : 0.0;
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Trigger — physically bounces when slammed by the closing menu!
-            Transform.translate(
-              offset: Offset(pushDx, pushDy),
-              child: Opacity(
-                opacity: triggerOpacity,
-                child: IgnorePointer(
-                  ignoring: isMenuBlocking,
-                  child: widget.triggerBuilder != null
-                      ? widget.triggerBuilder!(context, _toggleMenu)
-                      : GestureDetector(
-                          onTap: _toggleMenu,
-                          child: widget.trigger,
-                        ),
-                ),
+        // Overlay portal for morphing animation
+        // The overlay contents fade out during the handoff so the real button shows instead
+        //
+        // The trigger is the portal's child, not its sibling: Flutter hangs
+        // the overlay's semantics under a node wrapped around that child (the
+        // traversal parent). A childless portal has no such node, so the open
+        // menu dropped out of the semantics tree — TalkBack and UI automation
+        // saw none of its items. The trigger keeps its semantics while hidden
+        // for the same reason (an empty traversal parent is dropped too).
+        return OverlayPortal(
+          controller: _overlayController,
+          overlayChildBuilder: _buildMorphingOverlay,
+          // Trigger — physically bounces when slammed by the closing menu!
+          child: Transform.translate(
+            offset: Offset(pushDx, pushDy),
+            child: Opacity(
+              opacity: triggerOpacity,
+              alwaysIncludeSemantics: true,
+              child: IgnorePointer(
+                ignoring: isMenuBlocking,
+                child: widget.triggerBuilder != null
+                    ? widget.triggerBuilder!(context, _toggleMenu)
+                    : GestureDetector(
+                        onTap: _toggleMenu,
+                        child: widget.trigger,
+                      ),
               ),
             ),
-
-            // Overlay portal for morphing animation
-            // The overlay contents fade out during the handoff so the real button shows instead
-            OverlayPortal(
-              controller: _overlayController,
-              overlayChildBuilder: _buildMorphingOverlay,
-            ),
-          ],
+          ),
         );
       },
     );
