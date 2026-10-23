@@ -31,6 +31,90 @@
 
 - **Automatic `useOwnLayer` fallback for `AdaptiveGlass` outside of `LiquidGlassLayer`:** `AdaptiveGlass` now detects when no ancestor `LiquidGlassLayer` is present and provisions its own layer (`effectiveUseOwnLayer = true`) instead of asserting when `GlassQuality.premium` is requested.
 
+# 1.14.2
+
+## Features
+
+- **Hold adaptive quality measurement during heavy app work (PR #445):** `GlassAdaptiveScope.holdMeasurement()` returns a `GlassMeasurementHold` that suspends Phase 2 warm-up and Phase 3 runtime frame-timing measurement while open (plus `GlassAdaptiveScope.settleFramesAfterHold` frames after the last nested hold is released), preventing CPU/GPU-heavy app tasks such as on-device model loading from falsely demoting capable devices.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the contribution (#445).
+
+## Bug Fixes
+
+- **`ProgressiveBlur` did not repaint when an ancestor moved its retained layer (PR #444):** `_RenderProgressiveBlur` now mixes in `TransformTrackingRenderObjectMixin` and marks itself for paint when its global transform changes, preventing misplaced or missing blur regions after route transitions or animated ancestor transforms over a `RepaintBoundary`.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#444).
+
+- **Open `GlassMenuItem.submenu` cards stayed stale when `GlassMenu.items` changed (PR #443):** Open submenu levels now track their parent row's `sourceIndex` and rebuild their header and child rows in `didUpdateWidget`, allowing live parent titles and updated submenu checkmarks to update in place while the submenu card is open.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#443).
+
+- **`GlassDialog` two-action row clipped long or large-scale labels (PR #442):** `GlassDialog` now measures two-action labels with `TextPainter` against half the dialog width (accounting for `DefaultTextStyle`, `Directionality`, and `MediaQuery.textScalerOf`) and stacks the actions vertically when either label does not fit on one line, matching native iOS alert layout.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#442).
+
+- **`GlassButton` press highlight bled outside the button shape when `blur: 0` (PR #441):** The ambient base light overlay in `GlassButton` is now clipped directly to `ShapeBorderClipper(shape: widget.shape)` so buttons without a blur layer do not show a rectangular press highlight around rounded or circular shapes.
+
+  Thanks to [@almazfm](https://github.com/almazfm) for the fix (#441).
+
+# 1.14.1
+
+## Bug Fixes
+
+- **Standalone premium glass buttons and pinned navigation bar buttons had clipped, flattened edges:** Standalone `useOwnLayer` glass surfaces without `rimShade` or `frost` now reserve the full outer anti-aliasing border so circular buttons are not clipped at their top, bottom, left, and right poles, and shared navigation bar items now use a half-height (`23pt`) corner radius so single-item shared buttons are true circles.
+
+- **`GlassBarItem.menu`, `GlassButtonGroupItem.menu`, and `GlassPullDownButton` menus ran off screen and could not scroll (PR #440):** These menus and their `GlassMenuItem.submenu` cards now enable `autoAdjustToScreen: true` by default so long menus stop at the screen edge and scroll.
+
+  Thanks to [@veloce](https://github.com/veloce) for the fix (#440).
+
+- **Tab-bar icon masking alignment (PR #439):** `JellyClipper` now matches `AnimatedGlassIndicator` by applying the 4px track inset before dividing into tabs, preventing unselected icon fragments from refracting beside the active icon during press and drag interactions.
+
+  Thanks to [@xuwucv](https://github.com/xuwucv) for the report and fix (#439).
+
+- **Glass moved by layout was drawn at its previous position for one frame (PR #438, fixes #418):** Premium glass translated by layout (such as during a window resize or scroll) now updates its composite position in the same frame instead of lagging by one frame.
+
+  Thanks to [@erikjara](https://github.com/erikjara) for the report (#418) and the fix (#438).
+
+## Performance
+
+- **Layout-only moves of premium glass no longer rebuild the geometry matte:** Translating an entire glass layer no longer schedules a follow-up repaint or re-rasterizes its local-space geometry matte, while shapes or groups that move *within* a layer now rebuild the matte in the same frame.
+
+# 1.14.0
+
+## Features
+
+- **Configurable button size for `GlassAppBar.pinned` (PR #433, fixes #425):** `GlassAppBar.pinned` and `GlassPinnedBarChrome` now accept an optional `buttonSize` (`double?`, default `44.0`), sizing standalone bar buttons (the automatic back button and `separate` / `own` / `none` items) to `buttonSize`, scaling shared multi-item capsules proportionally (`buttonSize + 2.0`), and forwarding `toolbarHeight` to the pinned host so buttons are vertically centered and custom items (e.g. a 48×48 `GlassButton` with `GlassBarItemBackground.own`) are never squeezed to 44pt. `buttonSize` is ignored in iPhone Duo's vertical strip, which keeps its native metrics; in the upright status-row layout the chrome keeps its 44pt row and is not re-centred for a larger `buttonSize`.
+
+  **Behaviour note:** a `GlassAppBar.pinned` bar's in-route buttons are no longer capped at the toolbar height, so a shared multi-item capsule drawn in-route now measures 46pt like the pinned copy, where it was previously clamped to 44pt (a 2pt jump at hand-over). Custom items inside a capsule are likewise held to the capsule's height in-route, as they already were when pinned.
+
+  Thanks to [@AlexT15-al](https://github.com/AlexT15-al) for the feature request (#425).
+
+- **Modal sheet animation style (PR #427):** `GlassModalSheet.show` accepts an optional `sheetAnimationStyle` to customize the slide's duration and curve in each direction while keeping the morph spring.
+
+  Thanks to [@JakeThomson](https://github.com/JakeThomson) for the contribution (#427).
+
+- **Status-row navigation bars on iPhone Duo upright inner display (PR #426, fixes #368):** Pinned `GlassAppBar` and `GlassNavigationShell` chrome now sit beside the corner status cluster in the status bar's row when iPhone Duo is held upright, with `GlassScaffold` starting content below the status bar.
+
+  Thanks to [@JakeThomson](https://github.com/JakeThomson) for the contribution (#426, fixes #368).
+
+## Bug Fixes
+
+- **`GlassBarItem.custom` without `onTap` wrapped its child in an unlabelled button (PR #434, fixes #432):** Omitting `onTap` defaulted to a no-op callback that still wrapped the slot in a button, so a custom child that was already a button exposed two nested buttons to screen readers and keyboard navigation. Omitting `onTap` on `GlassBarItem.custom` or `GlassButtonGroupItem` now leaves the slot passive — no outer button semantics, focus stop, tap recognizer, or strip overflow entry — and a `label` on a passive slot names it as a single node.
+
+  Thanks to [@veloce](https://github.com/veloce) for the bug report (#432).
+
+- **`GlassMenu` mouse hover pill (PR #430):** The `selectionColor` highlight pill now follows a resting mouse pointer across menu rows and clears when the pointer exits, giving visible hover feedback on light glass where the white item wash was invisible.
+
+  Thanks to [@Ahmadre](https://github.com/Ahmadre) for the fix (#430).
+
+- **Offstage pinned bar resize assertion (PR #429):** `GlassPinnedBarChrome` now removes its in-route `OverlayPortal` strip while its route is offstage, preventing `size == theater.size` assertions when rotating or unfolding iPhone Duo under a full-screen route.
+
+  Thanks to [@JakeThomson](https://github.com/JakeThomson) for the fix (#429).
+
+- **Locked modal sheet outside-tap dismissal (PR #428):** `GlassModalSheetScaffold` now accepts `barrierDismissible` (wired from `GlassModalSheet.show(isDismissible:)`), keeping non-dismissible sheets open when tapping outside.
+
+  Thanks to [@JakeThomson](https://github.com/JakeThomson) for the fix (#428).
+
 # 1.13.0
 
 ## Features

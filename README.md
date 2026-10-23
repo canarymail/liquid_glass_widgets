@@ -26,7 +26,7 @@ Bring Apple's Liquid Glass to your Flutter app — from the iOS 26 original to t
 
 ```yaml
 dependencies:
-  liquid_glass_widgets: ^1.13.0
+  liquid_glass_widgets: ^1.14.2
 ```
 
 ```bash
@@ -768,6 +768,26 @@ void main() async {
 
 On first launch: `initial` is null → Phase 2 runs → quality settles → persisted.  
 On every subsequent launch: `initial` is non-null → Phase 2 skipped → no jank.
+
+#### Heavy work of your own
+
+Raster time only reflects the glass while nothing else competes for the
+device. If your app does heavy work of its own (loading an on-device model,
+decoding a large file), wrap it in a measurement hold so the slowdown is not
+mistaken for a device that cannot render the glass:
+
+```dart
+final hold = GlassAdaptiveScope.holdMeasurement();
+try {
+  await heavyWork();
+} finally {
+  hold.release();
+}
+```
+
+While a hold is open, no scope counts frames (warm-up or runtime). After the
+last hold is released, `GlassAdaptiveScope.settleFramesAfterHold` (default
+120) further frames are skipped before measuring resumes.
 
 ### GPU Budget Monitoring
 

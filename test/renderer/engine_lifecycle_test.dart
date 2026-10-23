@@ -9,8 +9,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_widgets/src/engine/liquid_glass.dart';
 import 'package:liquid_glass_widgets/src/engine/liquid_glass_blend_group.dart';
 import 'package:liquid_glass_widgets/src/engine/liquid_glass_settings.dart';
+import 'package:liquid_glass_widgets/src/engine/liquid_shape.dart';
 import 'package:liquid_glass_widgets/src/engine/render_liquid_glass_geometry.dart';
 import 'package:liquid_glass_widgets/src/engine/rendering/liquid_glass_render_object.dart';
 import 'package:liquid_glass_widgets/src/engine/shaders.dart';
@@ -158,6 +160,50 @@ void main() {
       expect(picture.debugDisposed, isTrue);
       expect(rendered!.matte.width, 1);
       rendered.dispose();
+    });
+  });
+
+  group('RenderLiquidGlassBlendGroup.gatherShapeData', () {
+    test('reserves 3 physical pixels around shapeBounds even without rim/frost',
+        () {
+      final link = GlassGroupLink();
+      final shape = RenderLiquidGlass(
+        shape: const LiquidRoundedRectangle(borderRadius: 23),
+        glassContainsChild: false,
+        blendGroupLink: link,
+      )..child = RenderConstrainedBox(
+          additionalConstraints: BoxConstraints.tight(const Size(46, 46)),
+        );
+      final blendGroup = RenderLiquidGlassBlendGroup(
+        renderLink: GeometryRenderLink(),
+        devicePixelRatio: 3,
+        geometryShader: geometryShader,
+        settings: const LiquidGlassSettings(
+          thickness: 20,
+          blur: 0,
+          rimShade: 0,
+          frost: 0,
+        ),
+        link: link,
+        blend: 0,
+      )..child = shape;
+
+      final owner = PipelineOwner();
+      blendGroup
+        ..attach(owner)
+        ..layout(BoxConstraints.tight(const Size(46, 46)),
+            parentUsesSize: true);
+
+      final (bounds, shapes, _) = blendGroup.gatherShapeData();
+      expect(shapes, hasLength(1));
+      expect(shapes.single.shapeBounds, const Rect.fromLTWH(0, 0, 46, 46));
+      // 3 physical pixels at devicePixelRatio 3.0 = 1.0 logical pixel per side.
+      expect(bounds, const Rect.fromLTWH(-1, -1, 48, 48));
+
+      blendGroup
+        ..detach()
+        ..dispose();
+      link.dispose();
     });
   });
 }

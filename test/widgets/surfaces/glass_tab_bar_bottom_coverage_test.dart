@@ -257,6 +257,31 @@ void main() {
   });
 
   group('JellyClipper', () {
+    test('getClip matches the inset optical track at rest and between tabs',
+        () {
+      // A 400px track has 4px padding on each side and four 98px lenses.
+      // Include mid-transition positions as well as every settled tab.
+      const alignments = [-1.0, -2 / 3, -1 / 3, 0.0, 1 / 3, 2 / 3, 1.0];
+      const expectedLefts = [4.0, 53.0, 102.0, 151.0, 200.0, 249.0, 298.0];
+      for (var i = 0; i < alignments.length; i++) {
+        final clipper = JellyClipper(
+          itemCount: 4,
+          alignment: Alignment(alignments[i], 0),
+          thickness: 0,
+          expansion: EdgeInsets.zero,
+          transform: Matrix4.identity(),
+          borderRadius: 24,
+        );
+
+        final bounds = clipper.getClip(const Size(400, 64)).getBounds();
+
+        expect(bounds.left, closeTo(expectedLefts[i], 0.001));
+        expect(bounds.width, closeTo(98, 0.001));
+        expect(bounds.top, 4);
+        expect(bounds.bottom, 60);
+      }
+    });
+
     test('shouldReclip returns false for sub-pixel changes', () {
       final c1 = JellyClipper(
         itemCount: 3,

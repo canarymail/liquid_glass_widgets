@@ -109,29 +109,30 @@ class JellyClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    final tabWidth = size.width / itemCount;
-    final availableWidth = size.width - tabWidth;
+    // AnimatedGlassIndicator pads the WHOLE track before dividing it into
+    // equal-width cells. Use the same order here: insetting each cell instead
+    // makes the mask narrower than the lens, with a position-dependent offset.
+    const indicatorInset = 4.0;
+    final trackWidth = size.width - 2 * indicatorInset;
+    final tabWidth = trackWidth / itemCount;
+    final availableWidth = trackWidth - tabWidth;
+    final rawLeft = indicatorInset + (alignment.x + 1) / 2 * availableWidth;
 
-    // Map alignment (-1 to 1) to horizontal offset.
-    final rawLeft = (alignment.x + 1) / 2 * availableWidth;
-
-    // Overdrag guard: when the user rubber-bands past the first or last tab
-    // (alignment.x outside [-1, 1]), the raw offset would slide the clip
-    // window off the edge tab's icon entirely. Instead, clamp the leading edge
-    // to the bar boundary and let the trailing edge extend into overflow — the
-    // outer glass shape (AdaptiveGlass / _barShape) trims the overflow — so
-    // the icon stays fully visible and the pill reads as pressing elastically
-    // against the wall rather than vanishing off the edge (#328).
-    final left = rawLeft.clamp(double.negativeInfinity, availableWidth);
-    final right = (rawLeft + tabWidth).clamp(tabWidth, double.infinity);
-
-    final baseRect = Rect.fromLTRB(left, 0, right, size.height);
-
+    // Keep the edge tab covered during rubber-band overdrag (#328). Only
+    // extend the outward edge; normal positions still match the optical lens.
+    final left = rawLeft.clamp(
+      double.negativeInfinity,
+      indicatorInset + availableWidth,
+    );
+    final right = (rawLeft + tabWidth).clamp(
+      indicatorInset + tabWidth,
+      double.infinity,
+    );
     final paddedRect = Rect.fromLTRB(
-      baseRect.left + 4.0,
-      baseRect.top + 4.0,
-      baseRect.right - 4.0,
-      baseRect.bottom - 4.0,
+      left,
+      indicatorInset,
+      right,
+      size.height - indicatorInset,
     );
 
     // Apply expansion based on thickness (drag state)

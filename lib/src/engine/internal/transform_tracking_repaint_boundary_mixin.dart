@@ -89,6 +89,17 @@ class GeometryTransformTrackingLayer extends OffsetLayer {
 
   RenderObject? renderObject;
   VoidCallback? onTransformChanged;
+
+  /// Brings the render object's last paint up to date with its current
+  /// transform while this frame is composited, for a move that reused its
+  /// layers without a repaint. Returning true suppresses
+  /// [onTransformChanged]; returning false lets it run instead.
+  ///
+  /// It runs inside [addToScene], before the parent adds this layer's later
+  /// siblings, so it may change only layers added after this one: those the
+  /// render object paints after pushing this layer
+  /// ([TransformTrackingRenderObjectMixin.paint]).
+  bool Function()? updateAtComposite;
   Matrix4? _lastTransform;
 
   @override
@@ -107,7 +118,9 @@ class GeometryTransformTrackingLayer extends OffsetLayer {
       // Don't trigger onTransformChanged on the very first frame (when _lastTransform is null).
       // The render object just painted itself, so it is already up to date. Triggering it
       // here would needlessly dirty the render tree and force a second frame to render.
-      if (_lastTransform != null) {
+      // After that, a moved render object first tries to update its last paint for this
+      // frame (updateAtComposite); only when it can't is a repaint scheduled.
+      if (_lastTransform != null && !(updateAtComposite?.call() ?? false)) {
         _notifyTransformChanged();
       }
       _lastTransform = currentTransform;

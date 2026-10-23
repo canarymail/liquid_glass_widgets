@@ -120,6 +120,7 @@ class GlassPullDownButton extends StatelessWidget {
     return GlassMenu(
       menuWidth: menuWidth,
       menuAlignment: menuAlignment,
+      autoAdjustToScreen: true,
       quality: effectiveQuality,
       enableContinuousSwipe: enableContinuousSwipe,
       continuousSwipeSlop: continuousSwipeSlop,

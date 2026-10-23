@@ -205,9 +205,16 @@ abstract class RenderLiquidGlassGeometry extends RenderProxyBox {
     return path;
   }
 
+  /// Whether the cached [geometry] still matches the current shapes and their
+  /// transforms relative to this render object.
+  @protected
+  bool get isGeometryCacheValid => true;
+
   /// Should be called from within [paint] to maybe rebuild the [geometry].
   GeometryCache? maybeRebuildGeometry() {
-    if (geometryState == LiquidGlassGeometryState.updated && geometry != null) {
+    if (geometryState == LiquidGlassGeometryState.updated &&
+        geometry != null &&
+        isGeometryCacheValid) {
       return geometry;
     }
 
@@ -216,9 +223,11 @@ abstract class RenderLiquidGlassGeometry extends RenderProxyBox {
     if (geometryState == LiquidGlassGeometryState.mightNeedUpdate &&
         !anyShapeChangedInLayer &&
         geometry != null) {
-      renderLink?.notifyGeometryChanged(this);
-
-      // Only render once we are done building
+      // Nothing about the shapes changed in the group's space, so the layer's
+      // matte is still right and the link is not marked dirty. Only the
+      // recorded Picture is turned into an image (once; rendered caches
+      // return themselves), so later matte rebuilds blit it instead of
+      // replaying the geometry shader.
       geometry = geometry!.render();
       geometryState = LiquidGlassGeometryState.updated;
       return geometry;

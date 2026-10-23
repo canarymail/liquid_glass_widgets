@@ -25,6 +25,8 @@ class GlassNavBarRegistration {
     required this.showsBackButton,
     this.onBack,
     this.buttonSettings,
+    this.buttonSize,
+    this.toolbarHeight,
     @Deprecated(
       'A hoisted sheet item presents out of the hoisted capsule; the tap is '
       'no longer handed back.',
@@ -34,7 +36,14 @@ class GlassNavBarRegistration {
     this.platformViewBackdrop = false,
     this.largeTitleController,
     this.stripRowTop,
-  });
+  })  : assert(
+          buttonSize == null || buttonSize > 0,
+          'buttonSize must be positive',
+        ),
+        assert(
+          toolbarHeight == null || toolbarHeight >= 0,
+          'toolbarHeight must not be negative',
+        );
 
   /// The trailing cluster items for this route.
   final List<GlassBarItem> actions;
@@ -54,6 +63,26 @@ class GlassNavBarRegistration {
 
   /// Glass settings applied to this route's pinned chrome.
   final LiquidGlassSettings? buttonSettings;
+
+  /// Diameter of standalone bar buttons (including the automatic back button
+  /// and [GlassBarItemBackground.separate], [GlassBarItemBackground.own], and
+  /// [GlassBarItemBackground.none] items), in logical pixels.
+  ///
+  /// Defaults to [GlassNavPinnedMetrics.backDiameter] (`44.0`). Shared
+  /// multi-item capsules ([GlassBarItemBackground.shared]) use
+  /// `buttonSize + (GlassNavPinnedMetrics.slot - GlassNavPinnedMetrics.backDiameter)`
+  /// (`buttonSize + 2.0`), preserving the `46 / 44` ratio.
+  ///
+  /// Ignored in iPhone Duo's vertical bar strip, where controls use
+  /// [GlassVerticalBarMetrics.controlExtent].
+  final double? buttonSize;
+
+  /// Height of the horizontal toolbar row that the pinned chrome centres
+  /// within, in logical pixels.
+  ///
+  /// Defaults to [GlassNavPinnedMetrics.toolbarHeight] (`44.0`), or
+  /// [buttonSize] when [buttonSize] is larger.
+  final double? toolbarHeight;
 
   /// No longer called: a [GlassBarItem.sheet] presents out of the hoisted
   /// capsule itself, which the shell keeps through the presentation. See

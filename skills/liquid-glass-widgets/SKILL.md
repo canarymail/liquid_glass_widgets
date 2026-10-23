@@ -457,6 +457,7 @@ GlassAppBar.pinned(
 - [ ] **`GlassAppBar` uses `actions: [...]` (a List), not `trailing:`.** There is no `trailing` parameter.
 - [ ] **`GlassChip.label` is a `String`, not a `Widget`.** Pass `label: 'text'`, not `label: Text('text')`.
 - [ ] **`GlassBarItem.icon` uses `onTap` (required), not `onPressed`.**
+- [ ] **`GlassBarItem.custom` takes an optional `onTap` — omit it when the child is already a button.** Omitting `onTap` leaves the slot passive; passing a no-op `onTap: () {}` wraps the child in a second, unlabelled button for screen readers.
 - [ ] **Nested menus use `GlassMenuItem(submenu: [...])`.** The parent row still needs `onTap: () {}` (required, never called). Don't open a second `GlassMenu` from `onTap`.
 - [ ] **`tintColor` on `GlassBarItem` requires `background: GlassBarItemBackground.separate`.** A shared-background item cannot be tinted (asserts in debug mode). The foreground icon colour is flipped automatically — do not also set a manual `Icon(color:)` on the child.
 - [ ] **`GlassSwipeAction` uses `onTap`; `GlassContextMenuAction` uses `child` + `onPressed`.** Wrap swipeable lists in `GlassSwipeActionScope`.

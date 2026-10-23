@@ -1364,6 +1364,72 @@ void main() {
 
       expect(find.text('Copy'), findsOneWidget);
     });
+
+    for (final pinned in [true, false]) {
+      final where = pinned ? 'pinned' : 'in-route';
+
+      Future<void> openMenu(WidgetTester tester, List<Widget> items) async {
+        if (!pinned) GlassNavigationShellState.debugPinningSupported = false;
+        final screen = _Screen(title: 'Root', actions: [
+          GlassBarItem.menu(
+            icon: const Icon(CupertinoIcons.ellipsis),
+            menuItems: items,
+          ),
+        ]);
+        await tester
+            .pumpWidget(pinned ? shellApp(screen) : CupertinoApp(home: screen));
+        await settle(tester);
+        await tester.tap(pinned
+            ? find.descendant(
+                of: find.byType(GlassNavPinnedHost),
+                matching: find.byIcon(CupertinoIcons.ellipsis),
+              )
+            : find.byIcon(CupertinoIcons.ellipsis));
+        await tester.pumpAndSettle();
+      }
+
+      /// Scrolls from [first] toward the end and taps [last], which must be on
+      /// screen.
+      Future<void> scrollAndTap(
+          WidgetTester tester, String first, String last) async {
+        await tester.drag(find.text(first), const Offset(0, -3000));
+        await tester.pumpAndSettle();
+        final screen = Offset.zero &
+            tester.view.physicalSize / tester.view.devicePixelRatio;
+        expect(screen.contains(tester.getCenter(find.text(last))), isTrue);
+        await tester.tap(find.text(last));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('$where: a long menu stops at the screen edge and scrolls',
+          (tester) async {
+        var chosen = false;
+        await openMenu(tester, [
+          for (var i = 1; i <= 30; i++)
+            GlassMenuItem(title: 'Row $i', onTap: () => chosen = i == 30),
+        ]);
+
+        await scrollAndTap(tester, 'Row 1', 'Row 30');
+        expect(chosen, isTrue);
+      });
+
+      testWidgets('$where: a long submenu stops at the screen edge and scrolls',
+          (tester) async {
+        var chosen = false;
+        await openMenu(tester, [
+          GlassMenuItem(title: 'Copy', onTap: () {}),
+          GlassMenuItem(title: 'Move to…', onTap: () {}, submenu: [
+            for (var i = 1; i <= 30; i++)
+              GlassMenuItem(title: 'Folder $i', onTap: () => chosen = i == 30),
+          ]),
+        ]);
+        await tester.tap(find.text('Move to…'));
+        await tester.pumpAndSettle();
+
+        await scrollAndTap(tester, 'Folder 1', 'Folder 30');
+        expect(chosen, isTrue);
+      });
+    }
   });
 
   group('page-based navigators', () {
@@ -1612,6 +1678,335 @@ void main() {
       ));
       expect(found, isNotNull);
       expect(found!.isActive, isTrue);
+    });
+  });
+
+  group('configurable buttonSize and toolbarHeight (#425)', () {
+    Finder inHost(Finder matching) => find.descendant(
+          of: find.byType(GlassNavPinnedHost),
+          matching: matching,
+        );
+
+    Finder inBar(Finder matching) => find.descendant(
+          of: find.byType(GlassAppBar),
+          matching: matching,
+        );
+
+    testWidgets(
+        'buttonSize sizes back button, separate items, shared capsules, and '
+        'own custom GlassButton without squeezing to 44pt', (tester) async {
+      const customKey = ValueKey('custom-48');
+      Widget buildRoute() => GlassScaffold(
+            appBar: GlassAppBar.pinned(
+              title: const Text('Detail'),
+              buttonSize: 48,
+              actions: [
+                GlassBarItem.icon(
+                  icon: const Icon(CupertinoIcons.bell),
+                  background: GlassBarItemBackground.separate,
+                  onTap: () {},
+                ),
+                GlassBarItem.custom(
+                  background: GlassBarItemBackground.own,
+                  child: GlassButton(
+                    key: customKey,
+                    icon: const Icon(CupertinoIcons.heart),
+                    width: 48,
+                    height: 48,
+                    onTap: () {},
+                  ),
+                ),
+              ],
+            ),
+            body: const SizedBox(),
+          );
+
+      await tester.pumpWidget(shellApp(const _Screen(
+        title: 'Root',
+        actions: [],
+      )));
+      await settle(tester);
+      await _push(tester, buildRoute());
+      await settle(tester);
+
+      final appBar = tester.widget<GlassAppBar>(
+        find.byType(GlassAppBar).last,
+      );
+      expect(appBar.preferredSize.height, 48.0);
+
+      // Automatic back button is 48x48 with 24pt circular radius.
+      final backShell = find.ancestor(
+        of: pinnedBack(),
+        matching: find.byType(GlassButton),
+      );
+      expect(tester.getSize(backShell), const Size(48, 48));
+      final backShape =
+          tester.widget<GlassButton>(backShell).shape as LiquidRoundedRectangle;
+      expect(backShape.borderRadius, 24.0);
+
+      // Separate action button is 48x48 with 24pt circular radius.
+      final bellShell = find.ancestor(
+        of: inHost(find.byIcon(CupertinoIcons.bell)),
+        matching: find.byType(GlassButton),
+      );
+      expect(tester.getSize(bellShell), const Size(48, 48));
+
+      // Custom GlassButton with GlassBarItemBackground.own is laid out at its
+      // full 48x48 size rather than squeezed to 44pt.
+      expect(tester.getSize(inHost(find.byKey(customKey))), const Size(48, 48));
+    });
+
+    testWidgets(
+        'shared multi-item capsule scales proportionally (buttonSize + 2) and '
+        'matches in-route fallback', (tester) async {
+      Widget buildScreen() => GlassScaffold(
+            appBar: GlassAppBar.pinned(
+              title: const Text('Root'),
+              buttonSize: 48,
+              actions: [
+                GlassBarItem.icon(
+                  icon: const Icon(CupertinoIcons.add),
+                  onTap: () {},
+                ),
+                GlassBarItem.icon(
+                  icon: const Icon(CupertinoIcons.search),
+                  onTap: () {},
+                ),
+              ],
+            ),
+            body: const SizedBox(),
+          );
+
+      await tester.pumpWidget(shellApp(buildScreen()));
+      await settle(tester);
+      // 2 shared slots of (48 + 2) = 50pt each -> 100 x 50 with 25pt radius.
+      final pinnedShell = inHost(find.byType(GlassButton)).first;
+      final pinnedSize = tester.getSize(pinnedShell);
+      expect(pinnedSize, const Size(100, 50));
+      final pinnedShape = tester.widget<GlassButton>(pinnedShell).shape
+          as LiquidRoundedRectangle;
+      expect(pinnedShape.borderRadius, 25.0);
+
+      await tester.pumpWidget(shellApp(buildScreen(), enabled: false));
+      await settle(tester);
+      final inRouteGroup = inBar(find.byType(GlassButtonGroup)).first;
+      final inRouteSize = tester.getSize(inRouteGroup);
+      expect(inRouteSize, pinnedSize);
+      expect(tester.widget<GlassButtonGroup>(inRouteGroup).borderRadius, 25.0);
+    });
+
+    testWidgets(
+        'custom toolbarHeight vertically centers hoisted buttons to match '
+        'in-route layout', (tester) async {
+      Widget buildScreen() => GlassScaffold(
+            appBar: GlassAppBar.pinned(
+              title: const Text('Tall Bar'),
+              toolbarHeight: 56,
+              actions: [
+                GlassBarItem.icon(
+                  icon: const Icon(CupertinoIcons.bell),
+                  background: GlassBarItemBackground.separate,
+                  onTap: () {},
+                ),
+              ],
+            ),
+            body: const SizedBox(),
+          );
+
+      await tester.pumpWidget(shellApp(buildScreen()));
+      await settle(tester);
+      final hoistedBellShell = find.ancestor(
+        of: inHost(find.byIcon(CupertinoIcons.bell)),
+        matching: find.byType(GlassButton),
+      );
+      final hoistedTopLeft = tester.getTopLeft(hoistedBellShell);
+      // 44pt standalone button centered in a 56pt bar sits at y = (56 - 44)/2 = 6.
+      expect(hoistedTopLeft.dy, 6.0);
+
+      await tester.pumpWidget(shellApp(buildScreen(), enabled: false));
+      await settle(tester);
+      final inRouteBellGroup = find.ancestor(
+        of: inBar(find.byIcon(CupertinoIcons.bell)),
+        matching: find.byType(GlassButtonGroup),
+      );
+      expect(tester.getTopLeft(inRouteBellGroup), hoistedTopLeft);
+    });
+
+    GlassScaffold sizedScreen(
+      String title, {
+      double? buttonSize,
+      int actions = 1,
+    }) =>
+        GlassScaffold(
+          appBar: GlassAppBar.pinned(
+            title: Text(title),
+            buttonSize: buttonSize,
+            actions: [
+              for (var i = 0; i < actions; i++)
+                GlassBarItem.icon(
+                  id: 'action-$i',
+                  icon: const Icon(CupertinoIcons.add),
+                  onTap: () {},
+                ),
+            ],
+          ),
+          body: const SizedBox(),
+        );
+
+    testWidgets(
+        'at the default size the in-route and hoisted shared capsules match',
+        (tester) async {
+      await tester.pumpWidget(shellApp(sizedScreen('Root', actions: 2)));
+      await settle(tester);
+      final hoistedFinder = inHost(find.byType(GlassButton)).first;
+      final hoisted = tester.getSize(hoistedFinder);
+      expect(
+        hoisted,
+        const Size(
+          GlassNavPinnedMetrics.slot * 2,
+          GlassNavPinnedMetrics.slot,
+        ),
+      );
+      final hoistedShape = tester.widget<GlassButton>(hoistedFinder).shape
+          as LiquidRoundedRectangle;
+      expect(hoistedShape.borderRadius, GlassNavPinnedMetrics.slot / 2.0);
+
+      await tester.pumpWidget(
+        shellApp(sizedScreen('Root', actions: 2), enabled: false),
+      );
+      await settle(tester);
+      final inRouteFinder = inBar(find.byType(GlassButtonGroup)).first;
+      expect(tester.getSize(inRouteFinder), hoisted);
+      expect(
+        tester.widget<GlassButtonGroup>(inRouteFinder).borderRadius,
+        GlassNavPinnedMetrics.slot / 2.0,
+      );
+    });
+
+    testWidgets('toolbarHeight: 0 still builds', (tester) async {
+      await tester.pumpWidget(shellApp(const GlassScaffold(
+        appBar: GlassAppBar.pinned(title: Text('Hidden'), toolbarHeight: 0),
+        body: SizedBox(),
+      )));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+    });
+
+    test('a non-positive buttonSize is rejected', () {
+      expect(
+        () => GlassAppBar.pinned(buttonSize: 0),
+        throwsAssertionError,
+      );
+      expect(
+        () => GlassAppBar.pinned(buttonSize: -4),
+        throwsAssertionError,
+      );
+    });
+
+    testWidgets(
+        'a push and pop between routes of different buttonSize morph cleanly '
+        'and land on each route\'s size', (tester) async {
+      await tester.pumpWidget(shellApp(sizedScreen('Root', actions: 2)));
+      await settle(tester);
+      await _push(tester, sizedScreen('Detail', buttonSize: 48, actions: 2));
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+      }
+      await settle(tester);
+
+      expect(
+        tester.getSize(find.ancestor(
+          of: pinnedBack(),
+          matching: find.byType(GlassButton),
+        )),
+        const Size(48, 48),
+      );
+      expect(
+        tester.getSize(inHost(find.byType(GlassButton)).last),
+        const Size(100, 50),
+      );
+
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+      }
+      await settle(tester);
+      expect(
+        tester.getSize(inHost(find.byType(GlassButton)).last),
+        const Size(92, 46),
+      );
+    });
+
+    testWidgets('the gel swell at a larger buttonSize is not clamped',
+        (tester) async {
+      await tester.pumpWidget(
+        shellApp(sizedScreen('Root', buttonSize: 48, actions: 1)),
+      );
+      await settle(tester);
+      await _push(tester, sizedScreen('Detail', buttonSize: 48, actions: 2));
+
+      var tallest = 0.0;
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.takeException(), isNull);
+        final capsule = inHost(find.byType(GlassButton)).last;
+        if (capsule.evaluate().isNotEmpty) {
+          tallest = tallest < tester.getSize(capsule).height
+              ? tester.getSize(capsule).height
+              : tallest;
+        }
+      }
+      await settle(tester);
+
+      // Rest height is 50; the swell must rise above it, which a box bounded
+      // to the 48pt toolbar would have prevented.
+      expect(tallest, greaterThan(50.5));
+    });
+
+    testWidgets('buttonSize lays out mirrored under RTL', (tester) async {
+      await tester.pumpWidget(CupertinoApp(
+        builder: (context, child) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: GlassNavigationShell(child: child!),
+        ),
+        home: sizedScreen('Root', actions: 0),
+      ));
+      await settle(tester);
+      await _push(
+        tester,
+        GlassScaffold(
+          appBar: GlassAppBar.pinned(
+            title: const Text('Detail'),
+            buttonSize: 48,
+            actions: [
+              GlassBarItem.icon(
+                icon: const Icon(CupertinoIcons.bell),
+                background: GlassBarItemBackground.separate,
+                onTap: () {},
+              ),
+            ],
+          ),
+          body: const SizedBox(),
+        ),
+      );
+      await settle(tester);
+
+      final screen =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      final back = tester.getRect(find.ancestor(
+        of: pinnedBack(),
+        matching: find.byType(GlassButton),
+      ));
+      final bell = tester.getRect(find.ancestor(
+        of: inHost(find.byIcon(CupertinoIcons.bell)),
+        matching: find.byType(GlassButton),
+      ));
+      expect(back.size, const Size(48, 48));
+      expect(bell.size, const Size(48, 48));
+      expect(back.right, screen - GlassNavPinnedMetrics.horizontalPadding);
+      expect(bell.left, GlassNavPinnedMetrics.horizontalPadding);
     });
   });
 }

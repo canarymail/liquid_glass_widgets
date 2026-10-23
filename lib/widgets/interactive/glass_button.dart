@@ -809,11 +809,17 @@ class _GlassButtonState extends State<GlassButton>
           opacity += 0.08;
         }
         if (opacity <= 0) return const SizedBox.shrink();
+        // Clipped to the button's shape: the fill covers the whole box and
+        // relied on the blur layer's clip to hide the corners, so with
+        // `blur: 0` (no blur layer) a pressed pill lit up as a rectangle.
         return Positioned.fill(
           child: IgnorePointer(
-            child: ColoredBox(
-              color: CupertinoColors.white
-                  .withValues(alpha: opacity.clamp(0.0, 1.0)),
+            child: ClipPath(
+              clipper: ShapeBorderClipper(shape: widget.shape),
+              child: ColoredBox(
+                color: CupertinoColors.white
+                    .withValues(alpha: opacity.clamp(0.0, 1.0)),
+              ),
             ),
           ),
         );

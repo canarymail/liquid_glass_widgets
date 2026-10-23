@@ -272,6 +272,95 @@ void main() {
     expect(item.submenu, isNotNull);
     expect(item.submenu!.length, 1);
   });
+
+  testWidgets('GlassPullDownButton long menu stops at screen edge and scrolls',
+      (tester) async {
+    var chosen = false;
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: GlassPullDownButton(
+              icon: const Icon(CupertinoIcons.ellipsis_circle),
+              items: [
+                for (var i = 1; i <= 30; i++)
+                  GlassMenuItem(
+                    title: 'Row $i',
+                    onTap: () => chosen = i == 30,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(GlassPullDownButton));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.text('Row 1'), const Offset(0, -3000));
+    await tester.pumpAndSettle();
+
+    final screen =
+        Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
+    expect(screen.contains(tester.getCenter(find.text('Row 30'))), isTrue);
+
+    await tester.tap(find.text('Row 30'));
+    await tester.pumpAndSettle();
+    expect(chosen, isTrue);
+  });
+
+  testWidgets(
+      'GlassPullDownButton long submenu stops at screen edge and scrolls',
+      (tester) async {
+    var chosen = false;
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: GlassPullDownButton(
+              icon: const Icon(CupertinoIcons.ellipsis_circle),
+              items: [
+                GlassMenuItem(title: 'Copy', onTap: () {}),
+                GlassMenuItem(
+                  title: 'Move to…',
+                  onTap: () {},
+                  submenu: [
+                    for (var i = 1; i <= 30; i++)
+                      GlassMenuItem(
+                        title: 'Folder $i',
+                        onTap: () => chosen = i == 30,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(GlassPullDownButton));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Move to…'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.text('Folder 1'), const Offset(0, -3000));
+    await tester.pumpAndSettle();
+
+    final screen =
+        Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
+    expect(screen.contains(tester.getCenter(find.text('Folder 30'))), isTrue);
+
+    await tester.tap(find.text('Folder 30'));
+    await tester.pumpAndSettle();
+    expect(chosen, isTrue);
+  });
 }
 
 void _noop() {}

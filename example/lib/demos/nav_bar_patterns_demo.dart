@@ -1598,6 +1598,14 @@ class _NestedNavDemo extends StatelessWidget {
                 title: 'Move to…',
                 icon: const Icon(CupertinoIcons.folder),
                 onTap: () {},
+                submenu: [
+                  for (var i = 1; i <= 30; i++)
+                    GlassMenuItem(
+                      title: 'Folder $i',
+                      icon: const Icon(CupertinoIcons.folder),
+                      onTap: () {},
+                    ),
+                ],
               ),
               GlassMenuDivider(),
               GlassMenuItem(

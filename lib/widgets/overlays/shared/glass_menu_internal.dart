@@ -83,10 +83,12 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
     }
     if (!identical(widget.items, oldWidget.items)) {
       _cachedWrappedItems = null;
+      _refreshOpenLevels();
       // BUG 12 FIX: Clear hover state if items shrink while menu is open
       // to prevent RangeError when the selection pill tries to measure
-      // a now-deleted index.
-      if (widget.items.length < oldWidget.items.length) {
+      // a now-deleted index (including inside an open submenu card).
+      if (widget.items.length < oldWidget.items.length ||
+          (_hoveredIndex != null && _hoveredIndex! >= _items.length)) {
         _hoveredIndex = null;
         _hoveredIndexNotifier.value = null;
       }
@@ -777,33 +779,11 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
     if (sourceIndex < 0) return;
     final sourceOffset = _listRowTop(sourceIndex, sourceList) -
         (_scrollController.hasClients ? _scrollController.offset : 0.0);
-    final list = <Widget>[
-      _GlassMenuHeaderItem(
-        key: ValueKey<String>('glass-menu-header-${_submenuStack.length + 1}'),
-        title: parent.title,
-        icon: parent.icon,
-        titleStyle: (parent.titleStyle ??
-                TextStyle(
-                  fontSize: 17,
-                  color: parent.iconColor ??
-                      CupertinoTheme.of(context)
-                          .textTheme
-                          .textStyle
-                          .color
-                          ?.withValues(alpha: 0.9),
-                ))
-            .copyWith(fontWeight: FontWeight.w600),
-        height: parent.height,
-        iconColor: parent.isDestructive ? null : parent.iconColor,
-        iconSize: parent.iconSize,
-        enablePressScale: parent.enablePressScale,
-      ),
-      const GlassMenuDivider(),
-      ...parent.submenu!,
-    ];
+    final list = _levelList(parent, _submenuStack.length + 1);
     setState(() {
       _submenuStack.add(_SubmenuLevel(
         list: list,
+        sourceIndex: sourceIndex,
         sourceRowTop: sourceOffset,
         sourceScrollOffset:
             _scrollController.hasClients ? _scrollController.offset : 0.0,
@@ -821,6 +801,48 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
     _reclampStack();
     _startLevelMorph();
     widget.onLevelChanged?.call(_submenuStack.length, _stackExtent());
+  }
+
+  /// The card for [parent]'s submenu at [depth]: its header (the source row
+  /// repeated) and its rows.
+  List<Widget> _levelList(GlassMenuItem parent, int depth) => <Widget>[
+        _GlassMenuHeaderItem(
+          key: ValueKey<String>('glass-menu-header-$depth'),
+          title: parent.title,
+          icon: parent.icon,
+          titleStyle: (parent.titleStyle ??
+                  TextStyle(
+                    fontSize: 17,
+                    color: parent.iconColor ??
+                        CupertinoTheme.of(context)
+                            .textTheme
+                            .textStyle
+                            .color
+                            ?.withValues(alpha: 0.9),
+                  ))
+              .copyWith(fontWeight: FontWeight.w600),
+          height: parent.height,
+          iconColor: parent.isDestructive ? null : parent.iconColor,
+          iconSize: parent.iconSize,
+          enablePressScale: parent.enablePressScale,
+        ),
+        const GlassMenuDivider(),
+        ...parent.submenu!,
+      ];
+
+  /// Rebuilds each open card from the parent row now at its source index, so a
+  /// card follows its parent when the menu's items change while it is open (a
+  /// title that counts down, a check that moves between rows). A level whose
+  /// parent is no longer a submenu row stays as it was.
+  void _refreshOpenLevels() {
+    var list = widget.items;
+    for (var depth = 0; depth < _submenuStack.length; depth++) {
+      final level = _submenuStack[depth];
+      final parent = list.elementAtOrNull(level.sourceIndex);
+      if (parent is! GlassMenuItem || parent.submenu == null) return;
+      list = _levelList(parent, depth + 1);
+      _submenuStack[depth] = level.withList(list);
+    }
   }
 
   /// Closes the top card: it flies back to its source row while the level
@@ -1985,69 +2007,87 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
                 );
               },
             ),
-            Listener(
-              onPointerDown: (event) {
-                if (!mounted) return;
-                _isDragging = true;
-                _isDraggingNotifier.value = true;
-                _hasStretched = false;
-                _initialScrollOffset = _scrollController.hasClients
-                    ? _scrollController.offset
-                    : 0.0;
-                _updateHoveredIndex(event.localPosition);
+            MouseRegion(
+              // A mouse resting on a row moves the selection pill there, the
+              // same highlight a press-and-slide shows. The rows' own hover
+              // fill is a white wash meant for dark glass and disappears on
+              // light glass, so without this a pointer gets no hover at all.
+              onExit: (_) {
+                if (!mounted || _isDragging) return;
+                _hoveredIndex = null;
+                _hoveredIndexNotifier.value = null;
               },
-              onPointerMove: (event) {
-                if (!mounted) return;
-                if (_isDragging) {
-                  _updateHoveredIndex(event.localPosition);
-                }
-              },
-              onPointerUp: (event) {
-                if (!mounted) return;
-                // The row's own tap recogniser fires later in this same dispatch;
-                // it must not activate the row a second time (see
-                // _buildWrappedItems).
-                _bodyPointerUpHandled = true;
-                scheduleMicrotask(() => _bodyPointerUpHandled = false);
-                if (_isDragging) {
-                  final currentOffset = _scrollController.hasClients
+              child: Listener(
+                onPointerHover: (event) {
+                  if (!mounted || _isDragging) return;
+                  final index =
+                      _calculateIndexFromPosition(event.localPosition, context);
+                  _hoveredIndex = index;
+                  _hoveredIndexNotifier.value = index;
+                },
+                onPointerDown: (event) {
+                  if (!mounted) return;
+                  _isDragging = true;
+                  _isDraggingNotifier.value = true;
+                  _hasStretched = false;
+                  _initialScrollOffset = _scrollController.hasClients
                       ? _scrollController.offset
                       : 0.0;
-                  final scrollDisplacement =
-                      (currentOffset - _initialScrollOffset).abs();
+                  _updateHoveredIndex(event.localPosition);
+                },
+                onPointerMove: (event) {
+                  if (!mounted) return;
+                  if (_isDragging) {
+                    _updateHoveredIndex(event.localPosition);
+                  }
+                },
+                onPointerUp: (event) {
+                  if (!mounted) return;
+                  // The row's own tap recogniser fires later in this same dispatch;
+                  // it must not activate the row a second time (see
+                  // _buildWrappedItems).
+                  _bodyPointerUpHandled = true;
+                  scheduleMicrotask(() => _bodyPointerUpHandled = false);
+                  if (_isDragging) {
+                    final currentOffset = _scrollController.hasClients
+                        ? _scrollController.offset
+                        : 0.0;
+                    final scrollDisplacement =
+                        (currentOffset - _initialScrollOffset).abs();
 
-                  // Slide-to-select logic (for non-scrollable menus, tap or
-                  // slide-and-release).
-                  if (scrollDisplacement < 10 && !_isScrollable) {
-                    final indexToTap = _hoveredIndex ??
-                        _calculateIndexFromPosition(
-                            event.localPosition, context);
-                    if (indexToTap != null) {
-                      final item = _items[indexToTap];
-                      if (item is GlassMenuItem && item.enabled) {
-                        _activateItem(item);
+                    // Slide-to-select logic (for non-scrollable menus, tap or
+                    // slide-and-release).
+                    if (scrollDisplacement < 10 && !_isScrollable) {
+                      final indexToTap = _hoveredIndex ??
+                          _calculateIndexFromPosition(
+                              event.localPosition, context);
+                      if (indexToTap != null) {
+                        final item = _items[indexToTap];
+                        if (item is GlassMenuItem && item.enabled) {
+                          _activateItem(item);
+                        }
                       }
                     }
+                    _isDragging = false;
+                    _isDraggingNotifier.value = false;
+                    _hoveredIndex = null;
+                    _hoveredIndexNotifier.value = null;
+                    _hasStretched = false;
                   }
+                },
+                onPointerCancel: (_) {
+                  if (!mounted) return;
                   _isDragging = false;
                   _isDraggingNotifier.value = false;
                   _hoveredIndex = null;
                   _hoveredIndexNotifier.value = null;
-                  _hasStretched = false;
-                }
-              },
-              onPointerCancel: (_) {
-                if (!mounted) return;
-                _isDragging = false;
-                _isDraggingNotifier.value = false;
-                _hoveredIndex = null;
-                _hoveredIndexNotifier.value = null;
-              },
-              child: SizedBox(
-                key: interactive ? _menuContentKey : null,
-                width: widget.menuWidth,
-                height: viewportHeight,
-                child: listBody.child!,
+                },
+                child: SizedBox(
+                  key: interactive ? _menuContentKey : null,
+                  width: widget.menuWidth,
+                  height: viewportHeight,
+                  child: listBody.child!,
+                ),
               ),
             ),
           ],
@@ -2275,15 +2315,28 @@ const double _kRowGap = 2.0;
 class _SubmenuLevel {
   const _SubmenuLevel({
     required this.list,
+    required this.sourceIndex,
     required this.sourceRowTop,
     required this.sourceRowHeight,
     required this.sourceScrollOffset,
   });
 
   final List<Widget> list;
+
+  /// The parent row's index in the list below this card.
+  final int sourceIndex;
   final double sourceRowTop;
   final double sourceRowHeight;
   final double sourceScrollOffset;
+
+  /// The same level over a rebuilt [list].
+  _SubmenuLevel withList(List<Widget> list) => _SubmenuLevel(
+        list: list,
+        sourceIndex: sourceIndex,
+        sourceRowTop: sourceRowTop,
+        sourceRowHeight: sourceRowHeight,
+        sourceScrollOffset: sourceScrollOffset,
+      );
 }
 
 /// The source row repeated as a collapsible header, not a generic Back action.

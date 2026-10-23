@@ -19,6 +19,8 @@ import '../renderer/glass_backdrop_group_boundary.dart';
 import '../renderer/glass_frost_budget.dart';
 import '../renderer/glass_materialize_scope.dart';
 import '../renderer/liquid_glass_push_back_scope.dart';
+import '../renderer/liquid_glass_renderer.dart'
+    show debugPaintLiquidGlassGeometry;
 import '../renderer/liquid_glass_self_scale_scope.dart';
 import 'glass_glow.dart';
 import 'internal/transform_tracking_repaint_boundary_mixin.dart';
@@ -536,6 +538,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   void detach() {
     _group?.leave(this);
     _group = null;
+    _uniformsTransform = null;
     super.detach();
   }
 
@@ -649,17 +652,18 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   /// values so [matteTransform] and [captureOriginInScreenSpace] can return
   /// coordinates that match the unscaled [captureImage] texture.
   ///
-  /// Called from [paint] on every frame — not from
-  /// [onTransformChanged] — because [GeometryTransformTrackingLayer] skips
-  /// the callback on the very first frame (when [_lastTransform] is null), and
-  /// only fires again when the accumulated transform actually changes between
-  /// scene builds.  A CupertinoSheet that opens before any movement would leave
+  /// Called from [paint] on every frame, and from [_updateAtComposite] when
+  /// a move reuses the last paint — not from [onTransformChanged] — because
+  /// [GeometryTransformTrackingLayer] skips the callback on the very first
+  /// frame (when [_lastTransform] is null), and only fires again when the
+  /// accumulated transform actually changes between scene builds.  A
+  /// CupertinoSheet that opens before any movement would leave
   /// [_unscaledTransform] null if we relied on [onTransformChanged] alone,
   /// causing the frozen-coordinate fallback to silently miss.
   ///
-  /// Updating a cached field inside [paint] is safe: it calls no
-  /// [markNeedsPaint], no [setState], and no layout-invalidation, so it does
-  /// not violate Flutter's read-only paint contract.
+  /// Updating a cached field inside [paint] or while compositing is safe: it
+  /// calls no [markNeedsPaint], no [setState], and no layout-invalidation, so
+  /// it does not violate Flutter's read-only paint contract.
   void _updateScaleState(
       Matrix4 currentTransform, Offset currentCaptureOrigin) {
     if (!_hasScale(currentTransform)) {
@@ -694,6 +698,56 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   }
 
   @override
+  GeometryTransformTrackingLayer setUpLayer(Offset offset) =>
+      super.setUpLayer(offset)..updateAtComposite = _updateAtComposite;
+
+  /// The offset of the last [paintLiquidGlass], which its clips are shifted by.
+  Offset _paintOffset = Offset.zero;
+
+  /// The transform the shader filter's screen-space uniforms were last
+  /// written for, by [paintLiquidGlass] or [_updateAtComposite].
+  Matrix4? _uniformsTransform;
+
+  /// Moves the last paint's screen-space uniforms to where an ancestor moved
+  /// this layer without repainting it (a reused repaint boundary: layout or a
+  /// scroll that only translated it), in the frame being composited.
+  bool _updateAtComposite() {
+    final shaderLayer = _shaderHandle.layer;
+    final clipLayer = _clipRectLayerHandle.layer;
+    if (!attached ||
+        debugPaintLiquidGlassGeometry ||
+        shaderLayer == null ||
+        clipLayer == null ||
+        geometryImage == null ||
+        captureImage != null) {
+      return false;
+    }
+    final transform = getTransformTo(null);
+    // Painted this frame where it is now: the layers are already current.
+    if (transform == _uniformsTransform) return true;
+    _uniformsTransform = null;
+    final prevFrostRows = frostRowsPath;
+    _updateScaleState(transform, super.captureOriginInScreenSpace);
+    writeScreenUniforms();
+    // uFrost.x switches on frostRowsPath; that needs the full paint.
+    if ((frostRowsPath != null) != (prevFrostRows != null)) return false;
+    // Re-add the clips around changed layers instead of their retained copy.
+    if (!_Recomposite.mark(clipLayer)) return false;
+    if (frostRowsPath case final rows?) {
+      final rowsLayer = _frostRowsLayerHandle.layer;
+      if (rowsLayer == null) return false;
+      if (!identical(rows, prevFrostRows)) {
+        if (!_Recomposite.mark(_frostClipLayerHandle.layer)) return false;
+        rowsLayer.clipPath = rows.shift(_paintOffset);
+      }
+    }
+    // The filter holds the uniforms it was created with.
+    shaderLayer.filter = ImageFilter.shader(renderShader!);
+    _uniformsTransform = transform;
+    return true;
+  }
+
+  @override
   void paint(PaintingContext context, Offset offset) {
     if (!attached) return;
     // Refresh before the base paint reads matteTransform to build geometry.
@@ -710,6 +764,8 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     Rect boundingBox,
   ) {
     if (!attached) return;
+    _paintOffset = offset;
+    _uniformsTransform = getTransformTo(null);
     final shared = _resolveSharing();
 
     // ── Pass 0: SDF Shadows ──────────────────────────────────────────────────
@@ -881,7 +937,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
             oldLayer: _frostRowsLayerHandle.layer,
           );
         },
-        oldLayer: _frostClipLayerHandle.layer,
+        oldLayer: _frostClipLayerHandle.layer ?? _ClipPathLayer(),
       );
     } else {
       _frostLayerHandle.layer = null;
@@ -960,7 +1016,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
           offset,
         );
       },
-      oldLayer: _clipRectLayerHandle.layer,
+      oldLayer: _clipRectLayerHandle.layer ?? _ClipRectLayer(),
     );
   }
 
@@ -1115,7 +1171,31 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     _clipPathLayerHandle.layer = null;
     _frostClipLayerHandle.layer = null;
     _frostRowsLayerHandle.layer = null;
+    _uniformsTransform = null;
     backdropPassClipRectLocal = null;
     super.dispose();
   }
 }
+
+/// A layer that can be re-added to the scene being built, in place of its
+/// retained copy, when a layer below it changed during compositing.
+///
+/// [Layer.markNeedsAddToScene] does not propagate to the parent. That is
+/// enough here because the parent these clips share with the
+/// [GeometryTransformTrackingLayer] is re-added on every frame:
+/// [Layer.updateSubtreeNeedsAddToScene] marks it for the tracking layer's
+/// [Layer.alwaysNeedsAddToScene].
+mixin _Recomposite on Layer {
+  /// Marks [layer] to be re-added; false when it is not a [_Recomposite].
+  static bool mark(Layer? layer) {
+    if (layer case final _Recomposite layer) {
+      layer.markNeedsAddToScene();
+      return true;
+    }
+    return false;
+  }
+}
+
+class _ClipRectLayer = ClipRectLayer with _Recomposite;
+
+class _ClipPathLayer = ClipPathLayer with _Recomposite;

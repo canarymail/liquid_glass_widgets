@@ -966,4 +966,150 @@ void main() {
           GlassQualityAdapter.quickSelectForTesting(List.of(identical), 2), 5);
     });
   });
+
+  // ── Measurement holds ─────────────────────────────────────────────────────
+
+  group('measurement holds', () {
+    setUp(() {
+      GlassQualityAdapter.resetMeasurementHoldsForTesting();
+      GlassQualityAdapter.settleFramesAfterHold = 20;
+    });
+
+    tearDown(() {
+      GlassQualityAdapter.resetMeasurementHoldsForTesting();
+      GlassQualityAdapter.settleFramesAfterHold = 120;
+    });
+
+    test('frames during a hold do not count toward the warm-up', () {
+      final changes = <(GlassQuality, GlassQuality)>[];
+      final adapter = _makeAdapter(changes: changes);
+      final hold = GlassAdaptiveScope.holdMeasurement();
+
+      expect(GlassQualityAdapter.measurementHeld, isTrue);
+      _runWarmup(adapter, rasterUs: 40000); // would settle at minimal
+
+      expect(adapter.phase, AdaptivePhase.warmup);
+      expect(adapter.currentQuality, GlassQuality.premium);
+      expect(changes, isEmpty);
+      hold.release();
+    });
+
+    test('frames during a hold do not degrade at runtime', () {
+      final adapter = _makeAdapter();
+      _runWarmup(adapter, rasterUs: 10000);
+      expect(adapter.phase, AdaptivePhase.runtime);
+
+      final hold = GlassAdaptiveScope.holdMeasurement();
+      adapter.simulateFrameTimings(_frames(100, 40000));
+      expect(adapter.currentQuality, GlassQuality.premium);
+      hold.release();
+    });
+
+    test(
+        'after release, settleFramesAfterHold frames are dropped, then '
+        'counting resumes', () {
+      final adapter = _makeAdapter();
+      _runWarmup(adapter, rasterUs: 10000);
+
+      GlassAdaptiveScope.holdMeasurement().release();
+      expect(GlassQualityAdapter.measurementHeld, isFalse);
+
+      // Slow frames inside the settle window are dropped.
+      adapter.simulateFrameTimings(
+        _frames(GlassQualityAdapter.settleFramesAfterHold, 40000),
+      );
+      expect(adapter.currentQuality, GlassQuality.premium);
+
+      // The next ones count: 3 windows of 5 slow frames degrade the quality.
+      adapter.simulateFrameTimings(_frames(15, 40000));
+      expect(adapter.currentQuality, isNot(GlassQuality.premium));
+    });
+
+    test('the settle window is spent across several batches', () {
+      final adapter = _makeAdapter();
+      _runWarmup(adapter, rasterUs: 10000);
+
+      GlassAdaptiveScope.holdMeasurement().release();
+      for (var i = 0; i < 4; i++) {
+        adapter.simulateFrameTimings(_frames(5, 40000)); // 4 x 5 = 20 dropped
+      }
+      expect(adapter.currentQuality, GlassQuality.premium);
+
+      adapter.simulateFrameTimings(_frames(15, 40000));
+      expect(adapter.currentQuality, isNot(GlassQuality.premium));
+    });
+
+    test('a batch that ends the settle window measures its remaining frames',
+        () {
+      final adapter = _makeAdapter();
+      _runWarmup(adapter, rasterUs: 10000);
+
+      GlassAdaptiveScope.holdMeasurement().release();
+      adapter.simulateFrameTimings(_frames(15, 40000)); // 15 of 20 dropped
+      expect(adapter.currentQuality, GlassQuality.premium);
+
+      // 5 more are dropped, the other 15 count.
+      adapter.simulateFrameTimings(_frames(20, 40000));
+      expect(adapter.currentQuality, isNot(GlassQuality.premium));
+    });
+
+    test('nested holds measure again only after the last release', () {
+      final adapter = _makeAdapter();
+      _runWarmup(adapter, rasterUs: 10000);
+
+      final outer = GlassAdaptiveScope.holdMeasurement();
+      final inner = GlassAdaptiveScope.holdMeasurement();
+      inner.release();
+      expect(GlassQualityAdapter.measurementHeld, isTrue);
+      adapter.simulateFrameTimings(_frames(100, 40000));
+      expect(adapter.currentQuality, GlassQuality.premium);
+
+      outer.release();
+      expect(GlassQualityAdapter.measurementHeld, isFalse);
+      adapter.simulateFrameTimings(_frames(20, 40000)); // settle window
+      adapter.simulateFrameTimings(_frames(15, 40000));
+      expect(adapter.currentQuality, isNot(GlassQuality.premium));
+    });
+
+    test('releasing a hold twice is a no-op', () {
+      final first = GlassAdaptiveScope.holdMeasurement();
+      final second = GlassAdaptiveScope.holdMeasurement();
+
+      first.release();
+      first.release(); // must not close `second`
+      expect(GlassQualityAdapter.measurementHeld, isTrue);
+
+      second.release();
+      expect(GlassQualityAdapter.measurementHeld, isFalse);
+    });
+
+    test('a hold is safe when no adapter exists', () {
+      final hold = GlassAdaptiveScope.holdMeasurement();
+      expect(GlassAdaptiveScope.measurementHeld, isTrue);
+      expect(GlassAdaptiveScope.settleFramesAfterHold, 20);
+      GlassAdaptiveScope.settleFramesAfterHold = 20;
+      expect(hold.release, returnsNormally);
+      expect(GlassQualityAdapter.measurementHeld, isFalse);
+      expect(GlassAdaptiveScope.measurementHeld, isFalse);
+    });
+
+    test('releasing a hold after resetMeasurementHoldsForTesting is a no-op',
+        () {
+      final hold = GlassAdaptiveScope.holdMeasurement();
+      GlassQualityAdapter.resetMeasurementHoldsForTesting();
+      expect(hold.release, returnsNormally);
+      expect(GlassQualityAdapter.measurementHeld, isFalse);
+    });
+
+    test('live frame timings callback respects measurement hold', () {
+      final adapter = _makeAdapter();
+      adapter.start();
+      addTearDown(adapter.stop);
+
+      final hold = GlassAdaptiveScope.holdMeasurement();
+      PlatformDispatcher.instance.onReportTimings?.call(_frames(20, 40000));
+      expect(adapter.currentQuality, GlassQuality.premium);
+      hold.release();
+    });
+  });
 }

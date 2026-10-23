@@ -121,7 +121,6 @@ void main() {
         outer: const Offset(0, -37.5),
         inner: Offset.zero,
       );
-      link.notifyTransformChanged(shape);
       layer.markNeedsPaint();
       await tester.pump();
       expect(identical(layer.matte, matte), isTrue);
@@ -138,7 +137,6 @@ void main() {
         outer: Offset.zero,
         inner: const Offset(12, 0),
       );
-      link.notifyTransformChanged(shape);
       layer.markNeedsPaint();
       await tester.pump();
       expect(identical(layer.matte, matte), isFalse);

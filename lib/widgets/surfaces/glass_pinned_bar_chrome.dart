@@ -173,13 +173,16 @@ class GlassPinnedBarChrome extends StatefulWidget {
     this.backButton = true,
     this.leadingItemsSupplementBackButton = false,
     this.onBack,
+    this.buttonSize,
+    this.toolbarHeight,
     this.buttonSettings,
     this.horizontalInset,
     this.platformViewBackdrop = false,
     this.largeTitleController,
     this.stripRowTop,
     this.enabled = true,
-  });
+  })  : assert(buttonSize == null || buttonSize > 0),
+        assert(toolbarHeight == null || toolbarHeight >= 0);
 
   /// Builds the bar from the chrome resolved for this frame.
   final GlassPinnedBarChromeBuilder builder;
@@ -217,6 +220,23 @@ class GlassPinnedBarChrome extends StatefulWidget {
   /// Set this for router-specific semantics such as go_router's
   /// `context.pop()`.
   final VoidCallback? onBack;
+
+  /// Diameter of standalone bar buttons (the automatic back button and
+  /// non-shared items), in logical pixels.
+  ///
+  /// Defaults to [GlassNavPinnedMetrics.backDiameter] (`44.0`) when null.
+  /// Shared multi-item capsules scale proportionally (`buttonSize + 2.0`),
+  /// and custom items ([GlassBarItem.custom]) are constrained to this height
+  /// in a horizontal bar.
+  final double? buttonSize;
+
+  /// Height of the toolbar row in which the pinned chrome sits, in logical
+  /// pixels.
+  ///
+  /// Defaults to [GlassNavPinnedMetrics.toolbarHeight] (`44.0`) when null,
+  /// expanding to at least [buttonSize] when [buttonSize] exceeds the toolbar
+  /// height.
+  final double? toolbarHeight;
 
   /// Glass settings applied to this route's pinned chrome.
   ///
@@ -285,6 +305,10 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
   /// the page and below anything presented over it.
   final OverlayPortalController _strip = OverlayPortalController()..show();
 
+  /// Whether the route was onstage at the last dependency change. The strip
+  /// follows it after the frame.
+  bool _onstage = true;
+
   GlassNavigationShellState? _shell;
   ModalRoute<dynamic>? _route;
   bool _handedOver = false;
@@ -311,6 +335,22 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // The strip leaves the overlay while the route is offstage, under an
+    // opaque route: an overlay child layout builder there still lays out every
+    // frame, against the overlay's size from before any resize since, and
+    // asserts (flutter/flutter#192030). A muted ticker alone is not offstage —
+    // an inactive tab's route is muted but still laid out — so the route must
+    // also not be the current one. A portal can't be shown or hidden during
+    // build, so after the frame.
+    final onstage = TickerMode.valuesOf(context).enabled ||
+        (ModalRoute.isCurrentOf(context) ?? true);
+    if (onstage != _onstage) {
+      _onstage = onstage;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _onstage == _strip.isShowing) return;
+        _onstage ? _strip.show() : _strip.hide();
+      });
+    }
     _sync();
   }
 
@@ -334,12 +374,12 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
       _follow();
     }
 
-    // Deliberately no offstage or TickerMode guard here. Flutter builds a newly
-    // pushed route offstage once before the transition starts, and neither
-    // `offstage` nor a muted ticker notifies dependents when it flips back — so
-    // skipping those builds would strand the route unregistered for the whole
-    // transition. Which route is on top is decided by the shell's ordering
-    // instead. (Inactive branches of a nested navigator are a known gap.)
+    // Deliberately no offstage guard here. Flutter builds a newly pushed route
+    // offstage once before the transition starts, and `offstage` does not
+    // notify dependents when it flips back — so skipping those builds would
+    // strand the route unregistered for the whole transition. Which route is
+    // on top is decided by the shell's ordering instead. (Inactive branches of
+    // a nested navigator are a known gap.)
     // A bar in a presented route — a modal sheet's — is inside the
     // presentation, which comes up over the stack the shell pins across: the
     // presentation is its container, and the bar draws its own chrome.
@@ -371,6 +411,8 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
         leading: widget.leading,
         showsBackButton: _showsBack,
         onBack: widget.onBack,
+        buttonSize: widget.buttonSize,
+        toolbarHeight: widget.toolbarHeight,
         buttonSettings: widget.buttonSettings,
         horizontalInset: widget.horizontalInset,
         platformViewBackdrop: widget.platformViewBackdrop,
@@ -439,15 +481,17 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
   /// The back button, or the space it occupied once the shell has it.
   Widget _buildBackButton(
     BuildContext context, {
-    double backSize = GlassNavPinnedMetrics.backDiameter,
+    double? backSize,
   }) {
+    final size =
+        backSize ?? widget.buttonSize ?? GlassNavPinnedMetrics.backDiameter;
     if (_handedOver) {
-      return SizedBox(width: backSize, height: backSize);
+      return SizedBox(width: size, height: size);
     }
     return GlassButton(
       icon: const Icon(CupertinoIcons.back),
-      width: backSize,
-      height: backSize,
+      width: size,
+      height: size,
       iconSize: GlassNavPinnedMetrics.iconSize,
       platformViewBackdrop: widget.platformViewBackdrop,
       label: Localizations.of<CupertinoLocalizations>(
@@ -499,26 +543,40 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
             return _measuringGroup(group, ambientDirection);
           }
 
-          VoidCallback tapOf(GlassBarActionItem item) =>
+          VoidCallback? tapOf(GlassBarActionItem item) =>
               item is GlassBarSheetItem
                   ? () => item.onPresent(anchor)
-                  : item.onTap;
+                  : (item.hasTap ? item.onTap : null);
 
           if (!group.glass) {
             final item = group.items.single;
+            Widget content = SizedBox(
+              height: group.crossExtent,
+              child: Directionality(
+                textDirection: ambientDirection,
+                child: item.content,
+              ),
+            );
+            if (!item.enabled) {
+              content = Opacity(opacity: 0.5, child: content);
+            }
+            if (!item.hasTap) {
+              if (item.label != null && item.label!.isNotEmpty) {
+                return Semantics(
+                  container: true,
+                  label: item.label,
+                  child: ExcludeSemantics(child: content),
+                );
+              }
+              return Semantics(explicitChildNodes: true, child: content);
+            }
             return Semantics(
               button: true,
               label: item.label,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: item.enabled ? tapOf(item) : null,
-                child: SizedBox(
-                  height: group.crossExtent,
-                  child: Directionality(
-                    textDirection: ambientDirection,
-                    child: item.content,
-                  ),
-                ),
+                child: content,
               ),
             );
           }
@@ -543,7 +601,7 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
             platformViewBackdrop: widget.platformViewBackdrop,
             settings: groupSettings,
             direction: group.axis,
-            borderRadius: GlassNavPinnedMetrics.capsuleRadius,
+            borderRadius: group.borderRadius,
             iconSize: GlassNavPinnedMetrics.iconSize,
             itemPadding: EdgeInsets.zero,
             items: [
@@ -599,7 +657,8 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
   }
 
   /// One item as the pinned cluster lays it out: icons in a slot matching
-  /// the group's extent, custom content at its own size.
+  /// the group's extent, custom content at its own main-axis size and
+  /// constrained to the group's cross extent.
   Widget _slot(
     GlassNavBarGroup group,
     GlassBarActionItem item,
@@ -607,12 +666,12 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
   ) {
     return SizedBox(
       width: item is GlassBarCustomItem
-          ? null
+          ? (group.axis == Axis.vertical ? group.crossExtent : null)
           : (group.axis == Axis.horizontal
               ? group.slotExtent
               : group.crossExtent),
       height: item is GlassBarCustomItem
-          ? null
+          ? (group.axis == Axis.horizontal ? group.crossExtent : null)
           : (group.axis == Axis.vertical
               ? group.slotExtent
               : group.crossExtent),
@@ -628,7 +687,10 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
   /// The leading slot: the back button where the route shows one, followed by
   /// the declared leading groups.
   Widget? _buildLeading(BuildContext context) {
-    final groups = groupGlassNavBarItems(widget.leading);
+    final groups = groupGlassNavBarItems(
+      widget.leading,
+      buttonSize: widget.buttonSize,
+    );
     final slot = <Widget>[
       if (_showsBack) _buildBackButton(context),
       for (final group in groups) _buildGroup(group),
@@ -644,7 +706,10 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
 
   /// The trailing slot: one widget per shell the actions resolve to.
   List<Widget> _buildActions() {
-    final groups = groupGlassNavBarItems(widget.actions);
+    final groups = groupGlassNavBarItems(
+      widget.actions,
+      buttonSize: widget.buttonSize,
+    );
     return [for (final group in groups) _buildGroup(group)];
   }
 
@@ -662,6 +727,7 @@ class _GlassPinnedBarChromeState extends State<GlassPinnedBarChrome> {
               item is! GlassBarActionItem || item.goesVertical == vertical)
           .toList(),
       axis: vertical ? Axis.vertical : Axis.horizontal,
+      buttonSize: vertical ? null : widget.buttonSize,
     );
   }
 
