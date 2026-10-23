@@ -1515,6 +1515,92 @@ void main() {
       expect(boxDecoration.color!.a, closeTo(1.0, 0.001));
       expect(boxDecoration.color, isNot(equals(const Color(0xFF000000))));
     });
+
+    testWidgets(
+        'covers explicit actionWidth, rubber-band damping without fullSwipe, RTL dismiss, platter tap-to-close, and button press states',
+        (tester) async {
+      final controller = GlassSwipeController();
+      var dismissedCount = 0;
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.rtl,
+          child: CupertinoApp(
+            home: CupertinoPageScaffold(
+              child: Center(
+                child: SizedBox(
+                  width: 320,
+                  height: 64,
+                  child: GlassSwipeActions(
+                    controller: controller,
+                    actionWidth: 72.0,
+                    allowsFullSwipe: false,
+                    leadingActions: [
+                      GlassSwipeAction(
+                        icon: const Icon(CupertinoIcons.pin),
+                        label: const Text('Pin'),
+                        onTap: _noop,
+                      ),
+                      GlassSwipeAction(
+                        icon: const Icon(CupertinoIcons.star),
+                        label: const Text('Star'),
+                        onTap: _noop,
+                      ),
+                    ],
+                    trailingActions: [
+                      GlassSwipeAction(
+                        icon: const Icon(CupertinoIcons.trash),
+                        label: const Text('Delete'),
+                        isDestructive: true,
+                        onTap: _noop,
+                      ),
+                    ],
+                    onDismissed: () => dismissedCount++,
+                    child: const ColoredBox(
+                      color: CupertinoColors.systemGrey,
+                      child: Center(child: Text('RTL Damped Row')),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Drag leading (in RTL, dragging left reveals leading) past 2 * 72 = 144 to exercise rubber-band damping
+      await tester.drag(find.byType(GlassSwipeActions), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+
+      // Drag while already openLeading (in RTL, _dragStartSide == 1) and release to settle
+      await tester.drag(find.byType(GlassSwipeActions), const Offset(-20, 0));
+      await tester.pumpAndSettle();
+
+      // Ensure leading is open and press down + cancel on tintedGlass action button
+      controller.openLeading(animated: false);
+      await tester.pump();
+      final pinFinder = find.text('Pin');
+      final gPress = await tester.startGesture(tester.getCenter(pinFinder));
+      await tester.pump();
+      await gPress.cancel();
+      await tester.pump();
+
+      // Animate to 0 via animateToOffset(0.0)
+      controller.animateToOffset(0.0, animated: false);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+
+      // Drag trailing (in RTL, dragging right reveals trailing) past 72 to exercise trailing rubber-band damping
+      await tester.drag(find.byType(GlassSwipeActions), const Offset(180, 0));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+
+      // Programmatic animated dismiss fromLeading in RTL
+      controller.dismiss(animated: true, fromLeading: true);
+      await tester.pumpAndSettle();
+      expect(dismissedCount, 1);
+    });
   });
 }
 

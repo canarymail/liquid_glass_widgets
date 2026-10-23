@@ -879,4 +879,123 @@ void main() {
     expect(find.text('Morphed Rectangle Preview'), findsNothing);
     expect(find.text('Hold Dwell Item'), findsOneWidget);
   });
+
+  testWidgets(
+      'GlassContextMenu covers disabled state, early interactive cancellation, backdropBlur, destructive hover, and bottom-of-screen preview placement',
+      (tester) async {
+    // 1. Disabled menu returns child directly
+    await tester.pumpWidget(
+      wrapWithApp(
+        GlassContextMenu(
+          enabled: false,
+          actions: [
+            GlassContextMenuAction(
+              child: const Text('Disabled Action'),
+              onPressed: () {},
+            ),
+          ],
+          child: const Text('Disabled Child'),
+        ),
+      ),
+    );
+    expect(find.text('Disabled Child'), findsOneWidget);
+
+    // 2. Interactive hold cancelled by moving pointer away before commit,
+    //    and cancelled by releasing pointer before commit
+    await tester.pumpWidget(
+      GlassTheme(
+        data: const GlassThemeData(brightness: Brightness.dark),
+        child: wrapWithApp(
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: SizedBox(
+                width: 220,
+                height: 50,
+                child: GlassContextMenu(
+                  backdropBlur: 12.0,
+                  actions: [
+                    GlassContextMenuAction(
+                      isDestructive: true,
+                      child: const Text('Destructive Action'),
+                      onPressed: () {},
+                    ),
+                    GlassContextMenuAction(
+                      child: const Text('Second Action'),
+                      onPressed: () {},
+                    ),
+                  ],
+                  previewBuilder: (_) => const SizedBox(
+                    width: 240,
+                    height: 360,
+                    child: Text('Tall Bottom Preview'),
+                  ),
+                  child: const Text('Bottom Item'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Quick tap rejects _ContextMenuLongPressRecognizer in gesture arena (hits rejectGesture)
+    await tester.tap(find.text('Bottom Item').first);
+    await tester.pump();
+
+    final itemCenter = tester.getCenter(find.text('Bottom Item').first);
+
+    // Cancel interactive hold by dragging far away (> width * 0.6)
+    final g1 = await tester.startGesture(itemCenter);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 50));
+    final g1Move = await tester.startGesture(itemCenter);
+    await g1Move.moveBy(const Offset(250, 0));
+    await g1Move.up();
+    await g1.up();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+
+    // Cancel interactive hold by releasing early before commitDuration
+    final g2 = await tester.startGesture(itemCenter);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 50));
+    final g2Up = await tester.startGesture(itemCenter);
+    await g2Up.up();
+    await g2.up();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+
+    // Cancel interactive hold via PointerCancelEvent
+    final g3 = await tester.startGesture(itemCenter);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 50));
+    final g3Cancel = await tester.startGesture(itemCenter);
+    await g3Cancel.cancel();
+    await g3.cancel();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+
+    // Full hold -> commit -> glide over destructive action -> cancel pointer
+    final g4 = await tester.startGesture(itemCenter);
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpAndSettle();
+    expect(find.text('Tall Bottom Preview'), findsOneWidget);
+
+    final destructiveCenter =
+        tester.getCenter(find.text('Destructive Action'));
+    final g4Glide = await tester.startGesture(destructiveCenter);
+    await g4Glide.moveTo(destructiveCenter);
+    await tester.pump();
+    await g4Glide.cancel();
+    await g4.up();
+    await tester.pump();
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+  });
 }

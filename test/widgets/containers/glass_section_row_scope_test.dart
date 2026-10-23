@@ -64,4 +64,50 @@ void main() {
     );
     expect(corners, isNull);
   });
+
+  testWidgets(
+      'InheritedGlassSectionRow.updateShouldNotify and GlassGroupedSection leading indent for NavigationLink and DisclosureGroup',
+      (tester) async {
+    const scopeA = InheritedGlassSectionRow(
+      corners: BorderRadius.all(Radius.circular(12)),
+      child: SizedBox(),
+    );
+    const scopeSame = InheritedGlassSectionRow(
+      corners: BorderRadius.all(Radius.circular(12)),
+      child: SizedBox(),
+    );
+    const scopeDiff = InheritedGlassSectionRow(
+      corners: BorderRadius.all(Radius.circular(26)),
+      child: SizedBox(),
+    );
+    expect(scopeA.updateShouldNotify(scopeSame), isFalse);
+    expect(scopeA.updateShouldNotify(scopeDiff), isTrue);
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: GlassGroupedSection(
+            children: [
+              GlassNavigationLink(
+                leading: const Icon(CupertinoIcons.person),
+                title: const Text('Nav Row'),
+                destination: (_) => const SizedBox(),
+              ),
+              const GlassDisclosureGroup(
+                leading: Icon(CupertinoIcons.folder),
+                title: Text('Disclosure Row'),
+                showDividers: false,
+                children: [SizedBox(height: 20)],
+              ),
+              const GlassListTile(title: Text('Trailing Row')),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final dividers = tester.widgetList<GlassDivider>(find.byType(GlassDivider));
+    expect(dividers.length, 2);
+    expect(dividers.every((d) => d.indent == 56.0), isTrue);
+  });
 }

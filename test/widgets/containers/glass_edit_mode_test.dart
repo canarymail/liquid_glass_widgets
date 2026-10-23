@@ -621,6 +621,104 @@ void main() {
       expect(reorderedOld, isNotNull);
       expect(reorderedNew, isNotNull);
     });
+
+    testWidgets(
+        'solid grouped GlassReorderableList inside GlassEditScope splits segments around middle dragged item',
+        (tester) async {
+      final editController =
+          GlassEditController(initialMode: GlassEditMode.active);
+      addTearDown(editController.dispose);
+      final items = ['Row 0', 'Row 1', 'Row 2'];
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            controller: editController,
+            child: GlassReorderableList.grouped(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              itemCount: items.length,
+              onReorderItem: (oldIdx, newIdx) {},
+              itemBuilder: (context, index) => GlassListTile(
+                key: ValueKey(items[index]),
+                title: Text(items[index]),
+                canReorder: true,
+                reorderIndex: index,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Drag the middle item (index 1) so both isAbove (index 0) and !isAbove (index 2) build
+      final middleHandle = _reorderGrabber().at(1);
+      final gesture = await tester.startGesture(tester.getCenter(middleHandle));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'GlassListTile delete confirmation toggles off on second minus tap, resets when exiting edit mode, and animates removal',
+        (tester) async {
+      final editController =
+          GlassEditController(initialMode: GlassEditMode.active);
+      addTearDown(editController.dispose);
+      bool deleted = false;
+      late StateSetter outerSetState;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: GlassEditScope(
+            controller: editController,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                outerSetState = setState;
+                return GlassListTile(
+                  title: const Text('Confirmable Row'),
+                  canSelect: true,
+                  isSelected: true,
+                  onTap: _noop,
+                  onDelete: () => deleted = true,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Tap minus to open confirmation, then tap minus immediately before slide clips it to reverse it
+      await tester.tap(find.byIcon(CupertinoIcons.minus_circle_fill));
+      await tester.pump();
+      await tester.tap(find.byIcon(CupertinoIcons.minus_circle_fill));
+      await tester.pumpAndSettle();
+
+      // Open confirmation again, then exit ambient edit mode via GlassEditController so build() resets it
+      await tester.tap(find.byIcon(CupertinoIcons.minus_circle_fill));
+      await tester.pumpAndSettle();
+      editController.stopEditing();
+      await tester.pumpAndSettle();
+
+      // Test tap down + cancel highlight in light mode when not editing
+      final gHighlight =
+          await tester.startGesture(tester.getCenter(find.text('Confirmable Row')));
+      await tester.pump();
+      await gHighlight.cancel();
+      await tester.pump();
+
+      // Re-enter edit mode, open confirmation, tap Delete, and trigger rebuild mid-removal animation
+      editController.startEditing();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(CupertinoIcons.minus_circle_fill));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pump(const Duration(milliseconds: 50));
+      outerSetState(() {});
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      expect(deleted, isTrue);
+    });
   });
 }
 

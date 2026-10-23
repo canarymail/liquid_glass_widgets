@@ -938,5 +938,110 @@ void main() {
       expect(find.text('LUN'), findsOneWidget);
       expect(find.text('12 oct. 2026'), findsOneWidget);
     });
+
+    testWidgets(
+        'compact date and time popovers support month navigation, wheel toggle, and time wheel changes',
+        (tester) async {
+      DateTime? latest;
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: Center(
+              child: GlassDatePicker.compact(
+                initialDateTime: DateTime(2026, 6, 15, 9, 30),
+                mode: GlassDatePickerMode.dateAndTime,
+                use24hFormat: true,
+                tintColor: CupertinoColors.systemGreen,
+                onDateTimeChanged: (dt) => latest = dt,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // 1. Open compact date popover
+      await tester.tap(find.text('Jun 15, 2026'));
+      await tester.pumpAndSettle();
+
+      // Navigate next and previous month inside compact popover
+      await tester.tap(find.byKey(const ValueKey('glass_calendar_next')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('glass_calendar_previous')));
+      await tester.pumpAndSettle();
+
+      // Swipe month page inside compact popover
+      await tester.drag(find.byType(PageView), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+
+      // Toggle month/year wheel open inside compact popover, scroll it, and toggle closed
+      await tester.tap(find.text('July 2026'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(CupertinoPicker).first, const Offset(0, -40));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnimatedRotation).first);
+      await tester.pumpAndSettle();
+
+      // Dismiss compact date popover
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      // 2. Open compact time popover and scroll the time wheel
+      await tester.tap(find.text('09:30'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CupertinoDatePicker),
+        const Offset(0, -40),
+      );
+      await tester.pumpAndSettle();
+      expect(latest, isNotNull);
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'GlassMultiDatePicker didUpdateWidget syncs displayedMonth and toggles month/year wheel',
+        (tester) async {
+      DateTime displayed = DateTime(2026, 6, 1);
+      late StateSetter outerSetState;
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: CupertinoPageScaffold(
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                outerSetState = setState;
+                return GlassMultiDatePicker(
+                  selectedDates: {DateTime(2026, 6, 10)},
+                  displayedMonth: displayed,
+                  tintColor: CupertinoColors.systemOrange,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('June 2026'), findsOneWidget);
+
+      // Update displayedMonth while PageView has clients
+      outerSetState(() => displayed = DateTime(2026, 8, 1));
+      await tester.pumpAndSettle();
+      expect(find.text('August 2026'), findsOneWidget);
+
+      // Open month/year wheel (PageView unmounted -> hasClients is false)
+      await tester.tap(find.text('August 2026'));
+      await tester.pumpAndSettle();
+
+      // Update displayedMonth while month/year wheel is open
+      outerSetState(() => displayed = DateTime(2026, 10, 1));
+      await tester.pumpAndSettle();
+      expect(find.text('October 2026'), findsOneWidget);
+
+      // Close month/year wheel to exercise _syncMonthPageController
+      await tester.tap(find.text('October 2026'));
+      await tester.pumpAndSettle();
+    });
   });
 }

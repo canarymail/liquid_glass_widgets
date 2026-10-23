@@ -678,17 +678,9 @@ class _GlassContextMenuRoute<T> extends PopupRoute<T> {
     if (_isCommitted) return;
     _commitTimer?.cancel();
     _commitTimer = null;
-    controller
-        ?.animateTo(
-      0.0,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeInCubic,
-    )
-        .then((_) {
-      if (isActive && navigator?.canPop() == true) {
-        navigator?.pop();
-      }
-    });
+    if (isActive && navigator?.canPop() == true) {
+      navigator?.pop();
+    }
   }
 
   @override

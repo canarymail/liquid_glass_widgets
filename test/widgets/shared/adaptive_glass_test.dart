@@ -550,6 +550,41 @@ void main() {
       expect(find.text('fallbackOwnLayer'), findsOneWidget);
     });
 
+    testWidgets(
+        'AdaptiveGlass exercises premium own-layer fallback and ancestor layer detection',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const Column(
+            children: [
+              AdaptiveGlass(
+                shape: _shape,
+                settings: _settings,
+                quality: GlassQuality.premium,
+                useOwnLayer: false,
+                child: SizedBox(width: 60, height: 30, child: Text('noLayer')),
+              ),
+              AdaptiveLiquidGlassLayer(
+                settings: _settings,
+                quality: GlassQuality.premium,
+                child: AdaptiveGlass(
+                  shape: _shape,
+                  settings: _settings,
+                  quality: GlassQuality.premium,
+                  useOwnLayer: false,
+                  child:
+                      SizedBox(width: 60, height: 30, child: Text('hasLayer')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('noLayer'), findsOneWidget);
+      expect(find.text('hasLayer'), findsOneWidget);
+    });
+
     testWidgets('InheritedGlassSurfaceStyle.maybeOf retrieves ambient style',
         (tester) async {
       GlassSurfaceStyle? retrievedStyle;

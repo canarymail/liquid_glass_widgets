@@ -718,6 +718,10 @@ void main() {
     });
 
     test('GlassThemeData.ios27 applies ios27Light and ios27Dark presets', () {
+      final runtimeBrightness = [Brightness.dark].first;
+      final runtimeTheme = GlassThemeData.ios27(brightness: runtimeBrightness);
+      expect(runtimeTheme.brightness, Brightness.dark);
+
       const theme = GlassThemeData.ios27();
       final lightApplied =
           theme.light.settings!.applyTo(const LiquidGlassSettings());
@@ -740,6 +744,44 @@ void main() {
         darkApplied.shadowElevation,
         LiquidGlassSettings.ios27Dark.shadowElevation,
       );
+    });
+
+    testWidgets(
+        'initial non-empty path, navigatorKey swap, and Object destination fallback work',
+        (tester) async {
+      final path = GlassNavigationPath(['initial']);
+      final key1 = GlobalKey<NavigatorState>();
+      final key2 = GlobalKey<NavigatorState>();
+
+      Widget buildStack(GlobalKey<NavigatorState> navKey) {
+        return CupertinoApp(
+          home: GlassNavigationStack(
+            navigatorKey: navKey,
+            path: path,
+            destinations: {
+              Object: (context, value) => CupertinoPageScaffold(
+                    child: Center(child: Text('Fallback $value')),
+                  ),
+            },
+            root: const CupertinoPageScaffold(
+              child: Center(child: Text('Root Page')),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(buildStack(key1));
+      await tester.pumpAndSettle();
+
+      final state = tester.state<GlassNavigationStackState>(
+        find.byType(GlassNavigationStack),
+      );
+      expect(state.path, same(path));
+      expect(find.text('Fallback initial'), findsOneWidget);
+
+      await tester.pumpWidget(buildStack(key2));
+      await tester.pumpAndSettle();
+      expect(find.text('Fallback initial'), findsOneWidget);
     });
   });
 }
