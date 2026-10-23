@@ -887,4 +887,52 @@ void main() {
       }
     });
   });
+
+  group('GlassButton press highlight', () {
+    testWidgets('ambient base light is clipped to the button shape',
+        (tester) async {
+      const shape = LiquidRoundedSuperellipse(borderRadius: 40);
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: AdaptiveLiquidGlassLayer(
+            settings: const LiquidGlassSettings(blur: 0),
+            child: GlassButton(
+              icon: const Icon(Icons.star),
+              shape: shape,
+              width: 120,
+              height: 80,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(GlassButton)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final overlay = find.descendant(
+        of: find.byType(GlassButton),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is ColoredBox &&
+              w.color.toARGB32() & 0x00FFFFFF == 0x00FFFFFF &&
+              w.color.a > 0,
+        ),
+      );
+      expect(overlay, findsOneWidget);
+
+      final clips = find.ancestor(of: overlay, matching: find.byType(ClipPath));
+      expect(clips, findsWidgets);
+      final clip = tester.widget<ClipPath>(clips.first);
+      expect(clip.clipper, isA<ShapeBorderClipper>());
+      expect((clip.clipper! as ShapeBorderClipper).shape, shape);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  });
 }
