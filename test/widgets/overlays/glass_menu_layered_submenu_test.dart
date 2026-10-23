@@ -441,4 +441,77 @@ void main() {
     final topCardGlow = glows.last;
     expect(topCardGlow.glowColor.a, lessThanOrEqualTo(0.20));
   });
+
+  group('open submenu card follows items changes', () {
+    List<Widget> sortItems(String parentTitle, String checked) => [
+          GlassMenuItem(title: 'Open', onTap: () {}),
+          GlassMenuItem(title: parentTitle, onTap: () {}, submenu: [
+            for (final name in const ['Newest', 'Oldest'])
+              GlassMenuItem(
+                  title: name == checked ? '$name (on)' : name, onTap: () {}),
+          ]),
+        ];
+
+    testWidgets('a changed parent title and child rows reach the open card',
+        (tester) async {
+      final c = GlassMenuController();
+      await tester.pumpWidget(host(c, items: sortItems('Sort 5s', 'Newest')));
+      c.open();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sort 5s'));
+      await tester.pumpAndSettle();
+      expect(c.submenuDepth, 1);
+      expect(find.text('Newest (on)'), findsOneWidget);
+
+      await tester.pumpWidget(host(c, items: sortItems('Sort 4s', 'Oldest')));
+      await tester.pumpAndSettle();
+
+      expect(c.submenuDepth, 1);
+      expect(
+          find.descendant(
+              of: surfaceFor(header(1)), matching: find.text('Sort 4s')),
+          findsOneWidget);
+      expect(find.text('Sort 5s'), findsNothing);
+      expect(find.text('Oldest (on)'), findsOneWidget);
+      expect(find.text('Newest (on)'), findsNothing);
+      expect(find.text('Newest'), findsOneWidget);
+    });
+
+    testWidgets('a parent that is no longer a submenu row leaves the card',
+        (tester) async {
+      final c = GlassMenuController();
+      await tester.pumpWidget(host(c, items: sortItems('Sort', 'Newest')));
+      c.open();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sort'));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(host(c, items: [
+        GlassMenuItem(title: 'Open', onTap: () {}),
+        GlassMenuItem(title: 'Sort', onTap: () {}),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(c.submenuDepth, 1);
+      expect(find.text('Newest (on)'), findsOneWidget);
+    });
+
+    testWidgets('a refresh while the card is still opening is applied',
+        (tester) async {
+      final c = GlassMenuController();
+      await tester.pumpWidget(host(c, items: sortItems('Sort 5s', 'Newest')));
+      c.open();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sort 5s'));
+      await tester.pump(const Duration(milliseconds: 60));
+
+      await tester.pumpWidget(host(c, items: sortItems('Sort 4s', 'Oldest')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Oldest (on)'), findsOneWidget);
+      expect(find.text('Newest (on)'), findsNothing);
+    });
+  });
 }
