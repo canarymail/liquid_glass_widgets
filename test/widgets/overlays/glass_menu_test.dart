@@ -1669,4 +1669,38 @@ void main() {
     expect(tapped, hasLength(1));
     expect(controller.isOpen, isFalse);
   });
+
+
+  testWidgets('GlassMenu items reach the semantics tree when open',
+      (WidgetTester tester) async {
+    // A childless OverlayPortal leaves its overlay without a traversal
+    // parent, which dropped every item from screen readers.
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: GlassMenu(
+              trigger: const SizedBox(
+                width: 50,
+                height: 50,
+                child: Center(child: Text('Open Menu')),
+              ),
+              items: [
+                GlassMenuItem(title: 'Archive', onTap: () {}),
+                GlassMenuItem(title: 'Delete', onTap: () {}),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Menu'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Archive'), findsOneWidget);
+    expect(find.bySemanticsLabel('Delete'), findsOneWidget);
+    handle.dispose();
+  });
 }

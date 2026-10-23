@@ -383,53 +383,56 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
         // this wrapper and never saw its fade.
         final outer = GlassMaterializeScope.maybeOf(context);
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Trigger — physically bounces and absorbs impact when slammed by the closing menu!
-            Transform.translate(
-              offset: Offset(pushDx, pushDy),
-              child: Transform.scale(
-                scale: impactScale,
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: _handleTriggerPointerDown,
-                  onPointerMove: _handleTriggerPointerMove,
-                  onPointerUp: _handleTriggerPointerUp,
-                  onPointerCancel: _handleTriggerPointerCancel,
-                  child: Opacity(
-                    opacity: triggerOpacity,
-                    child: GlassMaterializeScope(
-                      glassProgress:
-                          triggerOpacity * (outer?.glassProgress ?? 1.0),
-                      contentOpacity:
-                          triggerOpacity * (outer?.contentOpacity ?? 1.0),
-                      contentSigma: outer?.contentSigma ?? 0.0,
-                      child: IgnorePointer(
-                        ignoring: isMenuBlocking,
-                        child: triggerChild,
-                      ),
+        // Overlay portal for morphing animation, with the trigger as its child.
+        // The overlay contents fade out during the handoff so the real button
+        // shows instead.
+        //
+        // The trigger is the portal's child, not its sibling: Flutter hangs
+        // the overlay's semantics under a node wrapped around that child (the
+        // traversal parent). A childless portal has no such node, so the open
+        // menu dropped out of the semantics tree — TalkBack and UI automation
+        // saw none of its items. The trigger keeps its semantics while hidden
+        // for the same reason (an empty traversal parent is dropped too).
+        //
+        // Target the NEAREST overlay so the menu stays confined to the page/route
+        // where it was opened (#274). When a new route is pushed onto this or an
+        // ancestor Navigator, the destination route renders above this overlay,
+        // so the closing animation naturally remains on the outgoing page behind
+        // the transition. The trigger position is mapped into the nearest overlay's
+        // coordinate space in _openMenu to avoid drift in nested embeddings.
+        return OverlayPortal(
+          controller: _overlayController,
+          overlayChildBuilder: _buildMorphingOverlay,
+          overlayLocation: OverlayChildLocation.nearestOverlay,
+          // Trigger — physically bounces and absorbs impact when slammed by the closing menu!
+          child: Transform.translate(
+            offset: Offset(pushDx, pushDy),
+            child: Transform.scale(
+              scale: impactScale,
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: _handleTriggerPointerDown,
+                onPointerMove: _handleTriggerPointerMove,
+                onPointerUp: _handleTriggerPointerUp,
+                onPointerCancel: _handleTriggerPointerCancel,
+                child: Opacity(
+                  opacity: triggerOpacity,
+                  alwaysIncludeSemantics: true,
+                  child: GlassMaterializeScope(
+                    glassProgress:
+                        triggerOpacity * (outer?.glassProgress ?? 1.0),
+                    contentOpacity:
+                        triggerOpacity * (outer?.contentOpacity ?? 1.0),
+                    contentSigma: outer?.contentSigma ?? 0.0,
+                    child: IgnorePointer(
+                      ignoring: isMenuBlocking,
+                      child: triggerChild,
                     ),
                   ),
                 ),
               ),
             ),
-
-            // Overlay portal for morphing animation.
-            // The overlay contents fade out during the handoff so the real button shows instead.
-            //
-            // Target the NEAREST overlay so the menu stays confined to the page/route
-            // where it was opened (#274). When a new route is pushed onto this or an
-            // ancestor Navigator, the destination route renders above this overlay,
-            // so the closing animation naturally remains on the outgoing page behind
-            // the transition. The trigger position is mapped into the nearest overlay's
-            // coordinate space in _openMenu to avoid drift in nested embeddings.
-            OverlayPortal(
-              controller: _overlayController,
-              overlayChildBuilder: _buildMorphingOverlay,
-              overlayLocation: OverlayChildLocation.nearestOverlay,
-            ),
-          ],
+          ),
         );
       },
     );
