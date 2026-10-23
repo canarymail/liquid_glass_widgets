@@ -352,9 +352,44 @@ class GlassDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildActions(BuildContext context) {
-    // 1-2 actions: Horizontal layout
-    if (actions.length <= 2) {
+  /// Whether every label fits on one line in half the dialog's width.
+  ///
+  /// Mirrors iOS: two actions whose labels would wrap are stacked instead.
+  bool _labelsFitSideBySide(BuildContext context, double width) {
+    // Two buttons and the 8 pt gap between them; the label keeps clear of
+    // the button's 12 pt corners on both sides.
+    final labelWidth = (width - 8) / 2 - 2 * 12;
+    final baseStyle = DefaultTextStyle.of(context).style;
+    for (final action in actions) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: action.label,
+          style: baseStyle.merge(_labelStyle(action)),
+        ),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final fits = painter.width <= labelWidth;
+      painter.dispose();
+      if (!fits) return false;
+    }
+    return true;
+  }
+
+  TextStyle _labelStyle(GlassDialogAction action) => TextStyle(
+        fontSize: 16,
+        fontWeight: action.isPrimary ? FontWeight.bold : FontWeight.w600,
+      );
+
+  Widget _buildActions(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) =>
+            _buildActionsIn(context, constraints.maxWidth),
+      );
+
+  Widget _buildActionsIn(BuildContext context, double width) {
+    // 1-2 actions: Horizontal layout, unless a label does not fit
+    if (actions.length <= 2 && _labelsFitSideBySide(context, width)) {
       return Row(
         children: actions.asMap().entries.map((entry) {
           final index = entry.key;
@@ -371,7 +406,7 @@ class GlassDialog extends StatelessWidget {
       );
     }
 
-    // 3 actions: Vertical layout (iOS pattern)
+    // 3 actions, or labels too long for a row: Vertical layout (iOS pattern)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: actions.asMap().entries.map((entry) {
@@ -403,9 +438,7 @@ class GlassDialog extends StatelessWidget {
       glowColor: glowColor,
       child: Text(
         action.label,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: action.isPrimary ? FontWeight.bold : FontWeight.w600,
+        style: _labelStyle(action).copyWith(
           color: action.isDestructive
               ? CupertinoColors.destructiveRed
               : CupertinoColors.label.resolveFrom(context),

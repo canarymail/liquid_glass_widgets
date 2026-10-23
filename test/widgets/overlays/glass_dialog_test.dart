@@ -192,4 +192,61 @@ void main() {
       expect(action.isDestructive, isTrue);
     });
   });
+
+  group('GlassDialog action layout', () {
+    List<GlassDialogAction> two(String a, String b) => [
+          GlassDialogAction(label: a, onPressed: () {}),
+          GlassDialogAction(label: b, onPressed: () {}, isPrimary: true),
+        ];
+
+    Future<void> pumpDialog(
+      WidgetTester tester,
+      List<GlassDialogAction> actions, {
+      double textScale = 1.0,
+    }) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+            child: GlassDialog(title: 'Title', actions: actions),
+          ),
+        ),
+      );
+    }
+
+    final inRow = find.descendant(
+      of: find.byType(GlassDialog),
+      matching: find.byType(Row),
+    );
+
+    testWidgets('keeps two short labels side by side', (tester) async {
+      // The test font draws every glyph a full em wide, so "short" here is
+      // a few letters.
+      await pumpDialog(tester, two('No', 'OK'));
+
+      expect(inRow, findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('No')).dy,
+        tester.getTopLeft(find.text('OK')).dy,
+      );
+    });
+
+    testWidgets('stacks two actions when a label is too long', (tester) async {
+      await pumpDialog(
+          tester, two('Cancel', 'Continue without saving changes'));
+
+      expect(inRow, findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Continue without saving changes')).dy,
+        greaterThan(tester.getTopLeft(find.text('Cancel')).dy),
+      );
+    });
+
+    testWidgets('stacks two short labels at a large text scale',
+        (tester) async {
+      await pumpDialog(tester, two('No', 'OK'), textScale: 4.0);
+
+      expect(inRow, findsNothing);
+    });
+  });
 }
