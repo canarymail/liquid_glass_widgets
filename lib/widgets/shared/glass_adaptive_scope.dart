@@ -87,6 +87,8 @@ import '../../types/glass_quality.dart';
 import '../../types/glass_quality_change_reason.dart';
 import '../../utils/glass_quality_adapter.dart';
 
+export '../../utils/glass_quality_adapter.dart' show GlassMeasurementHold;
+
 // ---------------------------------------------------------------------------
 // GlassAdaptiveScopeData — immutable data carried by the InheritedWidget
 // ---------------------------------------------------------------------------
@@ -460,6 +462,23 @@ class GlassAdaptiveScope extends StatefulWidget {
 
   /// The widget subtree that will have its glass quality automatically managed.
   final Widget child;
+
+  /// Suspends frame measurement for every [GlassAdaptiveScope] until the
+  /// returned hold is released — see [GlassQualityAdapter.holdMeasurement].
+  ///
+  /// Wrap heavy work of your own that competes with the glass for the GPU/CPU,
+  /// so the slowdown is not mistaken for a device that cannot render the glass:
+  ///
+  /// ```dart
+  /// final hold = GlassAdaptiveScope.holdMeasurement();
+  /// try {
+  ///   await heavyWork();
+  /// } finally {
+  ///   hold.release();
+  /// }
+  /// ```
+  static GlassMeasurementHold holdMeasurement() =>
+      GlassQualityAdapter.holdMeasurement();
 
   /// The lowest quality tier the scope will ever enforce.
   ///
