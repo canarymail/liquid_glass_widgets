@@ -188,73 +188,68 @@ class _MailboxesViewState extends State<MailboxesView> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-          // ── FIRST CARD: INSET GROUPED (Normal list, never glass in scroll) ──
+          // ── FIRST CARD: INSET GROUPED (Solid surface via GlassGroupedSection) ──
           SliverToBoxAdapter(
-            child: Container(
+            child: GlassGroupedSection(
+              surfaceStyle: GlassSurfaceStyle.solid,
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: kMailCardBg.resolveFrom(context),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  _MailboxRow(
-                    icon: CupertinoIcons.tray,
-                    iconColor: kMailBlue,
-                    title: 'All Inboxes',
-                    count: unreadCount > 0 ? unreadCount : 6899,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.tray,
-                    iconColor: kMailBlue,
-                    title: 'iCloud',
-                    count: 24549,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.tray,
-                    iconColor: kMailBlue,
-                    title: 'alex@orion-labs.com',
-                    count: 18375,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.tray,
-                    iconColor: kMailBlue,
-                    title: 'Orion Labs',
-                    count: 458,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.flag,
-                    iconColor: CupertinoColors.systemOrange,
-                    title: 'Flagged',
-                    count: 74,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.star,
-                    iconColor: const Color(0xFFFFD60A),
-                    title: 'VIP',
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.paperclip,
-                    iconColor: kMailBlue,
-                    title: 'Attachments',
-                    count: 498,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                ],
-              ),
+              shape: const LiquidRoundedSuperellipse(borderRadius: 16),
+              children: [
+                _MailboxRow(
+                  icon: CupertinoIcons.tray,
+                  iconColor: kMailBlue,
+                  title: 'All Inboxes',
+                  count: unreadCount > 0 ? unreadCount : 6899,
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.tray,
+                  iconColor: kMailBlue,
+                  title: 'iCloud',
+                  count: 24549,
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.tray,
+                  iconColor: kMailBlue,
+                  title: 'alex@orion-labs.com',
+                  count: 18375,
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.tray,
+                  iconColor: kMailBlue,
+                  title: 'Orion Labs',
+                  count: 458,
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.flag,
+                  iconColor: CupertinoColors.systemOrange,
+                  title: 'Flagged',
+                  count: 74,
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.star,
+                  iconColor: const Color(0xFFFFD60A),
+                  title: 'VIP',
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.paperclip,
+                  iconColor: kMailBlue,
+                  title: 'Attachments',
+                  count: 498,
+                  onTap: () => _navigateToInbox(context),
+                ),
+              ],
             ),
           ),
 
@@ -287,54 +282,49 @@ class _MailboxesViewState extends State<MailboxesView> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
-          // ── SECOND CARD: INSET GROUPED (Normal list, never glass in scroll) ──
+          // ── SECOND CARD: INSET GROUPED (Solid surface via GlassGroupedSection) ──
           SliverToBoxAdapter(
-            child: Container(
+            child: GlassGroupedSection(
+              surfaceStyle: GlassSurfaceStyle.solid,
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: kMailCardBg.resolveFrom(context),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  _MailboxRow(
-                    icon: CupertinoIcons.tray,
-                    iconColor: kMailBlue,
-                    title: 'Inbox',
-                    count: 24549,
-                    onTap: () => _navigateToInbox(context),
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.doc,
-                    iconColor: kMailBlue,
-                    title: 'Drafts',
-                    onTap: () {},
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.paperplane,
-                    iconColor: kMailBlue,
-                    title: 'Sent',
-                    onTap: () {},
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.archivebox,
-                    iconColor: kMailBlue,
-                    title: 'Spam',
-                    onTap: () {},
-                  ),
-                  _buildDivider(context),
-                  _MailboxRow(
-                    icon: CupertinoIcons.trash,
-                    iconColor: kMailBlue,
-                    title: 'Bin',
-                    onTap: () {},
-                  ),
-                ],
-              ),
+              shape: const LiquidRoundedSuperellipse(borderRadius: 16),
+              children: [
+                _MailboxRow(
+                  icon: CupertinoIcons.tray,
+                  iconColor: kMailBlue,
+                  title: 'Inbox',
+                  count: 24549,
+                  onTap: () => _navigateToInbox(context),
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.doc,
+                  iconColor: kMailBlue,
+                  title: 'Drafts',
+                  onTap: () {},
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.paperplane,
+                  iconColor: kMailBlue,
+                  title: 'Sent',
+                  onTap: () {},
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.archivebox,
+                  iconColor: kMailBlue,
+                  title: 'Spam',
+                  onTap: () {},
+                ),
+                _buildDivider(context),
+                _MailboxRow(
+                  icon: CupertinoIcons.trash,
+                  iconColor: kMailBlue,
+                  title: 'Bin',
+                  onTap: () {},
+                ),
+              ],
             ),
           ),
 
@@ -346,10 +336,12 @@ class _MailboxesViewState extends State<MailboxesView> {
   }
 
   Widget _buildDivider(BuildContext context) {
-    return Container(
+    return GlassDivider(
       height: 0.5,
+      thickness: 0.5,
+      indent: 54,
+      endIndent: 0,
       color: kMailDivider.resolveFrom(context),
-      margin: const EdgeInsets.only(left: 54),
     );
   }
 }

@@ -3,6 +3,7 @@
 .packages
 .pub/
 build/
+tool/**/build/
 pubspec.lock
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -128,8 +129,10 @@ example/showcase/IMAGE_GUIDE.md
 example/showcase/QUICKSTART.md
 example/showcase/SHOWCASE_SUMMARY.md
 
-# Local-only playground (never commit)
+# Local-only playground / WIP demos (never commit)
 example/lib/playground/
+example/lib/apple_contacts/
+example/test/apple_contacts_demo_test.dart
 
 # Root-level scratch/debug scripts and output (not for repo)
 test_output.txt
@@ -156,7 +159,7 @@ modal_sheet_showcase/.flutter-plugins
 modal_sheet_showcase/.flutter-plugins-dependencies
 modal_sheet_showcase/pubspec.lock
 docs/SQUIRCLE_GEOMETRY_FINDINGS.md
-tools/build_hero_webp.sh
+tools/
 
 # Generated API documentation
 doc/
@@ -167,7 +170,4 @@ MANUAL_TEST_CHECKLIST.md
 # Agent configuration and documentation
 .claude/
 .agents/
-
-# Local parity captures and tool builds (keep git repo lean)
-tool/parity/captures/
-tool/parity/ios_reference/build/
+__pycache__/

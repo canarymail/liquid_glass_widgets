@@ -90,7 +90,7 @@ GlassScaffold(
   background: Image.asset('assets/wallpaper.jpg', fit: BoxFit.cover),
   statusBarStyle: GlassStatusBarStyle.auto,
   appBar: GlassAppBar(title: const Text('My App')),
-  body: Center(child: GlassCard(child: Text('Hello, Glass!'))),
+  body: Center(child: GlassContainer.card(child: Text('Hello, Glass!'))),
 )
 ```
 
@@ -108,10 +108,10 @@ The package is centred around **navigation chrome** — `GlassScaffold` with `Gl
 |---|---|
 | Screen with app bar and/or tab bar | **`GlassScaffold`** — the primary pattern |
 | Custom layout without standard scaffold structure | **`GlassPage`** — lower-level building block |
-| Standalone glass card or panel in an existing layout | **`GlassCard` / `GlassContainer`** — opt-in, not the core pattern |
+| Standalone glass card or panel in an existing layout | **`GlassContainer.card` / `GlassContainer`** — opt-in, not the core pattern |
 | Localised group of glass elements in an existing layout | **`AdaptiveLiquidGlassLayer`** — scope a layer to a region; grouped cards share its settings |
 
-> `GlassContainer` / `GlassCard` are fully supported for localised glass UI (floating panels, settings cards, etc.) but most screens should start with `GlassScaffold`.
+> `GlassContainer` / `GlassContainer.card` are fully supported for localised glass UI (floating panels, settings cards, etc.) but most screens should start with `GlassScaffold`.
 
 ### Optional: quality & theming
 
@@ -153,7 +153,8 @@ Teach your AI agent the exact API patterns and architectural rules:
 ## Features
 
 - **Comprehensive glass widget library** — containers, interactive controls, inputs, feedback, overlays, and navigation surfaces (see [Widget Categories](#widget-categories))
-- **iOS 27 parity** — the `LiquidGlassSettings.ios27Light` / `ios27Dark` material (drawn in full on premium, approximated on standard and web), pinned navigation chrome that morphs between routes under `GlassNavigationShell`, `GlassBarItem.spacer()` capsule splits that bud and merge like `ToolbarSpacer(.fixed)`, and iPhone Duo's vertical bar strip. See [`docs/GLASS_NAVIGATION_TRANSITION.md`](docs/GLASS_NAVIGATION_TRANSITION.md)
+- **iOS 27 parity** — the `LiquidGlassSettings.ios27Light` / `ios27Dark` material (drawn in full on premium, approximated on standard and web), `GlassThemeData.ios27()` as a one-line app-wide preset, pinned navigation chrome that morphs between routes under `GlassNavigationShell`, `GlassBarItem.spacer()` capsule splits that bud and merge like `ToolbarSpacer(.fixed)`, and iPhone Duo's vertical bar strip. See [`docs/GLASS_NAVIGATION_TRANSITION.md`](docs/GLASS_NAVIGATION_TRANSITION.md)
+- **Native list & navigation patterns** — swipe actions, edit mode with drag-to-reorder, disclosure groups, context menus, full-screen covers, date pickers and a declarative `GlassNavigationStack`, modeled on their SwiftUI counterparts. Pair with `GlassSurfaceStyle.solid` for flat inset-grouped cards
 - **Liquid Morph Engine** — a standalone physics system powering iOS 26-style liquid morphing. `GlassMenu` morphs out of its trigger button, and `GlassModalSheet.show(morphFrom:)` presents a modal sheet out of a `GlassMorphTrigger` the same way — the trigger empties, a glass droplet inflates as it travels, and dismissing pours it back. See [`docs/LIQUID_MORPH_ENGINE.md`](docs/LIQUID_MORPH_ENGINE.md)
 - **Real frosted glass** — native two-pass Gaussian blur + shader refraction on Impeller; lightweight shader on Skia/Web
 - **Just works everywhere** — iOS, Android, macOS, Web, Windows, Linux; rendering path chosen automatically
@@ -199,19 +200,24 @@ article tiles) stay opaque.
 ```
 
 Building a Settings screen? Use `GlassScaffold` + `GlassAppBar` for navigation
-chrome, and `CupertinoListTile` or standard Flutter containers for the rows.
-Use `GlassGroupedSection` when you want glass-styled grouped rows.
+chrome, and `GlassGroupedSection(surfaceStyle: GlassSurfaceStyle.solid)` with
+`GlassListTile` rows for the content: a flat, opaque inset-grouped card that matches
+native iOS, with swipe actions, disclosure groups, edit mode and navigation links
+built in. Standard Flutter containers and `CupertinoListTile` also work if you
+prefer to stay fully custom.
 
 ### Glass Composition Rule: Glass is a Platter, Not a Wrapper
 
-`GlassCard`, `GlassContainer`, and `GlassGroupedSection` are **base surfaces** — they sit
+`GlassContainer.card`, `GlassContainer`, and `GlassGroupedSection` are **base surfaces** — they sit
 beneath your content. They are not generic styling wrappers for other glass controls.
 
-| ✅ Place inside GlassCard / GlassContainer | ❌ Do not place inside GlassCard / GlassContainer |
+| ✅ Place inside GlassContainer.card / GlassContainer | ❌ Do not place inside GlassContainer.card / GlassContainer |
 |---|---|
-| `Text`, `Icon`, `ListTile`, `CupertinoListTile` | `GlassSegmentedControl`, `GlassSlider`, `GlassSwitch` |
-| `GlassListTile`, `GlassDivider` | `GlassButton`, `GlassChip`, `GlassIconButton` |
-| Standard Flutter form widgets | Any other refractive glass widget |
+| `Text`, `Icon`, `ListTile`, `CupertinoListTile` | `GlassButton`, `GlassChip`, `GlassIconButton` |
+| `GlassListTile`, `GlassDivider`, `GlassDisclosureGroup`, `GlassNavigationLink` | Any other persistently refractive glass widget |
+| Standard Flutter form widgets | `GlassSwitch`, `GlassSlider`, `GlassSegmentedControl` on a default `glass` card (fine on `solid`, see below) |
+
+`GlassSwitch`, `GlassSlider` and `GlassSegmentedControl` only turn to glass while their thumb or pill is touched or moving, and `solid` cards have no glass layer, so they sit safely in a settings-style `solid` card (the native iOS pattern). On a default `glass` card, place them outside the card instead.
 
 **Why?** `GlassContainer` sets `avoidsRefraction: true` on its children so nested glass
 cannot refract through the outer layer — the inner effect degrades by design. On Impeller
@@ -221,31 +227,46 @@ from interactive indicators (segmented control pill, slider thumb) during animat
 Interactive glass controls already provide their own surface appearance via `backgroundColor`
 and `indicatorColor` — no outer container is needed for the track or background.
 
+**Cards in scrolling lists:** iOS renders inset-grouped list cards as flat, opaque surfaces.
+`GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped` and the date
+pickers take `surfaceStyle: GlassSurfaceStyle.solid` for a flat white / `#1C1C1E` card with
+26pt corners (no blur, rim or shadow). `glass` is the default in 1.x; the default becomes
+`solid` in 2.0.0.
+
+```dart
+GlassGroupedSection(
+  surfaceStyle: GlassSurfaceStyle.solid,
+  children: [GlassListTile(title: Text('Wi-Fi'))],
+)
+```
+
 
 ## Widget Categories
 
 ### Containers
-`GlassCard` · `GlassContainer`\* · `GlassDivider` · `GlassGroupedSection` · `GlassListTile` · `GlassStepper`
+`GlassContainer.card` · `GlassContainer`\* · `GlassDivider` · `GlassGroupedSection` · `GlassListTile` · `GlassStepper` · `GlassSwipeActions` · `GlassDisclosureGroup` · `GlassReorderableList`
 
 \* `GlassContainer` is a low-level building block for custom glass surfaces.
-Most apps should use `GlassCard` or `GlassGroupedSection` instead.
+Most apps should use `GlassContainer.card` or `GlassGroupedSection` instead.
+
+`GlassSwipeActions`, `GlassDisclosureGroup` and `GlassReorderableList` (with `GlassEditScope` / `GlassEditButton` for edit mode) bring SwiftUI's `.swipeActions`, `DisclosureGroup` and `EditButton` + `ForEach` list behaviour. `GlassListTile` wires them together.
 
 ### Interactive
-`GlassButton` · `GlassIconButton` · `GlassChip` · `GlassSwitch` · `GlassSlider` · `GlassSegmentedControl` · `GlassPullDownButton` · `GlassButtonGroup` · `GlassBadge` · `GlassPageControl`
+`GlassButton` · `GlassIconButton` · `GlassChip` · `GlassSwitch` · `GlassSlider` · `GlassSegmentedControl` · `GlassPullDownButton` · `GlassButtonGroup` · `GlassBadge` · `GlassPageControl` · `GlassEditButton`
 
 ### Input
-`GlassTextField` · `GlassTextArea` · `GlassPasswordField` · `GlassSearchBar` · `GlassPicker` · `GlassFormField`
+`GlassTextField` · `GlassTextArea` · `GlassPasswordField` · `GlassSearchBar` · `GlassPicker` · `GlassFormField` · `GlassDatePicker` (`.compact` / `.graphical` / `.wheel`) · `GlassMultiDatePicker`
 
 ### Feedback
 `GlassProgressIndicator` · `GlassToast`
 
 ### Overlays
-`GlassDialog` · `GlassSheet` · `GlassModalSheet` · `showGlassActionSheet` · `GlassMenu` · `GlassMenuItem` · `GlassMenuDivider` · `GlassMenuLabel` · `GlassPopover`
+`GlassDialog` · `GlassSheet` · `GlassModalSheet` · `showGlassActionSheet` · `GlassMenu` · `GlassMenuItem` · `GlassMenuDivider` · `GlassMenuLabel` · `GlassPopover` · `GlassContextMenu` · `GlassFullScreenCover`
 
 `GlassMenu` and `GlassPullDownButton` support native iOS-style layered submenus: give a `GlassMenuItem` a `submenu: [...]` list and it opens a card over the parent, which recedes and dims. Submenus can nest.
 
 ### Surfaces
-`GlassScaffold` · `GlassAppBar` · `GlassTabBar` (`.bottom` / `.inline` / `.searchable` / `.minimizable`) · `GlassTabBarTrailingButton` · `GlassToolbar` · `GlassNavigationShell` · `GlassPinnedBarChrome` · `GlassContentAwareScope` · `GlassContentAwareContent` · `GlassContentAwareBrightness`
+`GlassScaffold` · `GlassAppBar` · `GlassTabBar` (`.bottom` / `.inline` / `.searchable` / `.minimizable`) · `GlassTabBarTrailingButton` · `GlassToolbar` · `GlassNavigationShell` · `GlassNavigationStack` · `GlassNavigationLink` · `GlassPinnedBarChrome` · `GlassContentAwareScope` · `GlassContentAwareContent` · `GlassContentAwareBrightness`
 
 ### Effects
 `GlassMaterialize` · `GlassMaterializeTransition` · `ProgressiveBlur`
@@ -272,7 +293,7 @@ runApp(LiquidGlassWidgets.wrap(
 ));
 ```
 
-For a quick single-quality theme, use the `GlassThemeData.simple` shorthand:
+For a quick single-quality theme, use the `GlassThemeData.simple` shorthand (or `const GlassThemeData.ios27()` for the native iOS 27 paraxial-lens preset in both light and dark modes):
 
 ```dart
 runApp(LiquidGlassWidgets.wrap(
@@ -368,7 +389,7 @@ GlassContainer(
 Enables the full Impeller shader pipeline with texture capture and chromatic aberration. On Skia/Web, automatically falls back to Standard.
 
 ```dart
-GlassCard(
+GlassContainer.card(
   quality: GlassQuality.premium,
   child: const Text('Static hero section'),
 )
@@ -383,7 +404,7 @@ GlassCard(
 Zero custom fragment shader cost on any device. Uses `BackdropFilter` blur + a Rec. 709 saturation matrix + a specular rim stroke. Visually equivalent to a high-quality frosted panel.
 
 ```dart
-GlassCard(
+GlassContainer.card(
   quality: GlassQuality.minimal,
   child: const Text('No shader overhead'),
 )
@@ -617,7 +638,7 @@ GlassPage(
 Control the tightness of the specular highlight on any glass surface via `LiquidGlassSettings.specularSharpness`:
 
 ```dart
-GlassCard(
+GlassContainer.card(
   settings: LiquidGlassSettings(
     specularSharpness: GlassSpecularSharpness.sharp, // tight, mirror-like
   ),
@@ -1073,6 +1094,8 @@ Focused, self-contained demos — one widget, one file, runnable standalone:
 | `indicator_parity_demo.dart` — all four pill widgets side-by-side | `cd example && flutter run -t lib/demos/indicator_parity_demo.dart` |
 | `color_fidelity_demo.dart` — `Glass.clear` vs `Glass.regular` + decoupled track quality | `cd example && flutter run -t lib/demos/color_fidelity_demo.dart` |
 | `tab_bar_menu_demo.dart` — native pull-down menus on tab bars (`.menu`) | `cd example && flutter run -t lib/demos/tab_bar_menu_demo.dart` |
+| `lists_pickers_and_nav_demo.dart` — swipe actions, context menus, edit & reorder, disclosure, date pickers, full-screen cover, `GlassNavigationStack` | `cd example && flutter run -t lib/demos/lists_pickers_and_nav_demo.dart` |
+| `swipe_and_disclosure_demo.dart` — `GlassSwipeActions` and `GlassDisclosureGroup` | `cd example && flutter run -t lib/demos/swipe_and_disclosure_demo.dart` |
 
 
 ## Documentation

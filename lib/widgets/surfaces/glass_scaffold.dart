@@ -19,6 +19,7 @@ import '../shared/glass_isolation_scope.dart';
 import '../shared/glass_page.dart';
 import '../shared/glass_scroll_edge_effect.dart';
 import 'glass_app_bar.dart';
+import 'glass_navigation_stack.dart' show GlassNavigationTitleScope;
 import 'glass_tab_bar.dart';
 import 'glass_toolbar.dart';
 import 'glass_vertical_bar.dart';
@@ -690,8 +691,9 @@ class GlassScaffold extends StatelessWidget {
       GlassStatusBarStyle.none => true, // doesn't matter — no region
     };
 
-    Widget stackWidget =
-        Stack(clipBehavior: Clip.none, children: stackChildren);
+    Widget stackWidget = GlassNavigationTitleScope(
+      child: Stack(clipBehavior: Clip.none, children: stackChildren),
+    );
 
     // Wrap in GlassContentAwareScope when content-aware brightness is on.
     // The scope must be an ancestor of both the sampled body

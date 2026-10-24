@@ -12,6 +12,7 @@ import '../shared/glass_isolation_scope.dart';
 import 'glass_bar_item.dart';
 import 'glass_large_title.dart' show GlassLargeTitleController;
 import 'glass_navigation_shell.dart';
+import 'glass_navigation_stack.dart' show GlassNavigationTitleScope;
 import 'glass_pinned_bar_chrome.dart';
 import 'glass_vertical_bar.dart';
 
@@ -114,6 +115,7 @@ class GlassAppBar extends StatelessWidget
     this.bottom,
     this.groupBackdrop = true,
   })  : pinnedActions = null,
+        _explicitPinnedPadding = null,
         pinnedLeading = const <GlassBarItem>[],
         pinnedBackButton = true,
         pinnedLeadingItemsSupplementBackButton = false,
@@ -156,12 +158,14 @@ class GlassAppBar extends StatelessWidget
     // Whitelisted: Structural transparent default, not a Material colour.
     this.backgroundColor = const Color(0x00000000),
     this.toolbarHeight = 44.0,
-    this.padding = const EdgeInsets.symmetric(horizontal: 8),
+    EdgeInsetsGeometry? padding,
     this.buttonSettings,
     this.largeTitleController,
     this.bottom,
     this.groupBackdrop = true,
   })  : assert(buttonSize == null || buttonSize > 0),
+        padding = padding ?? const EdgeInsets.symmetric(horizontal: 8),
+        _explicitPinnedPadding = padding,
         pinnedActions = actions,
         pinnedLeading = leading,
         pinnedBackButton = backButton,
@@ -286,6 +290,11 @@ class GlassAppBar extends StatelessWidget
   /// the chrome the shell draws there.
   final EdgeInsetsGeometry padding;
 
+  /// The [padding] a [GlassAppBar.pinned] caller passed explicitly, or null
+  /// when the default applies. Only an explicit value overrides the shell's
+  /// own horizontal inset for the pinned chrome.
+  final EdgeInsetsGeometry? _explicitPinnedPadding;
+
   /// Default glass settings for buttons inside this app bar.
   ///
   /// When provided, all [GlassButton] descendants that don't specify their
@@ -337,6 +346,18 @@ class GlassAppBar extends StatelessWidget
     // host them. Until then — and whenever there is no shell — this bar draws
     // them itself, so a screen renders correctly either way.
     if (pinnedActions != null) {
+      final explicit = _explicitPinnedPadding;
+      final double? customInset;
+      if (explicit == null) {
+        customInset = null;
+      } else {
+        // The chrome insets both sides equally; the leading edge wins so an
+        // asymmetric padding still lines the back button up where asked.
+        final resolved = explicit.resolve(Directionality.of(context));
+        customInset = Directionality.of(context) == TextDirection.rtl
+            ? resolved.right
+            : resolved.left;
+      }
       return GlassPinnedBarChrome(
         leading: pinnedLeading,
         actions: pinnedActions!,
@@ -347,6 +368,7 @@ class GlassAppBar extends StatelessWidget
         buttonSize: buttonSize,
         toolbarHeight: _effectiveToolbarHeight,
         buttonSettings: buttonSettings,
+        horizontalInset: customInset,
         largeTitleController: largeTitleController,
         builder: (context, chrome) => _buildBar(context, chrome: chrome),
       );
@@ -500,21 +522,46 @@ class GlassAppBar extends StatelessWidget
   Widget _buildTitle(BuildContext context, {bool inStrip = false}) {
     final largeInStrip = inStrip && largeTitleController != null;
     final textTheme = CupertinoTheme.of(context).textTheme;
-    final Widget styledTitle = title == null
-        ? const SizedBox.shrink()
-        : DefaultTextStyle(
-            style: largeInStrip
-                ? textTheme.navLargeTitleTextStyle.copyWith(
-                    fontSize: VerticalBarTitleRow.largeTitleFontSize,
-                  )
-                : textTheme.navTitleTextStyle,
-            // iOS navigation titles are a single truncated line — they never
-            // wrap, however little room the bar items leave them.
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            child: Semantics(header: true, child: title),
+
+    Widget styleTitleWidget(Widget? resolvedTitle) {
+      if (resolvedTitle == null) return const SizedBox.shrink();
+      return DefaultTextStyle(
+        style: largeInStrip
+            ? textTheme.navLargeTitleTextStyle.copyWith(
+                fontSize: VerticalBarTitleRow.largeTitleFontSize,
+              )
+            : textTheme.navTitleTextStyle,
+        // iOS navigation titles are a single truncated line — they never
+        // wrap, however little room the bar items leave them.
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        child: Semantics(header: true, child: resolvedTitle),
+      );
+    }
+
+    final Widget styledTitle;
+    if (title != null) {
+      styledTitle = styleTitleWidget(title);
+    } else {
+      final ancestorTitle = GlassNavigationTitleScope.maybeTitleOf(context);
+      if (ancestorTitle != null) {
+        styledTitle = styleTitleWidget(Text(ancestorTitle));
+      } else {
+        final scopeNotifier =
+            GlassNavigationTitleScope.maybeNotifierOf(context);
+        if (scopeNotifier != null) {
+          styledTitle = ValueListenableBuilder<String?>(
+            valueListenable: scopeNotifier,
+            builder: (context, scopedTitle, _) => styleTitleWidget(
+              scopedTitle != null ? Text(scopedTitle) : null,
+            ),
           );
+        } else {
+          styledTitle = const SizedBox.shrink();
+        }
+      }
+    }
 
     if (largeTitleController == null || largeInStrip) return styledTitle;
 

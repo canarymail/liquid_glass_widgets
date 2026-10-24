@@ -297,75 +297,79 @@ class _InboxViewState extends State<InboxView> {
               bottomPad: botPad,
               onOpenCompose: (anchor) => _openCompose(context, anchor),
             ),
-      body: CustomScrollView(
-        controller: _titleController.scrollController,
-        slivers: [
-          SliverToBoxAdapter(child: SizedBox(height: topPad + 44)),
+      body: GlassSwipeActionScope(
+        child: CustomScrollView(
+          controller: _titleController.scrollController,
+          slivers: [
+            SliverToBoxAdapter(child: SizedBox(height: topPad + 44)),
 
-          // Large "Inbox" Header
-          GlassLargeTitle(
-            text: 'Inbox',
-            controller: _titleController,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-          ),
+            // Large "Inbox" Header
+            GlassLargeTitle(
+              text: 'Inbox',
+              controller: _titleController,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+            ),
 
-          // Subtitle
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Orion Labs · Updated Just Now',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: kMailSecondaryLabel.resolveFrom(context),
+            // Subtitle
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Orion Labs · Updated Just Now',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: kMailSecondaryLabel.resolveFrom(context),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // Email List Rows
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, i) {
-                final email = widget.emails[i];
-                final isSelected = _selectedIds.contains(email.id);
+            // Email List Rows
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, i) {
+                  final email = widget.emails[i];
+                  final isSelected = _selectedIds.contains(email.id);
 
-                return _EmailRow(
-                  item: email,
-                  isSelectMode: _isSelectMode,
-                  isSelected: isSelected,
-                  showContactPhotos: _showContactPhotos,
-                  onSelectToggle: () => _toggleItemSelection(email.id),
-                  onTap: () {
-                    if (_isSelectMode) {
-                      _toggleItemSelection(email.id);
-                    } else {
-                      Navigator.of(context).push(
-                        CupertinoPageRoute(
-                          builder: (context) => MailGlassScope(
-                            child: EmailDetailView(
-                              item: email,
-                              emailIndex: i,
-                              allEmails: widget.emails,
-                              onDelete: () {
-                                widget.onDeleteEmail(email.id);
-                                Navigator.of(context).pop();
-                              },
+                  return _EmailRow(
+                    item: email,
+                    isSelectMode: _isSelectMode,
+                    isSelected: isSelected,
+                    showContactPhotos: _showContactPhotos,
+                    onSelectToggle: () => _toggleItemSelection(email.id),
+                    onToggleUnread: () => widget.onToggleUnread(email.id),
+                    onDelete: () => widget.onDeleteEmail(email.id),
+                    onTap: () {
+                      if (_isSelectMode) {
+                        _toggleItemSelection(email.id);
+                      } else {
+                        Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (context) => MailGlassScope(
+                              child: EmailDetailView(
+                                item: email,
+                                emailIndex: i,
+                                allEmails: widget.emails,
+                                onDelete: () {
+                                  widget.onDeleteEmail(email.id);
+                                  Navigator.of(context).pop();
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }
-                  },
-                );
-              },
-              childCount: widget.emails.length,
+                        );
+                      }
+                    },
+                  );
+                },
+                childCount: widget.emails.length,
+              ),
             ),
-          ),
-          SliverToBoxAdapter(child: SizedBox(height: 96 + botPad)),
-        ],
+            SliverToBoxAdapter(child: SizedBox(height: 96 + botPad)),
+          ],
+        ),
       ),
     );
   }
@@ -550,6 +554,8 @@ class _EmailRow extends StatelessWidget {
     required this.isSelected,
     required this.showContactPhotos,
     required this.onSelectToggle,
+    required this.onToggleUnread,
+    required this.onDelete,
     required this.onTap,
   });
 
@@ -558,186 +564,208 @@ class _EmailRow extends StatelessWidget {
   final bool isSelected;
   final bool showContactPhotos;
   final VoidCallback onSelectToggle;
+  final VoidCallback onToggleUnread;
+  final VoidCallback onDelete;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(item.id),
-      background: Container(
-        color: CupertinoColors.systemOrange,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
-        child:
-            const Icon(CupertinoIcons.flag_fill, color: CupertinoColors.white),
-      ),
-      secondaryBackground: Container(
-        color: CupertinoColors.systemRed,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child:
-            const Icon(CupertinoIcons.trash_fill, color: CupertinoColors.white),
-      ),
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 10, 16, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Select Mode Checkbox OR Unread Dot
-                  if (isSelectMode)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8, top: 8),
-                      child: Icon(
-                        isSelected
-                            ? CupertinoIcons.checkmark_circle_fill
-                            : CupertinoIcons.circle,
-                        color: isSelected
-                            ? CupertinoColors.activeBlue
-                            : CupertinoColors.tertiaryLabel
-                                .resolveFrom(context),
-                        size: 22,
+    return InheritedGlassSurfaceStyle(
+      surfaceStyle: GlassSurfaceStyle.solid,
+      child: GlassSwipeActions(
+        key: Key(item.id),
+        style: GlassSwipeActionStyle.solidVibrancy,
+        allowsFullSwipe: true,
+        leadingActions: isSelectMode
+            ? const []
+            : [
+                GlassSwipeAction(
+                  icon: Icon(
+                    item.isUnread
+                        ? CupertinoIcons.envelope_open_fill
+                        : CupertinoIcons.envelope_badge_fill,
+                  ),
+                  label: Text(item.isUnread ? 'Read' : 'Unread'),
+                  backgroundColor: kMailBlue,
+                  onTap: onToggleUnread,
+                ),
+              ],
+        trailingActions: isSelectMode
+            ? const []
+            : [
+                GlassSwipeAction(
+                  icon: const Icon(CupertinoIcons.trash_fill),
+                  label: const Text('Trash'),
+                  isDestructive: true,
+                  onTap: onDelete,
+                ),
+                GlassSwipeAction(
+                  icon: const Icon(CupertinoIcons.flag_fill),
+                  label: const Text('Flag'),
+                  backgroundColor: CupertinoColors.systemOrange,
+                  onTap: () {},
+                ),
+              ],
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 10, 16, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Select Mode Checkbox OR Unread Dot
+                    if (isSelectMode)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8, top: 8),
+                        child: Icon(
+                          isSelected
+                              ? CupertinoIcons.checkmark_circle_fill
+                              : CupertinoIcons.circle,
+                          color: isSelected
+                              ? CupertinoColors.activeBlue
+                              : CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                          size: 22,
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: 14,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: item.isUnread
+                              ? Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: kMailBlue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                )
+                              : null,
+                        ),
                       ),
-                    )
-                  else
-                    SizedBox(
-                      width: 14,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: item.isUnread
-                            ? Container(
-                                width: 9,
-                                height: 9,
-                                decoration: const BoxDecoration(
-                                  color: kMailBlue,
-                                  shape: BoxShape.circle,
-                                ),
-                              )
-                            : null,
-                      ),
-                    ),
-                  const SizedBox(width: 4),
+                    const SizedBox(width: 4),
 
-                  // Avatar / Squircle (Apple store or Contact initials)
-                  if (showContactPhotos) ...[
-                    _EmailAvatar(item: item),
-                    const SizedBox(width: 12),
-                  ],
+                    // Avatar / Squircle (Apple store or Contact initials)
+                    if (showContactPhotos) ...[
+                      _EmailAvatar(item: item),
+                      const SizedBox(width: 12),
+                    ],
 
-                  // Content column
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Sender + Time + Chevron
-                        Row(
-                          children: [
-                            if (item.hasReplied) ...[
-                              Icon(
-                                CupertinoIcons.reply,
-                                size: 14,
-                                color: CupertinoColors.secondaryLabel
-                                    .resolveFrom(context),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            Expanded(
-                              child: Text(
-                                item.sender,
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: item.isUnread
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
-                                  color: CupertinoColors.label
+                    // Content column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Sender + Time + Chevron
+                          Row(
+                            children: [
+                              if (item.hasReplied) ...[
+                                Icon(
+                                  CupertinoIcons.reply,
+                                  size: 14,
+                                  color: CupertinoColors.secondaryLabel
                                       .resolveFrom(context),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  item.sender,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: item.isUnread
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    color: CupertinoColors.label
+                                        .resolveFrom(context),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              item.time,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: CupertinoColors.secondaryLabel
+                              const SizedBox(width: 6),
+                              Text(
+                                item.time,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: CupertinoColors.secondaryLabel
+                                      .resolveFrom(context),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                CupertinoIcons.chevron_forward,
+                                size: 13,
+                                color: CupertinoColors.tertiaryLabel
                                     .resolveFrom(context),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              CupertinoIcons.chevron_forward,
-                              size: 13,
-                              color: CupertinoColors.tertiaryLabel
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+
+                          // Subject Line
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.subject,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: item.isUnread
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: CupertinoColors.label
+                                        .resolveFrom(context),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (item.hasAttachment) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  CupertinoIcons.paperclip,
+                                  size: 14,
+                                  color: CupertinoColors.secondaryLabel
+                                      .resolveFrom(context),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+
+                          // Snippet Line
+                          Text(
+                            item.snippet,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.25,
+                              color: CupertinoColors.secondaryLabel
                                   .resolveFrom(context),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-
-                        // Subject Line
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.subject,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: item.isUnread
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: CupertinoColors.label
-                                      .resolveFrom(context),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (item.hasAttachment) ...[
-                              const SizedBox(width: 4),
-                              Icon(
-                                CupertinoIcons.paperclip,
-                                size: 14,
-                                color: CupertinoColors.secondaryLabel
-                                    .resolveFrom(context),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-
-                        // Snippet Line
-                        Text(
-                          item.snippet,
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.25,
-                            color: CupertinoColors.secondaryLabel
-                                .resolveFrom(context),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // Hairline separator indented past the avatar
-            Padding(
-              padding: EdgeInsets.only(left: showContactPhotos ? 68.0 : 32.0),
-              child: Container(
+              // Hairline separator indented past the avatar
+              GlassDivider(
                 height: 0.5,
+                thickness: 0.5,
+                indent: showContactPhotos ? 68.0 : 32.0,
                 color: CupertinoColors.separator.resolveFrom(context),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -897,7 +925,7 @@ class _BatchActionsBar extends StatelessWidget {
         16,
         bottomPad > 32 ? bottomPad - 8 : 32,
       ),
-      child: GlassCard(
+      child: GlassContainer.card(
         useOwnLayer: true,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         shape: const LiquidRoundedRectangle(borderRadius: 28),

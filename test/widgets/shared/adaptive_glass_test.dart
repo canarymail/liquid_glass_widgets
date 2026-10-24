@@ -339,6 +339,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('premGroup'), findsOneWidget);
     });
+
+    testWidgets(
+        'premium quality with useOwnLayer: false outside of any layer auto-provisions own layer',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: AdaptiveGlass(
+            shape: _shape,
+            settings: _settings,
+            quality: GlassQuality.premium,
+            useOwnLayer:
+                false, // no ancestor layer, should auto-provision own layer without throwing
+            child: const Text('premAutoOwnLayer'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('premAutoOwnLayer'), findsOneWidget);
+    });
   });
 
   group('AdaptiveGlass bodyMode (GlassBodyMode.clear)', () {
@@ -512,6 +531,79 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('nestedGrouped'), findsOneWidget);
+    });
+
+    testWidgets(
+        'AdaptiveGlass with useOwnLayer=false falls back to own layer when no ancestor layer exists',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const AdaptiveGlass(
+            shape: _shape,
+            settings: _settings,
+            useOwnLayer: false,
+            child: Text('fallbackOwnLayer'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('fallbackOwnLayer'), findsOneWidget);
+    });
+
+    testWidgets(
+        'AdaptiveGlass exercises premium own-layer fallback and ancestor layer detection',
+        (tester) async {
+      await tester.pumpWidget(
+        createTestApp(
+          child: const Column(
+            children: [
+              AdaptiveGlass(
+                shape: _shape,
+                settings: _settings,
+                quality: GlassQuality.premium,
+                useOwnLayer: false,
+                child: SizedBox(width: 60, height: 30, child: Text('noLayer')),
+              ),
+              AdaptiveLiquidGlassLayer(
+                settings: _settings,
+                quality: GlassQuality.premium,
+                child: AdaptiveGlass(
+                  shape: _shape,
+                  settings: _settings,
+                  quality: GlassQuality.premium,
+                  useOwnLayer: false,
+                  child:
+                      SizedBox(width: 60, height: 30, child: Text('hasLayer')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('noLayer'), findsOneWidget);
+      expect(find.text('hasLayer'), findsOneWidget);
+    });
+
+    testWidgets('InheritedGlassSurfaceStyle.maybeOf retrieves ambient style',
+        (tester) async {
+      GlassSurfaceStyle? retrievedStyle;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: InheritedGlassSurfaceStyle(
+            surfaceStyle: GlassSurfaceStyle.solid,
+            child: Builder(
+              builder: (context) {
+                retrievedStyle = InheritedGlassSurfaceStyle.maybeOf(context);
+                return const Text('Surface Style Child');
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(retrievedStyle, GlassSurfaceStyle.solid);
     });
   });
 }

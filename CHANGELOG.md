@@ -1,3 +1,36 @@
+# Unreleased
+
+## Features
+
+- **Swipe actions (`GlassSwipeActions`, `GlassSwipeAction`, `GlassSwipeController`, `GlassSwipeActionScope`):** iOS-style leading and trailing swipe actions with spring physics (`GlassSpring.snappy()`), rubber-band overscroll damping, full-swipe execution (`fullSwipeThreshold`), mutual exclusion across rows via `GlassSwipeActionScope`, and both `tintedGlass` and `solidVibrancy` styles. `GlassListTile` adds `leadingSwipeActions`, `trailingSwipeActions`, `swipeActionStyle`, and `onDismissed`.
+
+- **Disclosure accordion sections (`GlassDisclosureGroup`):** Collapsible list sections with rotating chevron (RTL-aware), spring or curve expansion, controlled/uncontrolled `isExpanded` state, automatic divider interleaving inside `GlassGroupedSection`, and `GlassDisclosureGroup.standalone` for standalone glass cards.
+
+- **Edit Mode & reorderable lists (`GlassEditScope`, `GlassEditController`, `GlassEditButton`, `GlassReorderableList`):** Ambient list editing modeled on SwiftUI's `EditButton` and `ForEach`. `GlassReorderableList` and `GlassReorderableList.grouped` support grabber drag or press-and-hold reorder with native lift shadow and split card edges. `GlassListTile` adds `isEditing`, `canDelete`/`onDelete` (with animated slide-in delete confirmation), `canInsert`/`onInsert`, `canReorder`/`reorderIndex`, and `canSelect`/`isSelected`/`onSelectedChanged`. `GlassReorderableList.grouped` and `GlassGroupedSection` take `dividerIndent` (and `dividerEndIndent` on the list) to match native row insets.
+  - **Behavior change:** `GlassListTile.leading` is now a 28pt *minimum* width (so row text lines up with the default 56pt divider inset); a larger leading widget, e.g. a 44pt avatar, keeps its size.
+
+- **Context menus (`GlassContextMenu`, `GlassContextMenuAction`, `showGlassContextMenu`):** Long-press and secondary-click context menus with touch-and-hold row lift, custom preview cards (`previewBuilder`), glide-to-select with selection haptics, and retract-to-source dismissal. Available as `GlassContextMenu`, the `.glassContextMenu()` widget extension, `showGlassContextMenu`, or directly on `GlassListTile` (`contextMenuActions`, `contextMenuPreviewBuilder`).
+
+- **Full-screen covers (`GlassFullScreenCover`, `GlassFullScreenCoverBar`, `showGlassFullScreenCover`):** Edge-to-edge modal presentation with interactive swipe-down dismissal, progressive top-corner rounding, rubber-band overscroll resistance, and `GlassFullScreenCoverBar` with glass Done/Cancel (`GlassFullScreenCoverBarButton`) or close buttons. Also available via the `.glassFullScreenCover()` extension.
+
+- **Date and time pickers (`GlassDatePicker`, `GlassMultiDatePicker`, `showGlassDatePicker`):** Supports `.compact` (glass pills opening anchored calendar/wheel popovers), `.graphical` (inline paged month calendar with expandable month/year wheel), and `.wheel` styles across `date`, `time`, and `dateAndTime` modes, plus multi-date selection (`GlassMultiDatePicker`) and optional `monthNames`, `weekdayNames`, and `dateFormatter` localization overrides.
+
+- **Declarative navigation stack (`GlassNavigationStack`, `GlassNavigationLink`, `GlassNavigationPath`):** Value-based and builder-based declarative routing synchronized bidirectionally with native swipe-back gestures and `GlassNavigationShell` pinned chrome. Includes the `.navigationTitle()` widget extension, which automatically drives enclosing or descendant `GlassAppBar` / `GlassAppBar.pinned` titles (when `title` is null) via `GlassNavigationTitleScope`.
+
+- **iOS 27 theme presets (`GlassThemeData.ios27`):** Added `const GlassThemeData.ios27()`, `GlassThemeSettings.ios27Light` / `ios27Dark`, and `GlassThemeVariant.ios27Light` / `ios27Dark`, plus `shadowElevation` and `shadow` overrides on `GlassThemeSettings` and explicit horizontal leading-inset forwarding on `GlassAppBar.pinned(padding:)`.
+
+- **Solid card surfaces (`GlassSurfaceStyle`, `GlassContainer.card`):** Added `enum GlassSurfaceStyle { glass, solid }` and `GlassContainer.card` (plus `surfaceStyle` on `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDatePicker`, and `GlassMultiDatePicker`). `GlassSurfaceStyle.solid` bypasses the glass shader to render a flat, opaque inset-grouped card (`#FFFFFF` light, `#1C1C1E` dark, and `#2C2C2E` inside elevated modal sheets/covers). `solid` ignores `settings`, `quality` and `useOwnLayer`. Defaults to `glass` in 1.x, so nothing changes unless you opt in; the default flips to `solid` for list sections, date pickers and `GlassContainer.card` in 2.0.0 (see `docs/ROADMAP.md`).
+
+- **Example demos:** Added `example/lib/demos/lists_pickers_and_nav_demo.dart` ("Lists, Pickers & Nav") and `example/lib/demos/swipe_and_disclosure_demo.dart` ("Swipe & Disclosure") showcasing swipe actions, context menus, disclosure groups, edit/reorder, date pickers, full-screen covers, and `GlassNavigationStack`.
+
+## Deprecations
+
+- **`GlassCard` is deprecated in favour of `GlassContainer.card`:** `GlassCard` forwards to `GlassContainer.card` with identical defaults and renders identically; it will be removed in 2.0.0. Migration is a rename (see `docs/MIGRATION_0.x_TO_1.0.md`).
+
+## Bug Fixes
+
+- **Automatic `useOwnLayer` fallback for `AdaptiveGlass` outside of `LiquidGlassLayer`:** `AdaptiveGlass` now detects when no ancestor `LiquidGlassLayer` is present and provisions its own layer (`effectiveUseOwnLayer = true`) instead of asserting when `GlassQuality.premium` is requested.
+
 # 1.14.2
 
 ## Features

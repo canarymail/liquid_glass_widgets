@@ -321,6 +321,16 @@ class AdaptiveGlass extends StatelessWidget {
     // because those will fall back to FakeGlass (solid color) inside the renderer.
     // We MUST use our LightweightLiquidGlass to get actual glass effects.
 
+    // If no ancestor LiquidGlassLayer (or AdaptiveLiquidGlassLayer) exists,
+    // grouped rendering is physically impossible (renderLink would be null,
+    // triggering an assertion failure). In that case, automatically fall back
+    // to provisioning its own layer (effectiveUseOwnLayer = true) so the widget
+    // renders safely and seamlessly in premium quality.
+    final hasAncestorLayer = InheritedGeometryRenderLink.of(context) != null;
+    final effectiveUseOwnLayer = useOwnLayer ||
+        GlassIsolationScope.isIsolated(context) ||
+        !hasAncestorLayer;
+
     // platformViewBackdrop forces the live BackdropFilter path even at premium:
     // the premium shader's toImageSync backdrop can't capture a PlatformView, so
     // over one it must use BackdropFilter (live) instead. The local/cheap checks
@@ -465,9 +475,6 @@ class AdaptiveGlass extends StatelessWidget {
     // De-isolate children of the own-layer so nested glass (e.g. tab
     // items inside a bottom bar) groups with this layer rather than
     // creating additional own-layers (which would cause double-glass).
-    final effectiveUseOwnLayer =
-        useOwnLayer || GlassIsolationScope.isIsolated(context);
-
     if (effectiveUseOwnLayer) {
       // Resolve shadows for the GPU cutout method
       final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
