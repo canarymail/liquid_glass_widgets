@@ -388,9 +388,23 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   @override
   void didUpdateWidget(GlassSwipeActions oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
+    final controllerChanged = oldWidget.controller != widget.controller;
+    if (controllerChanged) {
       oldWidget.controller?._detach(this);
       widget.controller?._attach(this);
+    }
+    if (_isDismissing &&
+        (_dismissController.isCompleted || controllerChanged)) {
+      _isDismissing = false;
+      _dismissController.value = 0.0;
+      _isSnappingToZero = true;
+      _springController.setValue(0.0);
+      _isSnappingToZero = false;
+      _offset = 0.0;
+      _targetOffset = 0.0;
+      _closingFromSign = 0.0;
+      _hasFiredHaptic = false;
+      _setSwipeState(GlassSwipeState.idle);
     }
   }
 
@@ -509,6 +523,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
   void dismiss({bool animated = true, bool fromLeading = false}) {
     if (!mounted || _isDismissing) return;
     _isDismissing = true;
+    _scope?.unregisterRow(this);
     final rowWidth = context.size?.width ?? 390.0;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final dismissTarget = isRtl
@@ -540,6 +555,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
         });
       }
     } else {
+      _isDismissing = false;
       close(animated: animated);
     }
   }
@@ -683,7 +699,13 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
       action.onTap();
 
       final dismissCallback = widget.onDismissed;
-      if (dismissCallback != null) {
+      final hasAnyDestructive =
+          widget.leadingActions.any((a) => a.isDestructive) ||
+              widget.trailingActions.any((a) => a.isDestructive);
+      final shouldDismiss = dismissCallback != null &&
+          (action.isDestructive || !hasAnyDestructive);
+      if (shouldDismiss) {
+        _scope?.unregisterRow(this);
         final dismissTarget = isRtl
             ? (isLeading ? -rowWidth : rowWidth)
             : (isLeading ? rowWidth : -rowWidth);
@@ -701,6 +723,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
           });
         }
       } else {
+        _isDismissing = false;
         close();
       }
       return;
@@ -973,7 +996,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
                   revealProgress: revealProgress,
                   onPressed: () {
                     actions[i].onTap();
-                    if (actions[i].closeOnTap) {
+                    if (actions[i].closeOnTap && !_isDismissing) {
                       close();
                     }
                   },
@@ -1057,7 +1080,7 @@ class GlassSwipeActionsState extends State<GlassSwipeActions>
                   revealProgress: revealProgress,
                   onPressed: () {
                     actions[i].onTap();
-                    if (actions[i].closeOnTap) {
+                    if (actions[i].closeOnTap && !_isDismissing) {
                       close();
                     }
                   },

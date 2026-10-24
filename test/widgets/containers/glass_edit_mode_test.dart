@@ -701,8 +701,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Test tap down + cancel highlight in light mode when not editing
-      final gHighlight =
-          await tester.startGesture(tester.getCenter(find.text('Confirmable Row')));
+      final gHighlight = await tester
+          .startGesture(tester.getCenter(find.text('Confirmable Row')));
       await tester.pump();
       await gHighlight.cancel();
       await tester.pump();

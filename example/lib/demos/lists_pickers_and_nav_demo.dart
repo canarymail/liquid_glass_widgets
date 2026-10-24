@@ -390,11 +390,12 @@ class _ListsPickersAndNavDemoPageState
         GlassGroupedSection(
           surfaceStyle: GlassSurfaceStyle.solid,
           margin: EdgeInsets.zero,
+          dividerIndent: 72,
           header: _sectionHeader('Contacts (.swipeActions & .contextMenu)'),
           children: [
-            for (var i = 0; i < _contacts.length; i++) ...[
-              if (i > 0) const GlassDivider(indent: 72, endIndent: 16),
+            for (var i = 0; i < _contacts.length; i++)
               GlassListTile(
+                key: ValueKey(_contacts[i].name),
                 swipeController: _swipe[i],
                 allowsFullSwipe: true,
                 onDismissed: () => _deleteContact(i),
@@ -450,7 +451,6 @@ class _ListsPickersAndNavDemoPageState
                       )
                     : null,
               ),
-            ],
           ],
         ),
       ],
@@ -1453,4 +1453,3 @@ class _DashedSquirclePainter extends CustomPainter {
   bool shouldRepaint(_DashedSquirclePainter oldDelegate) =>
       oldDelegate.color != color;
 }
-

@@ -1601,6 +1601,80 @@ void main() {
       await tester.pumpAndSettle();
       expect(dismissedCount, 1);
     });
+
+    testWidgets(
+        'full-swipe delete in a list removes only one row even without row keys',
+        (tester) async {
+      final items = ['Alex Rivera', 'Jordan Lee', 'Taylor Brooks'];
+      final controllers =
+          List.generate(items.length, (_) => GlassSwipeController());
+      var pinCount = 0;
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: SizedBox(
+            width: 300,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return GlassGroupedSection(
+                  surfaceStyle: GlassSurfaceStyle.solid,
+                  children: [
+                    for (var i = 0; i < items.length; i++)
+                      GlassListTile(
+                        swipeController: controllers[i],
+                        allowsFullSwipe: true,
+                        onDismissed: () => setState(() {
+                          items.removeAt(i);
+                          controllers.removeAt(i);
+                        }),
+                        leadingSwipeActions: [
+                          GlassSwipeAction(
+                            icon: const Icon(CupertinoIcons.pin_fill),
+                            label: const Text('Pin'),
+                            onTap: () => pinCount++,
+                          ),
+                        ],
+                        trailingSwipeActions: [
+                          GlassSwipeAction(
+                            icon: const Icon(CupertinoIcons.trash),
+                            label: const Text('Delete'),
+                            isDestructive: true,
+                            onTap: () => controllers[i].dismiss(),
+                          ),
+                        ],
+                        title: Text(items[i]),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Full-swiping right on non-destructive Pin should trigger Pin and close, NOT dismiss
+      await tester.drag(find.text('Alex Rivera'), const Offset(240, 0));
+      await tester.pumpAndSettle();
+      expect(pinCount, 1);
+      expect(items.length, 3);
+      expect(tester.getSize(find.text('Alex Rivera')).height, greaterThan(0));
+
+      // Full-swiping left on destructive Delete should remove ONLY 'Alex Rivera'
+      // and leave 'Jordan Lee' and 'Taylor Brooks' visible with non-zero height.
+      await tester.drag(find.text('Alex Rivera'), const Offset(-240, 0));
+      await tester.pumpAndSettle();
+
+      expect(items, ['Jordan Lee', 'Taylor Brooks']);
+      expect(find.text('Alex Rivera'), findsNothing);
+      expect(find.text('Jordan Lee'), findsOneWidget);
+      expect(find.text('Taylor Brooks'), findsOneWidget);
+
+      final jordanTile = find.ancestor(
+        of: find.text('Jordan Lee'),
+        matching: find.byType(GlassSwipeActions),
+      );
+      expect(tester.getSize(jordanTile).height, greaterThan(20));
+    });
   });
 }
 

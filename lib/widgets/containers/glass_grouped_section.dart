@@ -209,10 +209,12 @@ class GlassGroupedSection extends StatelessWidget {
     for (var i = 0; i < children.length; i++) {
       final bool isFirstChild = i == 0;
       final bool isLastRow = i == children.length - 1;
+      final childKey = children[i].key;
       processedChildren.add(
         children[i] is GlassDivider
             ? children[i]
             : InheritedGlassSectionRow(
+                key: childKey is LocalKey ? childKey : null,
                 corners: BorderRadius.vertical(
                   top: isFirstChild ? cardCorner : Radius.zero,
                   bottom: isLastRow ? cardCorner : Radius.zero,

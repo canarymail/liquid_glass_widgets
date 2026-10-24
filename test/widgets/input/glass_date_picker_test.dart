@@ -977,7 +977,8 @@ void main() {
       // Toggle month/year wheel open inside compact popover, scroll it, and toggle closed
       await tester.tap(find.text('July 2026'));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(CupertinoPicker).first, const Offset(0, -40));
+      await tester.drag(
+          find.byType(CupertinoPicker).first, const Offset(0, -40));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(AnimatedRotation).first);
       await tester.pumpAndSettle();

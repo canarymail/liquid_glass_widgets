@@ -986,8 +986,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Tall Bottom Preview'), findsOneWidget);
 
-    final destructiveCenter =
-        tester.getCenter(find.text('Destructive Action'));
+    final destructiveCenter = tester.getCenter(find.text('Destructive Action'));
     final g4Glide = await tester.startGesture(destructiveCenter);
     await g4Glide.moveTo(destructiveCenter);
     await tester.pump();

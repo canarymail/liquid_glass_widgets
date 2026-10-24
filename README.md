@@ -26,7 +26,7 @@ Bring Apple's Liquid Glass to your Flutter app — from the iOS 26 original to t
 
 ```yaml
 dependencies:
-  liquid_glass_widgets: ^1.14.2
+  liquid_glass_widgets: ^1.15.0
 ```
 
 ```bash
@@ -1095,7 +1095,6 @@ Focused, self-contained demos — one widget, one file, runnable standalone:
 | `color_fidelity_demo.dart` — `Glass.clear` vs `Glass.regular` + decoupled track quality | `cd example && flutter run -t lib/demos/color_fidelity_demo.dart` |
 | `tab_bar_menu_demo.dart` — native pull-down menus on tab bars (`.menu`) | `cd example && flutter run -t lib/demos/tab_bar_menu_demo.dart` |
 | `lists_pickers_and_nav_demo.dart` — swipe actions, context menus, edit & reorder, disclosure, date pickers, full-screen cover, `GlassNavigationStack` | `cd example && flutter run -t lib/demos/lists_pickers_and_nav_demo.dart` |
-| `swipe_and_disclosure_demo.dart` — `GlassSwipeActions` and `GlassDisclosureGroup` | `cd example && flutter run -t lib/demos/swipe_and_disclosure_demo.dart` |
 
 
 ## Documentation

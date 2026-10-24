@@ -590,6 +590,7 @@ class _ParityHostState extends State<_ParityHost> {
             // inset.
             if (i > 0) const GlassDivider(indent: 72, endIndent: 16),
             ValueListenableBuilder<int?>(
+              key: ValueKey(_contacts[i].name),
               valueListenable: _activeMenuIndex,
               builder: (context, activeIdx, child) {
                 return Opacity(
