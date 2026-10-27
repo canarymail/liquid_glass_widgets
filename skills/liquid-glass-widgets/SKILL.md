@@ -16,7 +16,7 @@ Follow this guide strictly when writing, refactoring, or reviewing UI code to en
 ### Rule 1: Glass is a Platter, Not a Wrapper
 Glass in the iOS 26 design system is reserved for the **navigation and control layer** — floating chrome that sits above content.
 - **DO use glass for:** Navigation bars (`GlassAppBar`), tab bars (`GlassTabBar`), floating buttons (`GlassButton`, `GlassIconButton`), toolbars, modal sheets (`GlassModalSheet`), dialogs (`GlassDialog`), and standalone floating cards (`GlassContainer.card`).
-- **DO NOT use glass for:** Full-screen backgrounds, dense list view items, video players, image galleries, or text article bodies. Backgrounds should be rich wallpapers or gradients; content cards should be clean and readable. Cards inside scrolling lists should use `surfaceStyle: GlassSurfaceStyle.solid` (on `GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDatePicker` or `GlassMultiDatePicker`): a flat opaque card matching native iOS inset-grouped lists. `glass` is the 1.x default; `solid` becomes the default in 2.0.0.
+- **DO NOT use glass for:** Full-screen backgrounds, dense list view items, video players, image galleries, or text article bodies. Backgrounds should be rich wallpapers or gradients; content cards should be clean and readable. Cards and inputs inside scrolling lists should use `surfaceStyle: GlassSurfaceStyle.solid` (on `GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDisclosureGroup.standalone`, `GlassDatePicker`, `GlassMultiDatePicker`, `GlassTextField`, `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, or `GlassPicker`): a flat opaque card or translucent input well matching native iOS inset-grouped lists. Inputs and pickers placed inside a solid card/section inherit `solid` automatically via `InheritedGlassSurfaceStyle`. `glass` is the 1.x default; `solid` becomes the default in 2.0.0.
 
 ### Rule 2: NEVER Nest Refractive Glass inside Refractive Glass
 Placing refractive glass widgets inside another refractive glass container is an optical and performance anti-pattern.
@@ -24,7 +24,7 @@ Placing refractive glass widgets inside another refractive glass container is an
 - **Why?** These controls provide their own persistent refractive surface. Nesting creates severe double-refraction distortion, clips spring jelly animations, and wastes GPU fill-rate.
 - **Exception — `GlassSwitch`, `GlassSlider`, `GlassSegmentedControl`:** their glass is transient (only the thumb or pill turns to glass while it is touched or moving; at rest they look flat), so they are safe inside a `GlassContainer.card` / `GlassGroupedSection` with `surfaceStyle: GlassSurfaceStyle.solid`, which has no glass layer at all. This is the native iOS Settings pattern. On a default `glass` card, prefer placing them outside the card.
 - **Correct Pattern:**
-  - In a `solid` card or `GlassGroupedSection`: standard text and icons, `GlassListTile`, `GlassSwitch`, `GlassSlider` and `GlassSegmentedControl`.
+  - In a `solid` card or `GlassGroupedSection`: standard text and icons, `GlassListTile`, `GlassTextField` / `GlassSearchBar` / `GlassTextArea` / `GlassPasswordField` / `GlassPicker` (auto-inherit `solid` well styling), `GlassSwitch`, `GlassSlider` and `GlassSegmentedControl`.
   - In a `glass` card: standard text, icons, and non-refractive controls (or `GlassListTile`, which has no internal glass layer).
   - Outside the card / on the page platter: `GlassSegmentedControl`, `GlassButton`, `GlassSlider`, or standalone `GlassSwitch(useOwnLayer: true)`.
 
@@ -186,13 +186,13 @@ When generating Flutter UI, replace standard Flutter widgets with their native l
 | `ListTile` | `GlassListTile` | Grouped row item. Shares parent glass layer inside `GlassGroupedSection`. |
 | `Divider` | `GlassDivider` | Refractive subtle separator line. |
 | `Dismissible` / SwiftUI `.swipeActions` | `GlassSwipeActions` (or `GlassListTile.trailingSwipeActions` / `leadingSwipeActions`) | Leading/trailing circular action buttons with full-swipe. Wrap the list in `GlassSwipeActionScope` so only one row is open. See Section 6. |
-| `ExpansionTile` / SwiftUI `DisclosureGroup` | `GlassDisclosureGroup` | Rotating-chevron accordion. Use inside `GlassGroupedSection`. |
+| `ExpansionTile` / SwiftUI `DisclosureGroup` | `GlassDisclosureGroup` | Rotating-chevron accordion. Use inside `GlassGroupedSection`, or `GlassDisclosureGroup.standalone(surfaceStyle: ...)` for its own card. |
 | `ReorderableListView` + edit toggle | `GlassEditScope` + `GlassEditButton` + `GlassReorderableList.grouped` | Edit mode with delete badges, reorder grabbers, selection. See Section 6. |
 | Long-press context menu / SwiftUI `.contextMenu` | `GlassContextMenu` (or `.glassContextMenu()`, `GlassListTile.contextMenuActions`) | Row-lift menu with optional `previewBuilder`. Use `GlassPullDownButton` for tap-triggered menus. |
 | Full-screen `showDialog` / `.fullScreenCover` | `showGlassFullScreenCover` + `GlassFullScreenCover` | Edge-to-edge slide-up cover with swipe-down dismiss. |
 | `showDatePicker` / `CupertinoDatePicker` | `GlassDatePicker` (`.compact`, `.graphical`, `.wheel`), `GlassMultiDatePicker` | `showGlassDatePicker(...)` returns `DateTime?`. |
 | `Navigator.push` rows / SwiftUI `NavigationStack` | `GlassNavigationStack` + `GlassNavigationLink` | Typed `value` routing via `destinations`, or a `destination` builder. |
-| `TextField` / `CupertinoTextField` | `GlassTextField` | Input field with glowing refractive focus border. |
+| `TextField` / `CupertinoTextField` | `GlassTextField` / `GlassSearchBar` / `GlassTextArea` / `GlassPasswordField` / `GlassPicker` | Refractive glass input with press glow/scale (`glass`), or shader-free iOS `tertiarySystemFill` well (`surfaceStyle: GlassSurfaceStyle.solid` or auto-inherited inside a solid card). |
 | `showModalBottomSheet` | `GlassModalSheet.show` | Multi-detent fluid sheet (peek, half, full) with spring physics. |
 | `showDialog` / `CupertinoAlertDialog` | `GlassDialog.show` | Liquid glass modal alert with `GlassDialogAction` buttons. |
 | `SnackBar` / Banner | `GlassToast` | Floating glass HUD banner. |
@@ -294,7 +294,7 @@ GlassMaterialize(
 
 ## 6. Lists, Pickers & Declarative Navigation
 
-Use `surfaceStyle: GlassSurfaceStyle.solid` on list cards (`GlassGroupedSection`, `GlassReorderableList.grouped`, date pickers). For an app-wide iOS 27 material pass `theme: const GlassThemeData.ios27()` to `LiquidGlassWidgets.wrap()` (or wrap a subtree in `GlassTheme(data: const GlassThemeData.ios27(), ...)`).
+Use `surfaceStyle: GlassSurfaceStyle.solid` on list cards (`GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDisclosureGroup.standalone`, date pickers) and standalone scrolling inputs (`GlassTextField`, `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, `GlassPicker`). Inputs placed inside a `solid` card or `GlassGroupedSection` inherit `GlassSurfaceStyle.solid` automatically via `InheritedGlassSurfaceStyle`. For an app-wide iOS 27 material pass `theme: const GlassThemeData.ios27()` to `LiquidGlassWidgets.wrap()` (or wrap a subtree in `GlassTheme(data: const GlassThemeData.ios27(), ...)`).
 
 ### Swipe actions, context menu, disclosure
 ```dart

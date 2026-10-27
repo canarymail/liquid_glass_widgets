@@ -557,4 +557,499 @@ void main() {
       );
     });
   });
+
+  group('GlassContainer._buildSolid avoidsRefraction', () {
+    testWidgets(
+        'solid card sets avoidsRefraction: false while glass card sets true',
+        (tester) async {
+      bool? solidAvoids;
+      bool? glassAvoids;
+
+      await _pump(
+        tester,
+        Column(
+          children: [
+            GlassContainer.card(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              child: Builder(
+                builder: (ctx) {
+                  solidAvoids = ctx
+                      .dependOnInheritedWidgetOfExactType<
+                          InheritedLiquidGlass>()
+                      ?.avoidsRefraction;
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+            GlassContainer.card(
+              surfaceStyle: GlassSurfaceStyle.glass,
+              child: Builder(
+                builder: (ctx) {
+                  glassAvoids = ctx
+                      .dependOnInheritedWidgetOfExactType<
+                          InheritedLiquidGlass>()
+                      ?.avoidsRefraction;
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+
+      expect(solidAvoids, isFalse);
+      expect(glassAvoids, isTrue);
+    });
+
+    testWidgets(
+        'GlassSwitch and GlassButton inside a solid card keep full visual quality',
+        (tester) async {
+      await _pump(
+        tester,
+        GlassContainer.card(
+          surfaceStyle: GlassSurfaceStyle.solid,
+          child: Row(
+            children: [
+              GlassSwitch(value: true, onChanged: (_) {}),
+              GlassButton.custom(
+                onTap: () {},
+                child: const Text('Tap'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.byType(GlassSwitch), findsOneWidget);
+      expect(find.byType(GlassButton), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('GlassTextField / GlassTextArea / GlassPasswordField surfaceStyle', () {
+    for (final b in Brightness.values) {
+      final expectedWell =
+          b == Brightness.light ? kGlassSolidWellLight : kGlassSolidWellDark;
+
+      testWidgets(
+          'GlassTextField solid renders flat well (${b.name}) with zero shaders, glow, or scale',
+          (tester) async {
+        await _pump(
+          tester,
+          const GlassTextField(
+            placeholder: 'Name',
+            surfaceStyle: GlassSurfaceStyle.solid,
+          ),
+          brightness: b,
+          glassLayer: false,
+        );
+
+        expect(find.byType(AdaptiveGlass), findsNothing);
+        expect(find.byType(BackdropFilter), findsNothing);
+        expect(find.byType(GlassGlow), findsNothing);
+        expect(find.byType(AnimatedScale), findsNothing);
+
+        final decoration =
+            _solidDecoration(tester, find.byType(GlassTextField))!;
+        expect(decoration.color!.toARGB32(), expectedWell.toARGB32());
+        expect(
+          decoration.shape,
+          equals(const LiquidRoundedRectangle(borderRadius: 10)),
+        );
+      });
+    }
+
+    testWidgets(
+        'GlassTextField, GlassTextField.search, GlassSearchBar, GlassTextArea, and GlassPasswordField auto-inherit solid from GlassGroupedSection',
+        (tester) async {
+      await _pump(
+        tester,
+        GlassGroupedSection(
+          surfaceStyle: GlassSurfaceStyle.solid,
+          children: const [
+            GlassTextField(placeholder: 'Email'),
+            GlassTextField.search(placeholder: 'Search'),
+            GlassSearchBar(placeholder: 'Search bar'),
+            GlassTextArea(placeholder: 'Bio'),
+            GlassPasswordField(),
+          ],
+        ),
+        glassLayer: false,
+      );
+
+      // Neither the section card nor any of the 5 inputs uses AdaptiveGlass.
+      expect(find.byType(AdaptiveGlass), findsNothing);
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(find.byType(GlassGlow), findsNothing);
+
+      for (final type in [
+        GlassTextField,
+        GlassSearchBar,
+        GlassTextArea,
+        GlassPasswordField,
+      ]) {
+        for (final element in find.byType(type).evaluate()) {
+          final dec = _solidDecoration(
+            tester,
+            find.byWidget(element.widget),
+          )!;
+          expect(dec.color!.toARGB32(), kGlassSolidWellLight.toARGB32());
+        }
+      }
+    });
+
+    testWidgets(
+        'explicit surfaceStyle: GlassSurfaceStyle.glass overrides inherited solid',
+        (tester) async {
+      await _pump(
+        tester,
+        const GlassContainer.card(
+          surfaceStyle: GlassSurfaceStyle.solid,
+          child: GlassTextField(
+            placeholder: 'Hero input',
+            surfaceStyle: GlassSurfaceStyle.glass,
+          ),
+        ),
+      );
+
+      expect(find.byType(AdaptiveGlass), findsOneWidget);
+    });
+
+    testWidgets('custom color overrides default solid well color on all inputs',
+        (tester) async {
+      const customWell = Color(0xFFE5E5EA);
+      await _pump(
+        tester,
+        const Column(
+          children: [
+            GlassTextField(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              color: customWell,
+            ),
+            GlassSearchBar(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              color: customWell,
+            ),
+            GlassTextArea(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              color: customWell,
+            ),
+            GlassPasswordField(
+              surfaceStyle: GlassSurfaceStyle.solid,
+              color: customWell,
+            ),
+          ],
+        ),
+        glassLayer: false,
+      );
+
+      for (final type in [
+        GlassTextField,
+        GlassSearchBar,
+        GlassTextArea,
+        GlassPasswordField,
+      ]) {
+        final dec = _solidDecoration(tester, find.byType(type).first)!;
+        expect(dec.color!.toARGB32(), customWell.toARGB32());
+      }
+    });
+
+    testWidgets('GlassTextField solid warns (debug) when settings are passed',
+        (tester) async {
+      final printed = <String>[];
+      final original = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) printed.add(message);
+      };
+      try {
+        await _pump(
+          tester,
+          GlassTextField(
+            surfaceStyle: GlassSurfaceStyle.solid,
+            settings: defaultTestGlassSettings,
+          ),
+          glassLayer: false,
+        );
+        expect(
+          printed.where((m) => m.contains('have no effect')),
+          isNotEmpty,
+        );
+      } finally {
+        debugPrint = original;
+      }
+    });
+
+    testWidgets(
+        'solid mode uses CupertinoColors.label / placeholderText while glass mode preserves existing colors and press scale',
+        (tester) async {
+      await _pump(
+        tester,
+        const Column(
+          children: [
+            GlassTextField(
+              placeholder: 'Glass field',
+              surfaceStyle: GlassSurfaceStyle.glass,
+            ),
+            GlassTextField(
+              placeholder: 'Solid field',
+              surfaceStyle: GlassSurfaceStyle.solid,
+            ),
+          ],
+        ),
+      );
+
+      final cupertinoFields = tester
+          .widgetList<CupertinoTextField>(find.byType(CupertinoTextField))
+          .toList();
+      expect(
+        cupertinoFields[0].style!.color,
+        equals(const Color.fromRGBO(0, 0, 0, 0.9)),
+      );
+      expect(
+        cupertinoFields[0].placeholderStyle!.color,
+        equals(const Color.fromRGBO(0, 0, 0, 0.5)),
+      );
+      expect(
+        cupertinoFields[1].style!.color,
+        equals(CupertinoColors.label.color),
+      );
+      expect(
+        cupertinoFields[1].placeholderStyle!.color,
+        equals(CupertinoColors.placeholderText.color),
+      );
+
+      // Verify glass field press scale on pointer down/up/cancel
+      final glassFieldFinder = find.byType(GlassTextField).first;
+      final gesture = await tester.startGesture(
+        tester.getCenter(glassFieldFinder),
+      );
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      final cancelGesture = await tester.startGesture(
+        tester.getCenter(glassFieldFinder),
+      );
+      await tester.pump();
+      await cancelGesture.cancel();
+      await tester.pump();
+    });
+  });
+
+  group('GlassPicker surfaceStyle and grouped settings assert', () {
+    for (final b in Brightness.values) {
+      final expectedWell =
+          b == Brightness.light ? kGlassSolidWellLight : kGlassSolidWellDark;
+
+      testWidgets('solid renders flat well in ${b.name} mode without shaders',
+          (tester) async {
+        await _pump(
+          tester,
+          const GlassPicker(
+            value: 'Daily',
+            surfaceStyle: GlassSurfaceStyle.solid,
+          ),
+          brightness: b,
+          glassLayer: false,
+        );
+
+        expect(find.byType(AdaptiveGlass), findsNothing);
+        expect(find.byType(BackdropFilter), findsNothing);
+        final dec = _solidDecoration(tester, find.byType(GlassPicker))!;
+        expect(dec.color!.toARGB32(), expectedWell.toARGB32());
+      });
+    }
+
+    testWidgets(
+        'auto-inherits solid inside GlassContainer.card and honours color',
+        (tester) async {
+      const customColor = Color(0xFFD1D1D6);
+      await _pump(
+        tester,
+        const GlassContainer.card(
+          surfaceStyle: GlassSurfaceStyle.solid,
+          child: Column(
+            children: [
+              GlassPicker(value: 'Auto'),
+              GlassPicker(value: 'Custom', color: customColor),
+            ],
+          ),
+        ),
+        glassLayer: false,
+      );
+
+      expect(find.byType(AdaptiveGlass), findsNothing);
+      final pickers = find.byType(GlassPicker).evaluate().toList();
+      expect(
+        _solidDecoration(tester, find.byWidget(pickers[0].widget))!
+            .color!
+            .toARGB32(),
+        kGlassSolidWellLight.toARGB32(),
+      );
+      expect(
+        _solidDecoration(tester, find.byWidget(pickers[1].widget))!
+            .color!
+            .toARGB32(),
+        customColor.toARGB32(),
+      );
+    });
+
+    testWidgets(
+        'grouped mode warns only when explicit settings are provided without useOwnLayer',
+        (tester) async {
+      final printed = <String>[];
+      final original = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) printed.add(message);
+      };
+      try {
+        // Default grouped GlassPicker (settings: null) must NOT warn.
+        await _pump(
+          tester,
+          const GlassPicker(value: 'Default'),
+        );
+        expect(
+          printed.where((m) => m.contains('GlassPicker: `settings` provided')),
+          isEmpty,
+        );
+
+        // Explicit settings in grouped mode without useOwnLayer: true warns.
+        await _pump(
+          tester,
+          const GlassPicker(
+            value: 'Custom',
+            settings: LiquidGlassSettings(thickness: 42),
+          ),
+        );
+        expect(
+          printed.where((m) => m.contains('GlassPicker: `settings` provided')),
+          isNotEmpty,
+        );
+        // Explicit settings in solid mode warns that settings have no effect.
+        printed.clear();
+        await _pump(
+          tester,
+          GlassPicker(
+            value: 'Solid with settings',
+            surfaceStyle: GlassSurfaceStyle.solid,
+            settings: defaultTestGlassSettings,
+          ),
+          glassLayer: false,
+        );
+        expect(
+          printed.where((m) => m.contains('have no effect')),
+          isNotEmpty,
+        );
+      } finally {
+        debugPrint = original;
+      }
+    });
+  });
+
+  group('GlassDisclosureGroup.standalone surfaceStyle, color, and shape', () {
+    testWidgets('defaults to glass with 12pt superellipse', (tester) async {
+      await _pump(
+        tester,
+        const GlassDisclosureGroup.standalone(
+          title: Text('Advanced'),
+          children: [GlassListTile(title: Text('Item'))],
+        ),
+      );
+
+      expect(find.byType(AdaptiveGlass), findsOneWidget);
+      final container = tester.widget<GlassContainer>(
+        find.descendant(
+          of: find.byType(GlassDisclosureGroup),
+          matching: find.byType(GlassContainer),
+        ),
+      );
+      expect(
+        container.shape,
+        equals(const LiquidRoundedSuperellipse(borderRadius: 12)),
+      );
+      expect(container.useOwnLayer, isFalse);
+
+      // When explicit settings are passed, standalone creates its own layer.
+      await _pump(
+        tester,
+        GlassDisclosureGroup.standalone(
+          title: const Text('Advanced'),
+          settings: defaultTestGlassSettings,
+          children: const [GlassListTile(title: Text('Item'))],
+        ),
+      );
+      final customContainer = tester.widget<GlassContainer>(
+        find.descendant(
+          of: find.byType(GlassDisclosureGroup),
+          matching: find.byType(GlassContainer),
+        ),
+      );
+      expect(customContainer.useOwnLayer, isTrue);
+    });
+
+    for (final entry in {
+      Brightness.light: _lightFill,
+      Brightness.dark: _darkFill,
+    }.entries) {
+      testWidgets(
+          'solid renders flat ${entry.key.name} card with 26pt corners and 16pt divider endIndent',
+          (tester) async {
+        await _pump(
+          tester,
+          const GlassDisclosureGroup.standalone(
+            title: Text('Advanced'),
+            initiallyExpanded: true,
+            surfaceStyle: GlassSurfaceStyle.solid,
+            children: [
+              GlassListTile(title: Text('Row 1')),
+              GlassListTile(title: Text('Row 2')),
+            ],
+          ),
+          brightness: entry.key,
+          glassLayer: false,
+        );
+
+        expect(find.byType(AdaptiveGlass), findsNothing);
+        final dec =
+            _solidDecoration(tester, find.byType(GlassDisclosureGroup))!;
+        expect(dec.color!.toARGB32(), entry.value.toARGB32());
+        expect(
+          dec.shape,
+          equals(const LiquidRoundedSuperellipse(borderRadius: 26)),
+        );
+
+        final dividers = tester.widgetList<GlassDivider>(
+          find.descendant(
+            of: find.byType(GlassDisclosureGroup),
+            matching: find.byType(GlassDivider),
+          ),
+        );
+        expect(dividers, isNotEmpty);
+        for (final d in dividers) {
+          expect(d.endIndent, 16.0);
+        }
+      });
+    }
+
+    testWidgets('standalone honours custom color and shape', (tester) async {
+      const customColor = Color(0xFF223344);
+      const customShape = LiquidRoundedSuperellipse(borderRadius: 14);
+
+      await _pump(
+        tester,
+        const GlassDisclosureGroup.standalone(
+          title: Text('Custom'),
+          surfaceStyle: GlassSurfaceStyle.solid,
+          color: customColor,
+          shape: customShape,
+          children: [GlassListTile(title: Text('Row'))],
+        ),
+        glassLayer: false,
+      );
+
+      final dec = _solidDecoration(tester, find.byType(GlassDisclosureGroup))!;
+      expect(dec.color!.toARGB32(), customColor.toARGB32());
+      expect(dec.shape, equals(customShape));
+    });
+  });
 }

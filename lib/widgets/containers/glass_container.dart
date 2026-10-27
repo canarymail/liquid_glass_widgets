@@ -418,8 +418,10 @@ class GlassContainer extends StatelessWidget {
   /// [shape]'s path, so corners match the glass variant) and, when
   /// [clipBehavior] is not [Clip.none], a [ShapeBorderClipper] for the content.
   ///
-  /// The [InheritedLiquidGlass] wrapper is kept so descendants behave exactly
-  /// as they do inside a glass container (nested glass avoids refraction).
+  /// Because a solid card performs no backdrop sampling or shader pass,
+  /// [InheritedLiquidGlass.avoidsRefraction] is set to `false` so interactive
+  /// controls inside the card ([GlassSwitch], [GlassSlider],
+  /// [GlassSegmentedControl], [GlassButton]) retain their full visual quality.
   Widget _buildSolid(
     BuildContext context,
     Widget content,
@@ -449,7 +451,7 @@ class GlassContainer extends StatelessWidget {
       child: InheritedLiquidGlass(
         settings: effectiveSettings,
         quality: effectiveQuality,
-        avoidsRefraction: true,
+        avoidsRefraction: false,
         child: content,
       ),
     );

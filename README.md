@@ -215,22 +215,19 @@ beneath your content. They are not generic styling wrappers for other glass cont
 |---|---|
 | `Text`, `Icon`, `ListTile`, `CupertinoListTile` | `GlassButton`, `GlassChip`, `GlassIconButton` |
 | `GlassListTile`, `GlassDivider`, `GlassDisclosureGroup`, `GlassNavigationLink` | Any other persistently refractive glass widget |
-| Standard Flutter form widgets | `GlassSwitch`, `GlassSlider`, `GlassSegmentedControl` on a default `glass` card (fine on `solid`, see below) |
+| Standard Flutter form widgets; `GlassTextField`, `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, `GlassPicker` inside a `solid` card | `GlassSwitch`, `GlassSlider`, `GlassSegmentedControl`, `GlassTextField` on a default `glass` card (fine on `solid`, see below) |
 
-`GlassSwitch`, `GlassSlider` and `GlassSegmentedControl` only turn to glass while their thumb or pill is touched or moving, and `solid` cards have no glass layer, so they sit safely in a settings-style `solid` card (the native iOS pattern). On a default `glass` card, place them outside the card instead.
+`GlassSwitch`, `GlassSlider` and `GlassSegmentedControl` only turn to glass while their thumb or pill is touched or moving, and `GlassTextField` / `GlassPicker` auto-inherit a flat `tertiarySystemFill` well inside a `solid` card — since `solid` cards have no glass layer, all of them sit safely in a settings-style `solid` card (the native iOS pattern). On a default `glass` card, place them outside the card instead.
 
-**Why?** `GlassContainer` sets `avoidsRefraction: true` on its children so nested glass
-cannot refract through the outer layer — the inner effect degrades by design. On Impeller
-with `useOwnLayer: true`, the container's own-layer clip also cuts jelly-physics overshots
-from interactive indicators (segmented control pill, slider thumb) during animations.
+**Why?** In `glass` mode, `GlassContainer` sets `avoidsRefraction: true` on its children so nested glass cannot refract through the outer layer — the inner effect degrades by design (`solid` cards have no glass layer and set `avoidsRefraction: false`). On Impeller with `useOwnLayer: true`, a glass container's own-layer clip also cuts jelly-physics overshots from interactive indicators (segmented control pill, slider thumb) during animations.
 
 Interactive glass controls already provide their own surface appearance via `backgroundColor`
 and `indicatorColor` — no outer container is needed for the track or background.
 
-**Cards in scrolling lists:** iOS renders inset-grouped list cards as flat, opaque surfaces.
-`GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped` and the date
+**Cards and form inputs in scrolling lists:** iOS renders inset-grouped list cards as flat, opaque surfaces and form inputs inside them as flat `tertiarySystemFill` wells.
+`GlassContainer.card`, `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDisclosureGroup.standalone` and the date
 pickers take `surfaceStyle: GlassSurfaceStyle.solid` for a flat white / `#1C1C1E` card with
-26pt corners (no blur, rim or shadow). `glass` is the default in 1.x; the default becomes
+26pt corners (no blur, rim or shadow). `GlassTextField`, `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField` and `GlassPicker` also accept `surfaceStyle: GlassSurfaceStyle.solid` (plus an optional `color` override) and **automatically inherit `solid`** when placed inside a solid card or section. `glass` is the default in 1.x; the default becomes
 `solid` in 2.0.0.
 
 ```dart

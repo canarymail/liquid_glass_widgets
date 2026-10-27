@@ -1,33 +1,35 @@
-/// How a card-like surface is rendered.
+/// How a card-like or recessed input surface is rendered.
 ///
 /// Used by `GlassContainer.card`, `GlassGroupedSection`,
-/// `GlassReorderableList.grouped`, `GlassDatePicker` and
-/// `GlassMultiDatePicker` via their `surfaceStyle` parameter.
+/// `GlassReorderableList.grouped`, `GlassDisclosureGroup.standalone`,
+/// `GlassDatePicker`, `GlassMultiDatePicker`, `GlassTextField`,
+/// `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, and `GlassPicker`
+/// via their `surfaceStyle` parameter.
 enum GlassSurfaceStyle {
   /// A liquid glass surface (blur, refraction, rim light).
   ///
   /// This is the default in 1.x. Glass is best reserved for chrome that floats
   /// above content (bars, sheets, menus, controls). iOS itself renders cards
-  /// inside **scrolling list content** (inset-grouped lists) as flat, opaque
-  /// surfaces, so prefer [solid] when you want that native look.
+  /// and form inputs inside **scrolling list content** (inset-grouped lists) as
+  /// flat, opaque surfaces, so prefer [solid] when you want that native look.
   glass,
 
-  /// A flat, opaque fill with no blur, rim light, refraction or shadow.
+  /// A flat fill with no blur, rim light, refraction, or shadow.
   ///
-  /// Matches the inset-grouped list cards used by iOS Settings-style screens:
-  /// white in light mode and `#1C1C1E` in dark mode, with a continuous
-  /// (superellipse) corner. The brightness is resolved the same way as the
-  /// rest of the package (`GlassTheme` override, then a pinned
-  /// `CupertinoTheme`, then the Material theme, then the platform).
+  /// - **Cards & sections** (`GlassContainer.card`, `GlassGroupedSection`,
+  ///   `GlassReorderableList.grouped`, `GlassDisclosureGroup.standalone`,
+  ///   `GlassDatePicker`, `GlassMultiDatePicker`): renders `#FFFFFF` in light
+  ///   mode, `#1C1C1E` in dark mode, and `#2C2C2E` inside elevated modal sheets
+  ///   or full-screen covers, with a 26pt continuous (superellipse) corner.
+  /// - **Inputs & pickers** (`GlassTextField`, `GlassSearchBar`,
+  ///   `GlassTextArea`, `GlassPasswordField`, `GlassPicker`): renders an iOS
+  ///   `tertiarySystemFill` recessed well (`#1E767680` in light mode,
+  ///   `#3D767680` in dark mode), and auto-inherits [solid] when placed inside
+  ///   a solid card or section unless overridden.
   ///
   /// This path does not sample the backdrop and does not use any shader, so
   /// the surface renders identically on every platform and rendering backend,
-  /// and per-widget glass `settings`, `quality` and `useOwnLayer` have no
+  /// and per-widget glass `settings`, `quality`, and `useOwnLayer` have no
   /// effect on it (a debug-mode message is printed if you pass them).
-  ///
-  /// Limitation: the fill is always `#1C1C1E` in dark mode. iOS switches to a
-  /// lighter "elevated" grouped background (`#2C2C2E`) for cards shown inside
-  /// sheets and covers; that variant is not implemented. Pass a custom
-  /// widget (for example a `DecoratedBox`) if you need it.
   solid,
 }
