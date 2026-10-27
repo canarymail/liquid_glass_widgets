@@ -913,9 +913,15 @@ class _GlassContextMenuRouteStaticState
     final Color scrim = widget.scrimColor ??
         (isDark ? const Color(0x40000000) : const Color(0x32000000));
 
-    final LiquidGlassSettings? platterSettings = widget.settings ??
+    final LiquidGlassSettings platterSettings = widget.settings ??
         (isDark
-            ? null
+            ? const LiquidGlassSettings(
+                glassColor: Color(0xCC252528),
+                thickness: 16,
+                blur: 22,
+                saturation: 1.2,
+                lightIntensity: 0.28,
+              )
             : const LiquidGlassSettings(
                 glassColor: Color(0xCCF5F5F7),
                 thickness: 16,

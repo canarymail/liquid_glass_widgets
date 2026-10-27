@@ -16,11 +16,13 @@ import '../../utils/glass_morph_controller.dart';
 import '../../utils/liquid_morph_physics.dart';
 import '../shared/adaptive_glass.dart';
 import '../shared/adaptive_liquid_glass_layer.dart';
+import '../shared/inherited_liquid_glass.dart';
 import '../../types/interaction_notification.dart';
 import '../../src/widgets/overlays/glass_sheet_defaults.dart';
 import '../../src/widgets/surfaces/vertical_bar_title_row.dart';
 import '../../constants/glass_defaults.dart';
 import '../shared/glass_accessibility_scope.dart';
+import '../shared/glass_isolation_scope.dart';
 import '../surfaces/glass_vertical_bar.dart';
 
 part 'shared/glass_modal_sheet_mechanics.dart';

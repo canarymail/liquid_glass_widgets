@@ -114,17 +114,34 @@ class GeometryTransformTrackingLayer extends OffsetLayer {
     } catch (_) {
       return;
     }
-    if (!MatrixUtils.matrixEquals(currentTransform, _lastTransform)) {
+    final transformChanged =
+        !MatrixUtils.matrixEquals(currentTransform, _lastTransform);
+    if (updateAtComposite case final update?) {
+      // Always give a composited glass layer a chance to reconcile its
+      // screen-space uniforms during addToScene — even when its own transform
+      // has not changed — because an ancestor LiquidGlassRenderObject (shallower
+      // depth, so painted AFTER this repaint boundary in flushPaint) may have
+      // opened, closed, or resized its backdrop pass in the same frame.
+      //
+      // A repaint is requested only for a real move that could not be
+      // followed. A layer that simply has nothing to update (capture path,
+      // matte not built yet) returns false on every composite; notifying for
+      // that would repaint it, and so recomposite it, on every frame forever.
+      // The update callback requests its own one-shot repaint for a pass
+      // change it cannot follow.
+      final reconciled = update();
+      if (!reconciled && transformChanged && _lastTransform != null) {
+        _notifyTransformChanged();
+      }
+    } else if (transformChanged) {
       // Don't trigger onTransformChanged on the very first frame (when _lastTransform is null).
       // The render object just painted itself, so it is already up to date. Triggering it
       // here would needlessly dirty the render tree and force a second frame to render.
-      // After that, a moved render object first tries to update its last paint for this
-      // frame (updateAtComposite); only when it can't is a repaint scheduled.
-      if (_lastTransform != null && !(updateAtComposite?.call() ?? false)) {
+      if (_lastTransform != null) {
         _notifyTransformChanged();
       }
-      _lastTransform = currentTransform;
     }
+    _lastTransform = currentTransform;
   }
 
   /// Runs [onTransformChanged] at a point where dirtying the render tree

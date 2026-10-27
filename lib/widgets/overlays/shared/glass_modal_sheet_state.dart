@@ -1111,6 +1111,7 @@ class _GlassModalSheetState extends State<GlassModalSheet>
           colorOpacity: metrics.colorOpacity,
           glassOpacity: metrics.glassOpacity,
           effectiveExpandedColor: metrics.effectiveExpandedColor,
+          effectiveSettings: metrics.effectiveSettings,
           fadedSettings: fadedSettings,
           effectiveQuality: effectiveQuality,
           saturationAnimation: _saturationAnimation,

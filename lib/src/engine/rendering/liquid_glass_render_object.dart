@@ -431,12 +431,11 @@ abstract class LiquidGlassRenderObject extends RenderProxyBox {
 
     _paintBounds = boundingBox;
 
-    // Fast-path: if there is no geometric thickness AND no blur, there is
-    // nothing to render — skip the expensive async geometry build entirely.
-    // If blur > 0 but thickness == 0, we must still run paintLiquidGlass so
-    // the BackdropFilterLayer blur pass fires in liquid_glass_layer.dart.
+    // Fast-path: if there is no geometric thickness and no blur, there is
+    // nothing to render — skip the expensive geometry build and shader pass.
     if (settings.effectiveThickness <= 0 && settings.effectiveBlur <= 0) {
       _clearGeometryImage();
+      backdropPassClipRectLocal = null;
       paintShapeContents(
         context,
         offset,

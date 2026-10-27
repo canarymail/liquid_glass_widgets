@@ -31,6 +31,8 @@ import 'package:flutter/gestures.dart' show GestureBinding;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 const _cmdFile = '/tmp/lgw_parity_cmd.txt';
+const _workspaceCmdFile =
+    '/Users/sdegenaar/development/liquid_glass_widgets/tools/parity/captures/cmd.txt';
 
 /// Whether the harness renders in dark appearance (`dark on|off` command).
 /// Driven by command rather than the OS so captures are deterministic.
@@ -115,6 +117,8 @@ class _ParityHostState extends State<_ParityHost> {
   final _sharePhoto = ValueNotifier<bool>(true);
   final _activeMenuIndex = ValueNotifier<int?>(null);
   final _navPath = GlassNavigationPath();
+  GlassMorphAnchor? _morphFullAnchor;
+  GlassMorphAnchor? _morphHalfAnchor;
 
   @override
   void initState() {
@@ -122,15 +126,17 @@ class _ParityHostState extends State<_ParityHost> {
     _contacts = List.of(_initialContacts);
     _swipe = List.generate(_contacts.length, (_) => GlassSwipeController());
     _rowKeys = List.generate(_contacts.length, (_) => GlobalKey());
-    final f = File(_cmdFile);
-    if (f.existsSync()) {
-      try {
-        f.deleteSync();
-      } catch (_) {}
+    for (final path in [_cmdFile, _workspaceCmdFile]) {
+      final f = File(path);
+      if (f.existsSync()) {
+        try {
+          f.deleteSync();
+        } catch (_) {}
+      }
     }
     _dark.addListener(_onDarkChanged);
     _navPath.addListener(_onNavPathChanged);
-    _poll = Timer.periodic(const Duration(milliseconds: 250), (_) => _check());
+    _poll = Timer.periodic(const Duration(milliseconds: 16), (_) => _check());
   }
 
   void _onNavPathChanged() {
@@ -168,9 +174,16 @@ class _ParityHostState extends State<_ParityHost> {
   }
 
   void _check() {
-    final f = File(_cmdFile);
-    if (!f.existsSync()) return;
-    final cmd = f.readAsStringSync().trim();
+    File? active;
+    for (final path in [_workspaceCmdFile, _cmdFile]) {
+      final f = File(path);
+      if (f.existsSync()) {
+        active = f;
+        break;
+      }
+    }
+    if (active == null) return;
+    final cmd = active.readAsStringSync().trim();
     if (cmd.isEmpty || _lastCmd == cmd) return;
     _lastCmd = cmd;
     _run(cmd.split(RegExp(r'\s+')));
@@ -313,6 +326,10 @@ class _ParityHostState extends State<_ParityHost> {
         a[1] == 'on' ? _edit.startEditing() : _edit.stopEditing();
       case 'cover':
         _presentCover();
+      case 'morph_full':
+        _presentMorphSheet(full: true);
+      case 'morph_half':
+        _presentMorphSheet(full: false);
       case 'push':
         if (a.length > 1 && a[1] == 'deeper') {
           final current = _navPath.elements.lastOrNull as String? ??
@@ -368,6 +385,40 @@ class _ParityHostState extends State<_ParityHost> {
         closeButtonLabel: 'Done',
         onDismiss: () {},
         child: const _CoverBody(),
+      ),
+    );
+  }
+
+  void _presentMorphSheet({required bool full}) {
+    final isDark = _dark.value;
+    final anchor = full ? _morphFullAnchor : _morphHalfAnchor;
+    final sheetGlass =
+        (isDark ? _kDarkPillGlassSettings : LiquidGlassSettings.ios27Light)
+            .copyWith(blur: 10);
+    GlassModalSheet.show<void>(
+      context: context,
+      morphFrom: anchor,
+      halfSize: 459.33,
+      fullSize: 812.0,
+      // Same-method edge scans of 3x captures: a 7.33pt margin renders 0.67pt
+      // wider per side than the native half detent, so native is 8.0pt.
+      horizontalMargin: 8.0,
+      bottomMargin: 7.33,
+      barrierColor: const Color(0x33000000),
+      settings: sheetGlass,
+      initialState: full ? GlassSheetState.full : GlassSheetState.half,
+      detents: full
+          ? const {GlassSheetDetent.large}
+          : const {GlassSheetDetent.medium, GlassSheetDetent.large},
+      expandedColor: const Color(0xFFF2F2F7),
+      expandedDarkColor: const Color(0xFF1C1C1E),
+      showDragIndicator: !full,
+      dragIndicatorTopPadding: 6.0,
+      dragIndicatorHeight: 4.5,
+      builder: (sheetCtx) => _MorphComposeSheetBody(
+        title: full ? 'New Message' : 'Morph from trigger',
+        full: full,
+        onClose: () => Navigator.of(sheetCtx).maybePop(),
       ),
     );
   }
@@ -1072,7 +1123,254 @@ class _ParityHostState extends State<_ParityHost> {
               ),
             ],
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 26, 16, 10),
+            child: Text(
+              'Liquid Morph Sheet (.navigationTransition(.zoom))',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.41,
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
+            ),
+          ),
+          GlassGroupedSection(
+            surfaceStyle: GlassSurfaceStyle.solid,
+            margin: EdgeInsets.zero,
+            children: [
+              GlassMorphTrigger(
+                builder: (ctx, anchor) {
+                  _morphHalfAnchor = anchor;
+                  return GlassListTile(
+                    onTap: () => _presentMorphSheet(full: false),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 15,
+                    ),
+                    title: Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.add_circled_solid,
+                          size: 20,
+                          color: accentBlue,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Morph Half Sheet',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: -0.41,
+                            color: accentBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: Icon(
+                      CupertinoIcons.chevron_right,
+                      size: 14,
+                      color:
+                          CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          // Measured against the native reference (3x captures): the compose
+          // trigger's centre sits at y = 723.3pt there, 5.3pt lower than the
+          // 158pt gap gave.
+          const SizedBox(height: 163.33),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: GlassMorphTrigger(
+                builder: (ctx, anchor) {
+                  _morphFullAnchor = anchor;
+                  return GlassIconButton(
+                    size: 62,
+                    useOwnLayer: true,
+                    icon: Icon(
+                      CupertinoIcons.create,
+                      size: 22,
+                      color: labelColor,
+                    ),
+                    onPressed: () => _presentMorphSheet(full: true),
+                  );
+                },
+              ),
+            ),
+          ),
         ]),
+      ),
+    );
+  }
+}
+
+class _MorphComposeSheetBody extends StatelessWidget {
+  const _MorphComposeSheetBody({
+    required this.title,
+    required this.full,
+    required this.onClose,
+  });
+
+  final String title;
+  final bool full;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
+    final labelColor = CupertinoColors.label.resolveFrom(context);
+    final secondaryColor = CupertinoColors.secondaryLabel.resolveFrom(context);
+    final accentBlue =
+        isDark ? const Color(0xFF0091FF) : const Color(0xFF0088FF);
+
+    final platterColor = full
+        ? (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFFFFFFF))
+        : (isDark ? const Color(0x1FFFFFFF) : const Color(0x10000000));
+    final dividerColor =
+        CupertinoColors.separator.resolveFrom(context).withValues(alpha: 0.35);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              GlassIconButton(
+                size: 44,
+                settings: isDark
+                    ? LiquidGlassSettings.ios27Dark
+                    : LiquidGlassSettings.ios27Light,
+                // Native `xmark` measures 16.7pt wide (3x capture); the
+                // Cupertino glyph is 0.65x its font size.
+                icon: Icon(CupertinoIcons.xmark, size: 25.5, color: labelColor),
+                onPressed: onClose,
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.41,
+                    color: labelColor,
+                  ),
+                ),
+              ),
+              GlassIconButton(
+                // Native sizes this button to its 30.6pt filled disc: a
+                // 48.9pt glass ring (the X button stays 44.8pt).
+                size: 49,
+                settings: isDark
+                    ? LiquidGlassSettings.ios27Dark
+                    : LiquidGlassSettings.ios27Light,
+                icon: Icon(
+                  CupertinoIcons.arrow_up_circle_fill,
+                  size: 36,
+                  color: labelColor,
+                ),
+                onPressed: onClose,
+              ),
+            ],
+          ),
+          SizedBox(height: full ? 45 : 38),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: platterColor,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _fieldRow('To:', 'alex@acme.io', secondaryColor, accentBlue),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(height: 0.5, color: dividerColor),
+                ),
+                _fieldRow(
+                  'From:',
+                  's.degenaar@acme.io',
+                  secondaryColor,
+                  accentBlue,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(height: 0.5, color: dividerColor),
+                ),
+                _fieldRow(
+                  'Subject:',
+                  'iOS 27 Liquid Glass Morph Parity',
+                  secondaryColor,
+                  labelColor,
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+            child: Text(
+              'Message',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: secondaryColor,
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: platterColor,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 21),
+              child: Text(
+                'The sheet content emerges and scales continuously inside the '
+                'expanding Liquid Glass portal during the morph transition, '
+                'matching iOS 27 zoom transitions.',
+                style: TextStyle(
+                  fontSize: 17,
+                  // Native body line pitch measures 20.9pt (3x capture).
+                  height: 1.23,
+                  letterSpacing: -0.41,
+                  color: labelColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fieldRow(
+    String label,
+    String value,
+    Color labelColor,
+    Color valueColor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15.5),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 17, color: labelColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 17, color: valueColor),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -562,6 +562,11 @@ class GlassModalSheetController {
   /// sheet is, not where it was a frame ago); the null case distinguishes
   /// "not mounted yet" from a sheet genuinely sitting at 0.0.
   double? get _livePosition => _state?._animationController.value;
+
+  /// Freezes the sheet at its current position when the closing morph takes
+  /// over, so a dismissal does not keep sliding the sheet toward the floor
+  /// while the morph portal shrinks it back into the trigger.
+  void _freezeForMorphClose() => _state?._animationController.stop();
 }
 
 // ===========================================================================

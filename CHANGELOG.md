@@ -1,3 +1,11 @@
+# 1.15.1
+
+## Bug Fixes
+
+- **`GlassModalSheet` content stays hidden until `morphFrom`:** Sheet content now scales, clips, and fades in continuously inside the expanding Liquid Glass droplet during `morphFrom` / `morphFromRect` transitions, and nested glass controls inside the sheet preserve their glass settings and backdrop alignment across the morph handoff.
+
+- **Dark-mode `GlassContextMenu` platter blur:** Dark-mode context menu platters now match light-mode frost density so underlying content does not bleed through.
+
 # 1.15.0
 
 ## Features
