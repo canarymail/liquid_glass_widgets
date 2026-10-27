@@ -17,6 +17,7 @@ class _SheetLayout extends StatelessWidget {
   final double colorOpacity;
   final double glassOpacity;
   final Color effectiveExpandedColor;
+  final LiquidGlassSettings effectiveSettings;
   final LiquidGlassSettings fadedSettings;
   final GlassQuality effectiveQuality;
   final bool platformViewBackdrop;
@@ -67,6 +68,7 @@ class _SheetLayout extends StatelessWidget {
     required this.colorOpacity,
     required this.glassOpacity,
     required this.effectiveExpandedColor,
+    required this.effectiveSettings,
     required this.fadedSettings,
     required this.effectiveQuality,
     required this.platformViewBackdrop,
@@ -98,6 +100,10 @@ class _SheetLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final morphScope = _SheetMorphScope.maybeOf(context);
+    final inMorph = morphScope?.inMorph ?? false;
+    final morphContentOpacity = morphScope?.contentOpacity ?? 1.0;
+
     final handleZone = _SheetHandleZone(
       indicatorWidth: dragIndicatorWidth,
       indicatorHeight: dragIndicatorHeight,
@@ -173,24 +179,21 @@ class _SheetLayout extends StatelessWidget {
                 isFullyExpanded ? (maintainContentGlass ? 1.0 : 0.0) : 1.0;
 
             // Fade glass uniformly via settings rather than an Opacity widget.
-            //
-            // IMPORTANT: blur is clamped to a minimum of 0.001 rather than
-            // allowing it to reach exactly 0. When `AdaptiveGlass` receives
-            // `settings.effectiveBlur == 0` it switches its return type from
-            // the normal glass widget to `_FrostedFallback`. A type change at
-            // the same slot causes Flutter to tear down the existing element
-            // subtree and rebuild it from scratch — firing `initState` on all
-            // child `State` objects and destroying scroll positions, controllers,
-            // etc. A 0.001 blur is visually imperceptible but keeps the tree
-            // structure (and therefore the element identity) stable.
             final currentSettings = contentSettings.copyWith(
               glassColor: contentSettings.glassColor.withValues(
                 alpha: contentSettings.glassColor.a * glassVisibility,
               ),
-              blur: (contentSettings.blur * glassVisibility)
-                  .clamp(0.001, double.infinity),
+              blur: contentSettings.blur * glassVisibility,
+              frost: contentSettings.frost * glassVisibility,
               thickness: contentSettings.thickness * glassVisibility,
             );
+            final surfaceSettings = inMorph
+                ? SheetMorphGeometry.dormantSurface(currentSettings)
+                : currentSettings;
+            final childSettings =
+                (maintainContentGlass && expandProgressValue > 0.9)
+                    ? (fullStateContentSettings ?? effectiveSettings)
+                    : effectiveSettings;
 
             final shape = LiquidVerticalRoundedSuperellipse(
               topRadius: currentTopRadius,
@@ -239,7 +242,7 @@ class _SheetLayout extends StatelessWidget {
                     Positioned.fill(
                       child: AdaptiveGlass(
                         shape: shape,
-                        settings: currentSettings,
+                        settings: surfaceSettings,
                         quality: effectiveQuality,
                         platformViewBackdrop: platformViewBackdrop,
                         useOwnLayer: true,
@@ -258,7 +261,7 @@ class _SheetLayout extends StatelessWidget {
                                 key: const Key('glass_modal_sheet_fill'),
                                 decoration: BoxDecoration(
                                   color: effectiveExpandedColor.withValues(
-                                    alpha: colorOpacity,
+                                    alpha: inMorph ? 0.0 : colorOpacity,
                                   ),
                                 ),
                               ),
@@ -269,8 +272,11 @@ class _SheetLayout extends StatelessWidget {
                                 final isDark =
                                     GlassTheme.brightnessOf(innerContext) ==
                                         Brightness.dark;
+                                final outerMaterialize =
+                                    GlassMaterializeScope.maybeOf(innerContext);
                                 return GlassGlow(
-                                  glowColor: (enableInteractionGlow &&
+                                  glowColor: (!inMorph &&
+                                          enableInteractionGlow &&
                                           glassOpacity > 0.05 &&
                                           expandProgress < 0.9)
                                       ? (glowColor ??
@@ -286,26 +292,57 @@ class _SheetLayout extends StatelessWidget {
                                       : const Color(0x00000000),
                                   glowRadius: glowRadius,
                                   hitTestBehavior: HitTestBehavior.translucent,
-                                  pulse: (enableSaturationGlow &&
+                                  pulse: (!inMorph &&
+                                          enableSaturationGlow &&
                                           expandProgress < 0.9)
                                       ? saturationAnimation.value
                                       : 0,
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        // Replaces Material(color: transparent) — SizedBox.expand
-                                        // provides identical visual output for a glass sheet child.
-                                        child: SizedBox.expand(child: child!),
+                                  child: Opacity(
+                                    opacity: morphContentOpacity,
+                                    child: GlassMaterializeScope(
+                                      glassProgress: morphContentOpacity *
+                                          (outerMaterialize?.glassProgress ??
+                                              1.0),
+                                      contentOpacity:
+                                          outerMaterialize?.contentOpacity ??
+                                              1.0,
+                                      contentSigma:
+                                          outerMaterialize?.contentSigma ?? 0.0,
+                                      child: Stack(
+                                        children: [
+                                          Positioned.fill(
+                                            // Replaces Material(color: transparent) — SizedBox.expand
+                                            // provides identical visual output for a glass sheet child.
+                                            // Isolate child glass controls so they don't union into
+                                            // the sheet container's own blend group.
+                                            // Provide [currentSettings] via [InheritedLiquidGlass] so
+                                            // nested glass controls inherit the sheet's active settings
+                                            // rather than [surfaceSettings] (which is dormant while
+                                            // [inMorph] is true).
+                                            child: InheritedLiquidGlass(
+                                              settings: childSettings,
+                                              quality: effectiveQuality,
+                                              child: GlassIsolationScope(
+                                                isolated: true,
+                                                defaultQuality:
+                                                    effectiveQuality,
+                                                child: SizedBox.expand(
+                                                  child: child!,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          if (showDragIndicator)
+                                            Positioned(
+                                              top: 0,
+                                              left: 0,
+                                              right: 0,
+                                              height: 44,
+                                              child: handleZone,
+                                            ),
+                                        ],
                                       ),
-                                      if (showDragIndicator)
-                                        Positioned(
-                                          top: 0,
-                                          left: 0,
-                                          right: 0,
-                                          height: 44,
-                                          child: handleZone,
-                                        ),
-                                    ],
+                                    ),
                                   ),
                                 ); // GlassGlow
                               }), // Builder

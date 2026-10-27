@@ -10,7 +10,12 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
-    show GlassQuality, GlassTheme, GlassThemeData, MorphSpeed;
+    show
+        GlassQuality,
+        GlassTheme,
+        GlassThemeData,
+        InheritedLiquidGlass,
+        MorphSpeed;
 import 'package:liquid_glass_widgets/widgets/shared/adaptive_glass.dart'
     show AdaptiveGlass;
 import 'package:liquid_glass_widgets/src/renderer/liquid_glass_renderer.dart';
@@ -767,14 +772,16 @@ void main() {
       expect(radius, 20.0);
     });
 
-    test('stays round through the travel', () {
-      // easeInExpo holds the droplet round until it is nearly landed.
+    test('scales proportionally toward target without exceeding target', () {
+      // Mid-flight corner radius scales from 0.65*target to target so it
+      // never balloons above target and clips the sheet's top navigation bar.
       final radius = SheetMorphGeometry.blobRadius(
         blobSize: const Size(200, 200),
-        target: 20.0,
+        target: 56.0,
         sizeT: 0.5,
       );
-      expect(radius, greaterThan(90.0));
+      expect(radius, closeTo(56.0 * (0.65 + 0.35 * 0.5), 1e-9));
+      expect(radius, lessThan(56.0));
     });
   });
 
@@ -792,6 +799,99 @@ void main() {
     test('clamps past the ends', () {
       expect(SheetMorphGeometry.fillReveal(-0.2), 0.0);
       expect(SheetMorphGeometry.fillReveal(1.4), 1.0);
+    });
+  });
+
+  group('SheetMorphGeometry.contentReveal', () {
+    test('stays hidden during initial button detach on open (sizeT <= 0.15)',
+        () {
+      expect(SheetMorphGeometry.contentReveal(0.0, isClosing: false), 0.0);
+      expect(SheetMorphGeometry.contentReveal(0.15, isClosing: false), 0.0);
+    });
+
+    test('fades in over sizeT 0.15 -> 0.55 on open and holds at 1.0 after', () {
+      final mid = SheetMorphGeometry.contentReveal(0.35, isClosing: false);
+      expect(mid, greaterThan(0.0));
+      expect(mid, lessThan(1.0));
+      expect(SheetMorphGeometry.contentReveal(0.55, isClosing: false), 1.0);
+      expect(SheetMorphGeometry.contentReveal(1.0, isClosing: false), 1.0);
+    });
+
+    test('fades out over sizeT 0.75 -> 0.25 on close (iOS 27 zoom parity)', () {
+      expect(SheetMorphGeometry.contentReveal(1.0, isClosing: true), 1.0);
+      expect(SheetMorphGeometry.contentReveal(0.75, isClosing: true), 1.0);
+      expect(
+        SheetMorphGeometry.contentReveal(0.50, isClosing: true),
+        closeTo(0.5, 1e-9),
+      );
+      expect(SheetMorphGeometry.contentReveal(0.25, isClosing: true), 0.0);
+      expect(SheetMorphGeometry.contentReveal(0.10, isClosing: true), 0.0);
+    });
+  });
+
+  group('SheetMorphGeometry.contentPortal', () {
+    const sheet = Rect.fromLTWH(0.0, 50.0, 400.0, 800.0);
+    const blob = Rect.fromLTWH(100.0, 450.0, 200.0, 400.0);
+
+    test('maps sheet top-center to blob top-center and scales by width ratio',
+        () {
+      final matrix = SheetMorphGeometry.contentPortal(
+        sheet: sheet,
+        blob: blob,
+      );
+      final mappedTopCenter = MatrixUtils.transformPoint(
+        matrix,
+        sheet.topCenter,
+      );
+      expect(mappedTopCenter.dx, closeTo(blob.topCenter.dx, 1e-6));
+      expect(mappedTopCenter.dy, closeTo(blob.topCenter.dy, 1e-6));
+
+      final mappedTopLeft = MatrixUtils.transformPoint(
+        matrix,
+        sheet.topLeft,
+      );
+      expect(mappedTopLeft.dx, closeTo(blob.topLeft.dx, 1e-6));
+      expect(mappedTopLeft.dy, closeTo(blob.topLeft.dy, 1e-6));
+    });
+
+    test('returns identity when sheet matches blob', () {
+      final matrix = SheetMorphGeometry.contentPortal(
+        sheet: sheet,
+        blob: sheet,
+      );
+      expect(matrix.isIdentity(), isTrue);
+    });
+  });
+
+  group('SheetMorphGeometry.dormantSurface', () {
+    test('zeroes blur, frost, thickness, refractiveIndex, specular, and alpha',
+        () {
+      const active = LiquidGlassSettings(
+        blur: 16.0,
+        thickness: 24.0,
+        glassColor: Color(0x80FFFFFF),
+        lightIntensity: 1.2,
+        ambientStrength: 0.4,
+        refractiveIndex: 1.5,
+      );
+      final dormant = SheetMorphGeometry.dormantSurface(active);
+      expect(dormant.blur, 0.0);
+      expect(dormant.frost, 0.0);
+      expect(dormant.thickness, 0.0);
+      expect(dormant.refractiveIndex, 1.0);
+      expect(dormant.lightIntensity, 0.0);
+      expect(dormant.ambientStrength, 0.0);
+      expect(dormant.glassColor.a, 0.0);
+      // Preserves effectiveShadow.isEmpty stability across handoff:
+      expect(
+        dormant.effectiveShadow.isEmpty,
+        equals(active.effectiveShadow.isEmpty),
+      );
+
+      final dormantWithBacker = SheetMorphGeometry.dormantSurface(
+        const LiquidGlassSettings(backerColor: Color(0xCCFFFFFF)),
+      );
+      expect(dormantWithBacker.backerColor?.a, closeTo(1e-6, 1e-7));
     });
   });
 
@@ -1036,6 +1136,7 @@ void main() {
         platformViewBackdrop: false,
         expandedDarkColor: expandedDarkColor,
         child: GlassModalSheetScaffold(
+          initialState: restingState,
           body: SizedBox.shrink(),
           sheet: Text('Sheet body'),
         ),
@@ -1097,22 +1198,160 @@ void main() {
       await tester.pumpWidget(buildPresenter(routeAnimation: route));
       await tester.pump(const Duration(milliseconds: 16));
 
-      // Mid-morph: the droplet's glass layer is in the tree and the real sheet
-      // is mounted but not yet handed off (content reveals inside the blob).
+      // Early detach (sizeT <= 0.30): the droplet's glass layer is in the tree
+      // and the sheet's inner content is still hidden while the button detaches.
       expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
       expect(
         tester.widget<Visibility>(find.byType(Visibility).first).visible,
         isFalse,
       );
 
+      // Mid-morph (0.30 < sizeT < 1.0): the droplet is still in flight, and
+      // the sheet's content emerges inside the expanding droplet (#446).
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
+      expect(
+        tester.widget<Visibility>(find.byType(Visibility).first).visible,
+        isTrue,
+      );
+      expect(find.text('Sheet body'), findsOneWidget);
+
       await tester.pumpAndSettle();
 
       // Settled: the sheet has taken over and the droplet is gone.
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsNothing);
       expect(find.text('Sheet body'), findsOneWidget);
       expect(
         tester.widget<Visibility>(find.byType(Visibility).first).visible,
         isTrue,
       );
+    });
+
+    testWidgets(
+        'full-screen sheet reveals content inside the expanding droplet (#446)',
+        (tester) async {
+      final route = AnimationController(
+        vsync: tester,
+        duration: const Duration(milliseconds: 500),
+      )..forward();
+      addTearDown(route.dispose);
+
+      await tester.pumpWidget(
+        buildPresenter(
+          routeAnimation: route,
+          restingState: GlassSheetState.full,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+
+      // Initial detach: content hidden while still button-sized.
+      expect(
+        tester.widget<Visibility>(find.byType(Visibility).first).visible,
+        isFalse,
+      );
+
+      // Mid-morph (droplet still expanding, not yet handed off): content is
+      // visible inside the portal while the sheet's own full-screen fill box
+      // stays suppressed (alpha == 0.0) so only blob B's fill paints.
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
+      expect(
+        tester.widget<Visibility>(find.byType(Visibility).first).visible,
+        isTrue,
+      );
+      expect(find.text('Sheet body'), findsOneWidget);
+      final fillBoxMidMorph = tester.widget<DecoratedBox>(
+        find.byKey(const Key('glass_modal_sheet_fill')),
+      );
+      expect(
+        (fillBoxMidMorph.decoration as BoxDecoration).color!.a,
+        0.0,
+      );
+
+      await tester.pumpAndSettle();
+
+      // Once handed off, the sheet's own fill box takes over seamlessly at 1.0.
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsNothing);
+      final fillBoxSettled = tester.widget<DecoratedBox>(
+        find.byKey(const Key('glass_modal_sheet_fill')),
+      );
+      expect(
+        (fillBoxSettled.decoration as BoxDecoration).color!.a,
+        1.0,
+      );
+    });
+
+    testWidgets(
+        'preserves active InheritedLiquidGlass settings for nested glass widgets during morph',
+        (tester) async {
+      final route = AnimationController(
+        vsync: tester,
+        duration: const Duration(milliseconds: 500),
+      )..forward();
+      addTearDown(route.dispose);
+
+      const customSettings = LiquidGlassSettings(
+        blur: 16.0,
+        thickness: 24.0,
+        lightIntensity: 0.8,
+        glassColor: Color(0x80FFFFFF),
+      );
+
+      await tester.pumpWidget(
+        _app(
+          GlassSheetMorphPresenter(
+            routeAnimation: route,
+            triggerRect: const Rect.fromLTWH(172, 700, 56, 56),
+            anchor: null,
+            speed: MorphSpeed.normal,
+            restingState: GlassSheetState.half,
+            controller: GlassModalSheetController(),
+            geometry: _defaultGeometry,
+            horizontalMargin: 8.0,
+            bottomMargin: 6.0,
+            topBorderRadius: 56.0,
+            fullTopBorderRadius: 46.0,
+            bottomBorderRadius: null,
+            fullBottomBorderRadius: null,
+            settings: customSettings,
+            peekSettings: null,
+            halfSettings: null,
+            fullSettings: null,
+            expandedColor: null,
+            quality: null,
+            peekHorizontalMargin: null,
+            peekBottomMargin: null,
+            peekWidth: null,
+            peekTopBorderRadius: null,
+            platformViewBackdrop: false,
+            child: GlassModalSheetScaffold(
+              initialState: GlassSheetState.half,
+              settings: customSettings,
+              body: const SizedBox.shrink(),
+              sheet: const Text('Nested child'),
+            ),
+          ),
+        ),
+      );
+
+      // Pump into mid-morph where the outer sheet surface is dormant.
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
+      final midMorphInherited = InheritedLiquidGlass.of(
+        tester.element(find.text('Nested child')),
+      );
+      expect(midMorphInherited, isNotNull);
+      expect(midMorphInherited!.thickness, 24.0);
+      expect(midMorphInherited.lightIntensity, 0.8);
+      expect(midMorphInherited.glassColor.a, greaterThan(0.0));
+
+      await tester.pumpAndSettle();
+      final settledInherited = InheritedLiquidGlass.of(
+        tester.element(find.text('Nested child')),
+      );
+      expect(settledInherited, isNotNull);
+      expect(settledInherited!.thickness, 24.0);
+      expect(settledInherited.lightIntensity, 0.8);
     });
 
     testWidgets('the sheet is mounted for the whole morph, never remounted',
@@ -1158,8 +1397,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
 
-      // The sheet hands back to the droplet for the return trip.
-      // Real sheet is not yet visible; content is only in the blob.
+      // The sheet immediately hands back to the droplet for the return trip,
+      // and content conceal-fades over sizeT 0.75 -> 0.25 before vanishing.
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
+      await tester.pump(const Duration(milliseconds: 140));
       expect(
         tester.widget<Visibility>(find.byType(Visibility).first).visible,
         isFalse,
@@ -1189,9 +1430,10 @@ void main() {
 
       route.reverse();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 140));
 
       // The sheet hands back to the droplet, exactly as a resting close does.
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
       expect(
         tester.widget<Visibility>(find.byType(Visibility).first).visible,
         isFalse,
@@ -1221,9 +1463,10 @@ void main() {
 
       route.reverse();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 140));
 
       // Wobble-within-slop still triggers the morph close.
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
       expect(
         tester.widget<Visibility>(find.byType(Visibility).first).visible,
         isFalse,
@@ -1256,10 +1499,9 @@ void main() {
       for (var elapsed = 0; elapsed < 200 && !landed; elapsed += 16) {
         await tester.pump(const Duration(milliseconds: 16));
         // _handedOffToSheet flips to true only when the spring has fully settled
-        // at value >= 0.999 — not when the opacity fade starts. That is exactly
-        // the moment the droplet hands control to the real sheet.
-        landed =
-            tester.widget<Visibility>(find.byType(Visibility).first).visible;
+        // at value >= 0.999 — not when the content opacity fade starts. That is
+        // the exact moment the droplet unmounts and hands control to the sheet.
+        landed = find.byType(AdaptiveLiquidGlassLayer).evaluate().isEmpty;
       }
       await tester.pumpAndSettle();
       return landed;
@@ -2331,12 +2573,13 @@ void main() {
       // Tap well above the half detent — that is the dismiss barrier.
       await tester.tapAt(const Offset(200, 60));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 140));
 
       // Still mounted: the route stays up for the whole closing morph.
       expect(find.byType(GlassSheetMorphPresenter), findsOneWidget);
-      // The real sheet is handed back to the blob; Visibility.visible is false
-      // while the droplet returns to the trigger.
+      expect(find.byType(AdaptiveLiquidGlassLayer), findsWidgets);
+      // Content conceal-fades over sizeT 0.75 -> 0.25; once below 0.25,
+      // Visibility.visible is false while the droplet returns to the trigger.
       expect(
         tester.widget<Visibility>(find.byType(Visibility).first).visible,
         isFalse,
@@ -2390,6 +2633,41 @@ void main() {
         ).pop();
         await tester.pumpAndSettle();
       }
+    });
+
+    testWidgets(
+        'combines outer GlassMaterializeScope with morph content progress',
+        (tester) async {
+      GlassMaterializeScope? capturedScope;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(size: _screen),
+            child: GlassMaterializeScope(
+              glassProgress: 0.5,
+              contentOpacity: 0.8,
+              contentSigma: 2.0,
+              child: Stack(
+                children: [
+                  GlassModalSheet(
+                    child: Builder(
+                      builder: (ctx) {
+                        capturedScope = GlassMaterializeScope.maybeOf(ctx);
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(capturedScope, isNotNull);
+      expect(capturedScope!.glassProgress, closeTo(0.5, 1e-6));
+      expect(capturedScope!.contentOpacity, closeTo(0.8, 1e-6));
+      expect(capturedScope!.contentSigma, closeTo(2.0, 1e-6));
     });
   });
 }

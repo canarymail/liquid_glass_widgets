@@ -14,6 +14,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import '../renderer/glass_backdrop_group.dart';
 import '../renderer/glass_backdrop_group_boundary.dart';
 import '../renderer/glass_frost_budget.dart';
@@ -539,6 +540,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     _group?.leave(this);
     _group = null;
     _uniformsTransform = null;
+    _uniformsPassRect = null;
     super.detach();
   }
 
@@ -704,13 +706,22 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   /// The offset of the last [paintLiquidGlass], which its clips are shifted by.
   Offset _paintOffset = Offset.zero;
 
-  /// The transform the shader filter's screen-space uniforms were last
-  /// written for, by [paintLiquidGlass] or [_updateAtComposite].
+  /// The transform and enclosing backdrop pass rect the shader filter's
+  /// screen-space uniforms were last written for, by [paintLiquidGlass] or
+  /// [_updateAtComposite].
   Matrix4? _uniformsTransform;
+  Rect? _uniformsPassRect;
+
+  /// The backdrop pass rect the screen-space uniforms were last written for,
+  /// for tests.
+  @visibleForTesting
+  Rect? get debugUniformsPassRect => _uniformsPassRect;
 
   /// Moves the last paint's screen-space uniforms to where an ancestor moved
   /// this layer without repainting it (a reused repaint boundary: layout or a
-  /// scroll that only translated it), in the frame being composited.
+  /// scroll that only translated it), or when an ancestor glass layer opened,
+  /// closed, or resized its backdrop pass later in the same paint flush, in the
+  /// frame being composited.
   bool _updateAtComposite() {
     final shaderLayer = _shaderHandle.layer;
     final clipLayer = _clipRectLayerHandle.layer;
@@ -723,27 +734,55 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
       return false;
     }
     final transform = getTransformTo(null);
-    // Painted this frame where it is now: the layers are already current.
-    if (transform == _uniformsTransform) return true;
+    final passRect = enclosingBackdropPassRect();
+    // Painted this frame where it is now and in the same backdrop pass:
+    // the layers are already current.
+    if (transform == _uniformsTransform && passRect == _uniformsPassRect) {
+      return true;
+    }
+    // A move is repainted by the caller when this returns false. A change of
+    // enclosing pass alone is not a move, so it has to ask for itself.
+    final passChanged = passRect != _uniformsPassRect;
+    bool needsFullPaint() {
+      if (passChanged) {
+        final binding = SchedulerBinding.instance;
+        if (binding.schedulerPhase
+            case SchedulerPhase.idle || SchedulerPhase.postFrameCallbacks) {
+          markNeedsPaint();
+        } else {
+          binding.addPostFrameCallback((_) {
+            if (attached) markNeedsPaint();
+          });
+        }
+      }
+      return false;
+    }
+
     _uniformsTransform = null;
+    _uniformsPassRect = null;
     final prevFrostRows = frostRowsPath;
     _updateScaleState(transform, super.captureOriginInScreenSpace);
     writeScreenUniforms();
     // uFrost.x switches on frostRowsPath; that needs the full paint.
-    if ((frostRowsPath != null) != (prevFrostRows != null)) return false;
+    if ((frostRowsPath != null) != (prevFrostRows != null)) {
+      return needsFullPaint();
+    }
     // Re-add the clips around changed layers instead of their retained copy.
-    if (!_Recomposite.mark(clipLayer)) return false;
+    if (!_Recomposite.mark(clipLayer)) return needsFullPaint();
     if (frostRowsPath case final rows?) {
       final rowsLayer = _frostRowsLayerHandle.layer;
-      if (rowsLayer == null) return false;
+      if (rowsLayer == null) return needsFullPaint();
       if (!identical(rows, prevFrostRows)) {
-        if (!_Recomposite.mark(_frostClipLayerHandle.layer)) return false;
+        if (!_Recomposite.mark(_frostClipLayerHandle.layer)) {
+          return needsFullPaint();
+        }
         rowsLayer.clipPath = rows.shift(_paintOffset);
       }
     }
     // The filter holds the uniforms it was created with.
     shaderLayer.filter = ImageFilter.shader(renderShader!);
     _uniformsTransform = transform;
+    _uniformsPassRect = passRect;
     return true;
   }
 
@@ -766,6 +805,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     if (!attached) return;
     _paintOffset = offset;
     _uniformsTransform = getTransformTo(null);
+    _uniformsPassRect = enclosingBackdropPassRect();
     final shared = _resolveSharing();
 
     // ── Pass 0: SDF Shadows ──────────────────────────────────────────────────
@@ -1172,6 +1212,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     _frostClipLayerHandle.layer = null;
     _frostRowsLayerHandle.layer = null;
     _uniformsTransform = null;
+    _uniformsPassRect = null;
     backdropPassClipRectLocal = null;
     super.dispose();
   }
