@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show
+        GlassMaterializeScope,
         GlassQuality,
         GlassTheme,
         GlassThemeData,
@@ -887,6 +888,11 @@ void main() {
         dormant.effectiveShadow.isEmpty,
         equals(active.effectiveShadow.isEmpty),
       );
+
+      final dormantWithBacker = SheetMorphGeometry.dormantSurface(
+        const LiquidGlassSettings(backerColor: Color(0xCCFFFFFF)),
+      );
+      expect(dormantWithBacker.backerColor?.a, closeTo(1e-6, 1e-7));
     });
   });
 
@@ -2628,6 +2634,41 @@ void main() {
         ).pop();
         await tester.pumpAndSettle();
       }
+    });
+
+    testWidgets(
+        'combines outer GlassMaterializeScope with morph content progress',
+        (tester) async {
+      GlassMaterializeScope? capturedScope;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(size: _screen),
+            child: GlassMaterializeScope(
+              glassProgress: 0.5,
+              contentOpacity: 0.8,
+              contentSigma: 2.0,
+              child: Stack(
+                children: [
+                  GlassModalSheet(
+                    child: Builder(
+                      builder: (ctx) {
+                        capturedScope = GlassMaterializeScope.maybeOf(ctx);
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(capturedScope, isNotNull);
+      expect(capturedScope!.glassProgress, closeTo(0.5, 1e-6));
+      expect(capturedScope!.contentOpacity, closeTo(0.8, 1e-6));
+      expect(capturedScope!.contentSigma, closeTo(2.0, 1e-6));
     });
   });
 }
