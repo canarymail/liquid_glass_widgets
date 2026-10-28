@@ -299,7 +299,7 @@ void main() {
       );
       await tester.pump();
 
-      // The GlassMenu wraps trigger + OverlayPortal in a Stack.
+      // The GlassMenu wraps its trigger (the OverlayPortal's child) in a Stack.
       // Find Stack widgets that are descendants of GlassMenu.
       final menuStacks = find.descendant(
         of: find.byType(GlassMenu),

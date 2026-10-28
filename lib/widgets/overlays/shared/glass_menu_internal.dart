@@ -405,33 +405,39 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
           overlayChildBuilder: _buildMorphingOverlay,
           overlayLocation: OverlayChildLocation.nearestOverlay,
           // Trigger — physically bounces and absorbs impact when slammed by the closing menu!
-          child: Transform.translate(
-            offset: Offset(pushDx, pushDy),
-            child: Transform.scale(
-              scale: impactScale,
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: _handleTriggerPointerDown,
-                onPointerMove: _handleTriggerPointerMove,
-                onPointerUp: _handleTriggerPointerUp,
-                onPointerCancel: _handleTriggerPointerCancel,
-                child: Opacity(
-                  opacity: triggerOpacity,
-                  alwaysIncludeSemantics: true,
-                  child: GlassMaterializeScope(
-                    glassProgress:
-                        triggerOpacity * (outer?.glassProgress ?? 1.0),
-                    contentOpacity:
-                        triggerOpacity * (outer?.contentOpacity ?? 1.0),
-                    contentSigma: outer?.contentSigma ?? 0.0,
-                    child: IgnorePointer(
-                      ignoring: isMenuBlocking,
-                      child: triggerChild,
+          // Clip.none so the trigger's shadow is never clipped at this boundary.
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Transform.translate(
+                offset: Offset(pushDx, pushDy),
+                child: Transform.scale(
+                  scale: impactScale,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _handleTriggerPointerDown,
+                    onPointerMove: _handleTriggerPointerMove,
+                    onPointerUp: _handleTriggerPointerUp,
+                    onPointerCancel: _handleTriggerPointerCancel,
+                    child: Opacity(
+                      opacity: triggerOpacity,
+                      alwaysIncludeSemantics: true,
+                      child: GlassMaterializeScope(
+                        glassProgress:
+                            triggerOpacity * (outer?.glassProgress ?? 1.0),
+                        contentOpacity:
+                            triggerOpacity * (outer?.contentOpacity ?? 1.0),
+                        contentSigma: outer?.contentSigma ?? 0.0,
+                        child: IgnorePointer(
+                          ignoring: isMenuBlocking,
+                          child: triggerChild,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -502,13 +508,9 @@ class _GlassMenuState extends State<GlassMenu> with TickerProviderStateMixin {
       localPosition = globalPosition - _restingMenuGlobalRect().topLeft;
     }
 
-    final previousIndex = _hoveredIndex;
+    // Haptic feedback on item boundary crossing (iOS HIG) is played by
+    // _updateHoveredIndex, which every hover path shares.
     _updateHoveredIndex(localPosition);
-
-    // Haptic feedback on item boundary crossing (iOS HIG)
-    if (_hoveredIndex != null && _hoveredIndex != previousIndex) {
-      HapticFeedback.selectionClick();
-    }
 
     // Feed touch position to GlassGlow if interaction glow is enabled
     if (widget.enableInteractionGlow) {
