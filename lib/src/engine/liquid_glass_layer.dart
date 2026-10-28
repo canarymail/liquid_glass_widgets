@@ -11,7 +11,7 @@
 import 'dart:ui';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show clampDouble, listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
@@ -27,6 +27,7 @@ import 'glass_glow.dart';
 import 'internal/transform_tracking_repaint_boundary_mixin.dart';
 import 'liquid_glass_render_scope.dart';
 import 'liquid_glass_settings.dart';
+import 'liquid_shape.dart';
 import 'multi_shader_builder.dart';
 import 'render_liquid_glass_geometry.dart';
 import 'rendering/liquid_glass_render_object.dart';
@@ -564,6 +565,111 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
   final _clipPathLayerHandle = LayerHandle<ClipPathLayer>();
   final _frostClipLayerHandle = LayerHandle<ClipPathLayer>();
   final _frostRowsLayerHandle = LayerHandle<ClipPathLayer>();
+  final _blurBoundsClipRectLayerHandle = LayerHandle<ClipRectLayer>();
+
+  // [LOCAL PATCH] Per-shape forwarded blur clips (see the Pass 1a comment in
+  // [paintLiquidGlass]): one BackdropFilterLayer + ClipRRectLayer per
+  // disjoint shape, grown/shrunk to match the live shape count.
+  final List<LayerHandle<BackdropFilterLayer>> _blurShapeLayerHandles = [];
+  final List<LayerHandle<ClipRRectLayer>> _blurClipRRectLayerHandles = [];
+
+  void _syncBlurShapeHandleCount(int count) {
+    while (_blurShapeLayerHandles.length > count) {
+      _blurShapeLayerHandles.removeLast().layer = null;
+      _blurClipRRectLayerHandles.removeLast().layer = null;
+    }
+    while (_blurShapeLayerHandles.length < count) {
+      _blurShapeLayerHandles.add(LayerHandle<BackdropFilterLayer>());
+      _blurClipRRectLayerHandles.add(LayerHandle<ClipRRectLayer>());
+    }
+  }
+
+  /// [LOCAL PATCH] The blur pass clips as one axis-aligned rounded rect per
+  /// live shape in layer-local space, when every shape is radius-expressible
+  /// under a translation-only transform and the resulting rects are pairwise
+  /// disjoint — the settled pill/capsule layout. Returns null otherwise
+  /// (jelly scale/rotation, a per-shape transform, overlapping shapes), which
+  /// falls back to the exact union path clip bounded by a forwarded ClipRect.
+  ///
+  /// An active metaball blend does NOT disqualify the layer: the union path
+  /// this replaces is built from each shape's exact path and never covered
+  /// the goo the shader grows between blended shapes, so for disjoint shapes
+  /// per-shape clips cover exactly the same region.
+  ///
+  /// The RRects matter for iOS PlatformViews: the engine forwards ClipRRect,
+  /// but not ClipPath, to the platform-view mutator stack (#177551), so only
+  /// these clips bound the blur the engine applies to a webview beneath the
+  /// glass. A union path clip there degrades to the union's rectangular
+  /// coverage, frosting the gaps between shapes.
+  List<RRect>? _forwardableBlurClipRRects(
+    List<(RenderLiquidGlassGeometry, GeometryCache, Matrix4)> shapes,
+  ) {
+    bool isTranslationOnly(Matrix4 m) {
+      final s = m.storage;
+      const eps = 1e-3;
+      return (s[0] - 1).abs() < eps &&
+          (s[5] - 1).abs() < eps &&
+          (s[10] - 1).abs() < eps &&
+          (s[15] - 1).abs() < eps &&
+          s[1].abs() < eps &&
+          s[2].abs() < eps &&
+          s[4].abs() < eps &&
+          s[6].abs() < eps &&
+          s[8].abs() < eps &&
+          s[9].abs() < eps;
+    }
+
+    final rrects = <RRect>[];
+    for (final geometry in shapes) {
+      if (!geometry.$1.attached) continue;
+      if (geometry.$2.shapes.isEmpty) continue;
+      // Only a translation-only transform keeps a shape an axis-aligned
+      // rounded rect with unscaled radii.
+      if (!isTranslationOnly(geometry.$3)) return null;
+      final s = geometry.$3.storage;
+      final translation = Offset(s[12], s[13]);
+
+      for (final shape in geometry.$2.shapes) {
+        final shapeToGeometry = shape.shapeToGeometry;
+        if (shapeToGeometry != null && !isTranslationOnly(shapeToGeometry)) {
+          return null;
+        }
+        final rect = shape.shapeBounds.shift(translation);
+        // A zero-sized shape (e.g. a hidden indicator at rest) contributes
+        // nothing to the union path either — skip it, don't give up.
+        if (rect.isEmpty) continue;
+
+        // An RRect with half-extent radii is an exact ellipse, so LiquidOval
+        // is representable too.
+        if (shape.shape is LiquidOval) {
+          rrects.add(RRect.fromRectXY(rect, rect.width / 2, rect.height / 2));
+          continue;
+        }
+        final halfMin = rect.shortestSide / 2;
+        final top =
+            Radius.circular(clampDouble(shape.rawCornerRadius, 0, halfMin));
+        final bottom = Radius.circular(
+            clampDouble(shape.rawBottomCornerRadius, 0, halfMin));
+        rrects.add(RRect.fromRectAndCorners(
+          rect,
+          topLeft: top,
+          topRight: top,
+          bottomLeft: bottom,
+          bottomRight: bottom,
+        ));
+      }
+    }
+    if (rrects.isEmpty) return null;
+
+    // Disjoint check: each clip paints the full shape contents, so any
+    // overlap would render content (and blur) twice in the shared region.
+    for (var i = 0; i < rrects.length; i++) {
+      for (var j = i + 1; j < rrects.length; j++) {
+        if (rrects[i].outerRect.overlaps(rrects[j].outerRect)) return null;
+      }
+    }
+    return rrects;
+  }
 
   /// The union of [shapes]' paths in local coordinates.
   Path _shapePath(
@@ -842,31 +948,98 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
         _cachedBlurSigma = blurSigma;
       }
 
-      final blurLayer = (_blurLayerHandle.layer ??= BackdropFilterLayer())
-        // Outside a group the key is this layer's own BackdropGroup. A group
-        // member that does not share this frame (alone, or in a render pass
-        // of its own) must not use the group's key.
-        ..backdropKey = shared || !sharedBackdrop ? backdropKey : null
-        ..filter = _cachedBlur!;
+      // Outside a group the key is this layer's own BackdropGroup. A group
+      // member that does not share this frame (alone, or in a render pass
+      // of its own) must not use the group's key.
+      final blurKey = shared || !sharedBackdrop ? backdropKey : null;
 
-      _clipPathLayerHandle.layer = context.pushClipPath(
-        needsCompositing,
-        offset,
-        boundingBox,
-        _shapePath(shapes),
-        (context, offset) {
-          context.pushLayer(
-            blurLayer,
-            (context, offset) {
-              paintShapeContents(context, offset, shapes, insideGlass: true);
-            },
+      // [LOCAL PATCH] PlatformView clip forwarding (framework PR #177551,
+      // 3.41+): when this BackdropFilterLayer overlaps a hybrid-composed iOS
+      // PlatformView (webview, map, video), the engine applies the blur to
+      // the platform view through its mutator stack, which honours
+      // ClipRect/ClipRRect but NOT ClipPath. A path clip leaves the
+      // platform-view side of the blur bounded only by the filter's
+      // rectangular coverage: a frosted slab around (and between) the
+      // rounded glass shapes. Same wall as the frosted fallback's
+      // `_ShapeClip`, fixed the same way:
+      // - when every live shape is radius-expressible under a
+      //   translation-only transform and the shapes are pairwise disjoint,
+      //   each shape's blur is pushed in its own forwarded ClipRRect (one
+      //   grouped backdrop read per shape, sharing [blurKey]). The
+      //   circular-arc corner differs from the superellipse corner by under
+      //   a pixel and the shader pass still renders the exact squircle.
+      // - otherwise (scaled/rotated shapes mid-spring, overlapping shapes)
+      //   keep the exact union path clip, wrapped in a forwarded ClipRect of
+      //   the shapes' bounding box so the platform-view frost cannot exceed
+      //   it.
+      final forwardableRRects = _forwardableBlurClipRRects(shapes);
+      if (forwardableRRects != null) {
+        _syncBlurShapeHandleCount(forwardableRRects.length);
+        for (var i = 0; i < forwardableRRects.length; i++) {
+          final rrect = forwardableRRects[i];
+          final shapeBlurLayer = (_blurShapeLayerHandles[i].layer ??=
+              BackdropFilterLayer())
+            ..backdropKey = blurKey
+            ..filter = _cachedBlur!;
+          // Each clip is disjoint, so painting the full contents inside every
+          // clip renders each shape's content exactly once.
+          _blurClipRRectLayerHandles[i].layer = context.pushClipRRect(
+            needsCompositing,
             offset,
+            rrect.outerRect,
+            rrect,
+            (context, offset) {
+              context.pushLayer(
+                shapeBlurLayer,
+                (context, offset) {
+                  paintShapeContents(context, offset, shapes,
+                      insideGlass: true);
+                },
+                offset,
+              );
+            },
+            oldLayer: _blurClipRRectLayerHandles[i].layer,
           );
-        },
-        oldLayer: _clipPathLayerHandle.layer,
-      );
+        }
+        _blurLayerHandle.layer = null;
+        _clipPathLayerHandle.layer = null;
+        _blurBoundsClipRectLayerHandle.layer = null;
+      } else {
+        final blurLayer = (_blurLayerHandle.layer ??= BackdropFilterLayer())
+          ..backdropKey = blurKey
+          ..filter = _cachedBlur!;
+
+        _blurBoundsClipRectLayerHandle.layer = context.pushClipRect(
+          needsCompositing,
+          offset,
+          boundingBox,
+          (context, offset) {
+            _clipPathLayerHandle.layer = context.pushClipPath(
+              needsCompositing,
+              offset,
+              boundingBox,
+              _shapePath(shapes),
+              (context, offset) {
+                context.pushLayer(
+                  blurLayer,
+                  (context, offset) {
+                    paintShapeContents(context, offset, shapes,
+                        insideGlass: true);
+                  },
+                  offset,
+                );
+              },
+              oldLayer: _clipPathLayerHandle.layer,
+            );
+          },
+          oldLayer: _blurBoundsClipRectLayerHandle.layer,
+        );
+        _syncBlurShapeHandleCount(0);
+      }
     } else if (frostRows != null) {
       _blurLayerHandle.layer = null;
+      _blurBoundsClipRectLayerHandle.layer = null;
+      _syncBlurShapeHandleCount(0);
       // Straight onto the backdrop, where the frost will read it.
       _clipPathLayerHandle.layer = context.pushClipPath(
         needsCompositing,
@@ -881,6 +1054,8 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     } else {
       _blurLayerHandle.layer = null;
       _clipPathLayerHandle.layer = null;
+      _blurBoundsClipRectLayerHandle.layer = null;
+      _syncBlurShapeHandleCount(0);
     }
 
     // ── Pass 1b: Frost ───────────────────────────────────────────────────────
@@ -1201,6 +1376,10 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     // the filter property breaks this retention chain immediately.
     _shaderHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
     _blurLayerHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
+    for (final handle in _blurShapeLayerHandles) {
+      handle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
+    }
+    _syncBlurShapeHandleCount(0);
     _frostLayerHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
     _weightLayerHandle.layer?.filter = ImageFilter.blur(sigmaX: 0, sigmaY: 0);
     _shaderHandle.layer = null;
@@ -1209,6 +1388,7 @@ class RenderLiquidGlassLayer extends LiquidGlassRenderObject
     _weightLayerHandle.layer = null;
     _clipRectLayerHandle.layer = null;
     _clipPathLayerHandle.layer = null;
+    _blurBoundsClipRectLayerHandle.layer = null;
     _frostClipLayerHandle.layer = null;
     _frostRowsLayerHandle.layer = null;
     _uniformsTransform = null;
