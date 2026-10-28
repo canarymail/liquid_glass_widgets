@@ -1,3 +1,17 @@
+# 1.16.0
+
+## Features
+
+- **Solid surface style for inputs, pickers, and standalone disclosure groups (`GlassTextField`, `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, `GlassPicker`, `GlassDisclosureGroup.standalone`):**
+  - `GlassTextField` (and `GlassTextField.search`), `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, and `GlassPicker` now accept `surfaceStyle` (`GlassSurfaceStyle?`) and `color` (`Color?`). When `surfaceStyle` is `null`, they automatically inherit `InheritedGlassSurfaceStyle` from an enclosing `GlassContainer.card` or `GlassGroupedSection` (falling back to `GlassSurfaceStyle.glass`).
+  - In `GlassSurfaceStyle.solid` mode, inputs and pickers render a flat, shader-free iOS `tertiarySystemFill` well (`kGlassSolidWellLight` `#1E767680` in light mode, `kGlassSolidWellDark` `#3D767680` in dark mode, via `resolveGlassSolidWellColor`) using a `DecoratedBox` with zero `AdaptiveGlass`, `BackdropFilter`, `GlassGlow`, or `pressScale` overhead, and use native `CupertinoColors.label` / `CupertinoColors.placeholderText` / `CupertinoColors.secondaryLabel` typography contrast (`GlassSurfaceStyle.glass` colors remain unchanged).
+  - `GlassDisclosureGroup.standalone` now accepts `surfaceStyle`, `color`, and `shape`, delegating to `GlassContainer.card` (with 26pt continuous corners and 16pt divider `endIndent` in `solid` mode).
+
+## Bug Fixes
+
+- **Controls inside solid `GlassContainer.card` / `GlassGroupedSection` retain full visual quality (`avoidsRefraction: false`):** `GlassContainer._buildSolid` now sets `avoidsRefraction: false` on its `InheritedLiquidGlass` scope so `GlassSwitch`, `GlassSlider`, and `GlassSegmentedControl` inside a solid card keep their full glass thumb/pill shader instead of degrading to a static vibrancy box.
+- **`GlassPicker` grouped-mode `settings` warning:** `GlassPicker` with `useOwnLayer: false` now resolves ambient/theme settings via `GlassThemeHelpers.resolveSettings` (with `LiquidGlassSettings(blur: 8)` as the standalone fallback) and logs a debug warning if explicit `settings` are passed while `useOwnLayer: false`.
+
 # 1.15.1
 
 ## Bug Fixes

@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../src/types/glass_interaction_behavior.dart';
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
+import '../shared/glass_solid_surface.dart';
 import 'glass_text_field.dart';
 
 /// A secure glass text field for password entry.
@@ -31,6 +33,8 @@ class GlassPasswordField extends StatefulWidget {
     this.settings,
     this.useOwnLayer = false,
     this.quality = GlassQuality.standard,
+    this.surfaceStyle,
+    this.color,
     this.shape = const LiquidRoundedRectangle(borderRadius: 10),
     // ── iOS 26 interaction ────────────────────────────────────────────────
     this.interactionBehavior = GlassInteractionBehavior.full,
@@ -93,6 +97,13 @@ class GlassPasswordField extends StatefulWidget {
   /// Rendering quality.
   final GlassQuality quality;
 
+  /// How the field's surface is painted. Mirrors [GlassTextField.surfaceStyle].
+  final GlassSurfaceStyle? surfaceStyle;
+
+  /// Explicit fill color override for [GlassSurfaceStyle.solid] fields.
+  /// Mirrors [GlassTextField.color].
+  final Color? color;
+
   /// Shape of the field.
   final LiquidShape shape;
 
@@ -135,6 +146,11 @@ class _GlassPasswordFieldState extends State<GlassPasswordField> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSurfaceStyle = widget.surfaceStyle ??
+        InheritedGlassSurfaceStyle.maybeOf(context) ??
+        GlassSurfaceStyle.glass;
+    final isSolid = effectiveSurfaceStyle == GlassSurfaceStyle.solid;
+
     return GlassTextField(
       controller: widget.controller,
       focusNode: widget.focusNode,
@@ -152,7 +168,9 @@ class _GlassPasswordFieldState extends State<GlassPasswordField> {
       padding: widget.padding,
       settings: widget.settings,
       useOwnLayer: widget.useOwnLayer,
-      quality: widget.quality,
+      quality: isSolid ? null : widget.quality,
+      surfaceStyle: widget.surfaceStyle,
+      color: widget.color,
       shape: widget.shape,
       prefixIcon: Icon(
         CupertinoIcons.lock_fill,

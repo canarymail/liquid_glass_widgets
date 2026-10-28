@@ -1,7 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
 import '../shared/adaptive_glass.dart';
+import '../shared/glass_solid_surface.dart';
+import '../shared/inherited_liquid_glass.dart';
 import '../../theme/glass_theme_helpers.dart';
 
 /// A glass picker widget following iOS design patterns.
@@ -24,6 +27,8 @@ class GlassPicker extends StatelessWidget {
     this.settings,
     this.useOwnLayer = false,
     this.quality,
+    this.surfaceStyle,
+    this.color,
     this.shape = const LiquidRoundedRectangle(borderRadius: 10),
     this.semanticLabel,
   });
@@ -67,6 +72,27 @@ class GlassPicker extends StatelessWidget {
   /// Quality.
   final GlassQuality? quality;
 
+  /// How the picker's surface is painted.
+  ///
+  /// If null (the default), inherits from the nearest ancestor
+  /// [InheritedGlassSurfaceStyle] (such as a `solid` `GlassContainer.card` or
+  /// `GlassGroupedSection`), falling back to [GlassSurfaceStyle.glass].
+  ///
+  /// - [GlassSurfaceStyle.glass]: Renders the picker with [AdaptiveGlass].
+  /// - [GlassSurfaceStyle.solid]: Renders a flat recessed well
+  ///   ([resolveGlassSolidWellColor] by default, or [color] when provided)
+  ///   with zero shader or backdrop-filter overhead. [settings],
+  ///   [useOwnLayer], and [quality] are ignored.
+  final GlassSurfaceStyle? surfaceStyle;
+
+  /// Explicit fill color override for [GlassSurfaceStyle.solid] pickers.
+  ///
+  /// If null, a solid picker uses [resolveGlassSolidWellColor] (`#1E767680` in
+  /// light mode, `#3D767680` in dark mode — matching iOS `tertiarySystemFill`).
+  /// Ignored when the resolved surface style is [GlassSurfaceStyle.glass]
+  /// (use [LiquidGlassSettings.glassColor] in [settings] to tint glass).
+  final Color? color;
+
   /// Shape of the container.
   final LiquidShape shape;
 
@@ -78,12 +104,6 @@ class GlassPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Inherit quality from parent layer if not explicitly set
-    final effectiveQuality = GlassThemeHelpers.resolveQuality(
-      context,
-      widgetQuality: quality,
-    );
-
     final labelColor = CupertinoColors.label.resolveFrom(context);
     final secondaryColor = CupertinoColors.secondaryLabel.resolveFrom(context);
 
@@ -120,13 +140,68 @@ class GlassPicker extends StatelessWidget {
       ),
     );
 
-    final glassWidget = AdaptiveGlass(
-      shape: shape,
-      settings: settings ?? const LiquidGlassSettings(blur: 8),
-      quality: effectiveQuality,
-      useOwnLayer: useOwnLayer,
-      child: child,
-    );
+    final effectiveSurfaceStyle = surfaceStyle ??
+        InheritedGlassSurfaceStyle.maybeOf(context) ??
+        GlassSurfaceStyle.glass;
+
+    final Widget surfaceWidget;
+    if (effectiveSurfaceStyle == GlassSurfaceStyle.solid) {
+      assert(() {
+        if (settings != null || quality != null) {
+          debugPrint(
+            'GlassPicker: `settings` / `quality` have no effect when '
+            '`surfaceStyle` is GlassSurfaceStyle.solid (a solid picker is a '
+            'flat recessed well and does not use the glass shader).',
+          );
+        }
+        return true;
+      }());
+
+      surfaceWidget = DecoratedBox(
+        decoration: ShapeDecoration(
+          color: color ?? resolveGlassSolidWellColor(context),
+          shape: shape,
+        ),
+        child: child,
+      );
+    } else {
+      assert(() {
+        if (settings != null && !useOwnLayer) {
+          final inherited = InheritedLiquidGlass.of(context);
+          if (inherited != null && inherited != settings) {
+            debugPrint(
+              'GlassPicker: `settings` provided without `useOwnLayer: true`. '
+              'In grouped mode, per-widget settings are ignored — the parent '
+              'layer\'s settings are used instead.\n'
+              '  → To apply these settings, add `useOwnLayer: true` (creates a '
+              'separate rendering layer).\n'
+              '  → For better performance, set `settings` on GlassPage or '
+              'AdaptiveLiquidGlassLayer so all grouped children inherit them.',
+            );
+          }
+        }
+        return true;
+      }());
+
+      // Inherit quality from parent layer if not explicitly set
+      final effectiveQuality = GlassThemeHelpers.resolveQuality(
+        context,
+        widgetQuality: quality,
+      );
+      final effectiveSettings = GlassThemeHelpers.resolveSettings(
+        context,
+        explicit: settings,
+        fallback: const LiquidGlassSettings(blur: 8),
+      );
+
+      surfaceWidget = AdaptiveGlass(
+        shape: shape,
+        settings: effectiveSettings,
+        quality: effectiveQuality,
+        useOwnLayer: useOwnLayer,
+        child: child,
+      );
+    }
 
     final shownText = value ?? placeholder;
     // One node for the whole field: a button named by [semanticLabel] (or the
@@ -143,7 +218,7 @@ class GlassPicker extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: glassWidget,
+        child: surfaceWidget,
       ),
     );
   }

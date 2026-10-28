@@ -185,6 +185,7 @@ Ideas under consideration. None committed.
 - [ ] **Screenshots** — 3–5 screenshots in `pubspec.yaml` for the pub.dev listing.
 - [ ] **Analysis score** — ensure 160/160 pub points.
 - [ ] **Dedicated documentation site** (GitHub Pages or similar).
+- [ ] **Live web demo of the example app** — GitHub Pages build, clearly labelled as a standard-quality preview (web has no Impeller, so no premium refraction). Community PRs welcome.
 - [ ] **Figma/Sketch component library** matching the widget catalogue.
 - [ ] **VS Code / IntelliJ snippet pack** for common widget patterns.
 
@@ -221,4 +222,4 @@ Behaviour changes scheduled for 2.0.0:
 - A pinned group holding a single item renders at 44pt on both sides, matching the
   back button and iOS 26, rather than 46pt when its items are
   `GlassBarItemBackground.shared`.
-- `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDatePicker`, `GlassMultiDatePicker` and `GlassContainer.card` change their default `surfaceStyle` from `GlassSurfaceStyle.glass` to `GlassSurfaceStyle.solid` (flat opaque `#FFFFFF` / `#1C1C1E` cards with 26pt corners, matching native inset-grouped lists). 1.x keeps `glass` as the default (no silent visual change) and 2.0 flips it. `GlassContainer` itself stays glass-first. Pass `surfaceStyle: GlassSurfaceStyle.glass` to keep the old look.
+- `GlassGroupedSection`, `GlassReorderableList.grouped`, `GlassDisclosureGroup.standalone`, `GlassDatePicker`, `GlassMultiDatePicker` and `GlassContainer.card` change their default `surfaceStyle` from `GlassSurfaceStyle.glass` to `GlassSurfaceStyle.solid` (flat opaque `#FFFFFF` / `#1C1C1E` cards with 26pt corners, matching native inset-grouped lists). Because `GlassTextField`, `GlassTextField.search`, `GlassSearchBar`, `GlassTextArea`, `GlassPasswordField`, and `GlassPicker` inherit `InheritedGlassSurfaceStyle` by default (`surfaceStyle: null`), any input or picker placed inside a `GlassContainer.card` or `GlassGroupedSection` will also automatically default to `GlassSurfaceStyle.solid` in 2.0.0 (while standalone floating inputs on a page canvas remain `glass` unless `surfaceStyle: GlassSurfaceStyle.solid` is passed). 1.x keeps `glass` as the default (no silent visual change) and 2.0 flips it. `GlassContainer` itself stays glass-first. Pass `surfaceStyle: GlassSurfaceStyle.glass` to keep the glass look.

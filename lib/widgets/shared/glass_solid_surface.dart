@@ -13,6 +13,14 @@ const Color kGlassSolidSurfaceDark = Color(0xFF1C1C1E);
 /// used inside modal sheets and full-screen covers.
 const Color kGlassSolidSurfaceDarkElevated = Color(0xFF2C2C2E);
 
+/// Fill of a `GlassSurfaceStyle.solid` input well in light mode (`#1E767680`),
+/// matching iOS `tertiarySystemFill`.
+const Color kGlassSolidWellLight = Color(0x1E767680);
+
+/// Fill of a `GlassSurfaceStyle.solid` input well in dark mode (`#3D767680`),
+/// matching iOS `tertiarySystemFill`.
+const Color kGlassSolidWellDark = Color(0x3D767680);
+
 /// Resolves the fill of a `GlassSurfaceStyle.solid` card.
 ///
 /// Mirrors iOS `secondarySystemGroupedBackground`: `#FFFFFF` in light mode,
@@ -29,6 +37,19 @@ Color resolveGlassSolidSurfaceColor(BuildContext context) {
   final isElevated = CupertinoUserInterfaceLevel.maybeOf(context) ==
       CupertinoUserInterfaceLevelData.elevated;
   return isElevated ? kGlassSolidSurfaceDarkElevated : kGlassSolidSurfaceDark;
+}
+
+/// Resolves the fill of a `GlassSurfaceStyle.solid` input well
+/// (`GlassTextField`, `GlassTextArea`, `GlassPasswordField`, `GlassPicker`).
+///
+/// Mirrors iOS `tertiarySystemFill` ([kGlassSolidWellLight] in light mode,
+/// [kGlassSolidWellDark] in dark mode) so the well stays recessed and visible
+/// both inside a solid card (`#FFFFFF` / `#1C1C1E`) and directly on a grouped
+/// page background. Brightness comes from [GlassTheme.brightnessOf].
+Color resolveGlassSolidWellColor(BuildContext context) {
+  return GlassTheme.brightnessOf(context) == Brightness.dark
+      ? kGlassSolidWellDark
+      : kGlassSolidWellLight;
 }
 
 /// An inherited widget that exposes the active [GlassSurfaceStyle] to

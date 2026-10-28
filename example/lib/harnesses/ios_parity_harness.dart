@@ -115,6 +115,13 @@ class _ParityHostState extends State<_ParityHost> {
   final _emergencyContact = ValueNotifier<bool>(true);
   final _airDrop = ValueNotifier<bool>(true);
   final _sharePhoto = ValueNotifier<bool>(true);
+  final _standaloneExpanded = ValueNotifier<bool>(true);
+  final _pushNotifications = ValueNotifier<bool>(true);
+  final _fullNameCtrl = TextEditingController(text: 'Alex Rivera');
+  final _bioCtrl =
+      TextEditingController(text: 'Product Design Director at Acme Corp.');
+  final _passwordCtrl = TextEditingController(text: 'secretpassword');
+  bool _showInputs = false;
   final _activeMenuIndex = ValueNotifier<int?>(null);
   final _navPath = GlassNavigationPath();
   GlassMorphAnchor? _morphFullAnchor;
@@ -342,6 +349,11 @@ class _ParityHostState extends State<_ParityHost> {
         final v = [..._expanded.value];
         v[int.parse(a[1])] = a[2] == 'on';
         _expanded.value = v;
+      case 'inputs':
+        setState(() {
+          _tab = 1;
+          _showInputs = a[1] == 'on';
+        });
       case 'toggle':
         switch (a[1]) {
           case '0':
@@ -706,6 +718,7 @@ class _ParityHostState extends State<_ParityHost> {
   // -- 1. Disclosure --------------------------------------------------------
 
   Widget _disclosure() {
+    if (_showInputs) return _inputsAndWells();
     return ValueListenableBuilder<List<bool>>(
       valueListenable: _expanded,
       builder: (context, ex, _) => _page('Disclosure', [
@@ -824,6 +837,98 @@ class _ParityHostState extends State<_ParityHost> {
     final l = [..._expanded.value];
     l[i] = v;
     _expanded.value = l;
+  }
+
+  Widget _inputsAndWells() {
+    final secondary = CupertinoColors.secondaryLabel.resolveFrom(context);
+    return _page('Inputs & Wells', [
+      GlassGroupedSection(
+        surfaceStyle: GlassSurfaceStyle.solid,
+        margin: EdgeInsets.zero,
+        header: _sectionHeader('Solid Inputs in Card (tertiarySystemFill)'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. GlassSearchBar (auto-inherits solid)
+                const GlassSearchBar(
+                  placeholder: 'Search contacts...',
+                  height: 36,
+                ),
+                const SizedBox(height: 12),
+                // 2. GlassTextField with prefix icon (auto-inherits solid)
+                GlassTextField(
+                  controller: _fullNameCtrl,
+                  prefixIcon: Icon(
+                    CupertinoIcons.person,
+                    size: 18,
+                    color: secondary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 3. GlassTextArea (auto-inherits solid)
+                GlassTextArea(
+                  controller: _bioCtrl,
+                  minLines: 2,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                // 4. GlassPasswordField (auto-inherits solid)
+                GlassPasswordField(
+                  controller: _passwordCtrl,
+                ),
+                const SizedBox(height: 12),
+                // 5. GlassPicker (auto-inherits solid)
+                GlassPicker(
+                  value: 'Product Design Director',
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      _header('Standalone Disclosure (GlassDisclosureGroup.standalone)'),
+      ValueListenableBuilder<bool>(
+        valueListenable: _standaloneExpanded,
+        builder: (context, expanded, _) => GlassDisclosureGroup.standalone(
+          surfaceStyle: GlassSurfaceStyle.solid,
+          isExpanded: expanded,
+          onExpansionChanged: (v) => _standaloneExpanded.value = v,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          leading: const Icon(
+            CupertinoIcons.bell_fill,
+            color: CupertinoColors.systemRed,
+            size: 20,
+          ),
+          title: const Text(
+            'Notifications & Alerts',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          ),
+          children: [
+            _kv(
+              'Push Notifications',
+              null,
+              trailing: ValueListenableBuilder<bool>(
+                valueListenable: _pushNotifications,
+                builder: (context, val, _) => GlassSwitch(
+                  value: val,
+                  quality: GlassQuality.premium,
+                  onChanged: (v) => _pushNotifications.value = v,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _kv('Alert Style', 'Banners'),
+            ),
+          ],
+        ),
+      ),
+    ]);
   }
 
   Widget _kv(String k, String? v,

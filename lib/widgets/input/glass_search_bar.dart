@@ -3,7 +3,9 @@ import '../../theme/glass_theme.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
 import '../interactive/glass_button.dart';
+import '../shared/glass_solid_surface.dart';
 import '../../src/utils/glass_localizations.dart';
 import 'glass_text_field.dart';
 
@@ -116,6 +118,8 @@ class GlassSearchBar extends StatefulWidget {
     this.settings,
     this.useOwnLayer = false,
     this.quality,
+    this.surfaceStyle,
+    this.color,
     this.clearButtonSemanticLabel,
     this.cancelButtonSemanticLabel,
   });
@@ -253,6 +257,19 @@ class GlassSearchBar extends StatefulWidget {
   /// and chromatic aberration (Impeller only) in static layouts.
   final GlassQuality? quality;
 
+  /// How the search field's surface is painted.
+  ///
+  /// If null (the default), inherits from the nearest ancestor
+  /// [InheritedGlassSurfaceStyle] (such as a `solid` `GlassContainer.card` or
+  /// `GlassGroupedSection`), falling back to [GlassSurfaceStyle.glass].
+  final GlassSurfaceStyle? surfaceStyle;
+
+  /// Explicit fill color override for a [GlassSurfaceStyle.solid] search field.
+  ///
+  /// If null, uses [resolveGlassSolidWellColor] (`#1E767680` in light mode,
+  /// `#3D767680` in dark mode — matching iOS `tertiarySystemFill`).
+  final Color? color;
+
   @override
   State<GlassSearchBar> createState() => _GlassSearchBarState();
 }
@@ -336,13 +353,28 @@ class _GlassSearchBarState extends State<GlassSearchBar> {
   @override
   Widget build(BuildContext context) {
     final isDark = GlassTheme.brightnessOf(context) == Brightness.dark;
+    final effectiveSurfaceStyle = widget.surfaceStyle ??
+        InheritedGlassSurfaceStyle.maybeOf(context) ??
+        GlassSurfaceStyle.glass;
+    final isSolid = effectiveSurfaceStyle == GlassSurfaceStyle.solid;
 
+    final solidIconColor = isDark
+        ? CupertinoColors.secondaryLabel.darkColor
+        : CupertinoColors.secondaryLabel.color;
     final searchIconColor = widget.searchIconColor ??
-        (isDark ? const Color(0x99FFFFFF) : const Color(0x99000000));
+        (isSolid
+            ? solidIconColor
+            : (isDark ? const Color(0x99FFFFFF) : const Color(0x99000000)));
     final clearIconColor = widget.clearIconColor ??
-        (isDark ? const Color(0x99FFFFFF) : const Color(0x99000000));
+        (isSolid
+            ? solidIconColor
+            : (isDark ? const Color(0x99FFFFFF) : const Color(0x99000000)));
     final cancelButtonColor = widget.cancelButtonColor ??
-        (isDark ? const Color(0xE6FFFFFF) : const Color(0xE6000000));
+        (isSolid
+            ? (isDark
+                ? CupertinoColors.label.darkColor
+                : CupertinoColors.label.color)
+            : (isDark ? const Color(0xE6FFFFFF) : const Color(0xE6000000)));
 
     return Row(
       children: [
@@ -394,6 +426,8 @@ class _GlassSearchBarState extends State<GlassSearchBar> {
             settings: widget.settings,
             useOwnLayer: widget.useOwnLayer,
             quality: widget.quality,
+            surfaceStyle: widget.surfaceStyle,
+            color: widget.color,
           ),
         ),
 

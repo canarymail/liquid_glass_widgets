@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../types/glass_quality.dart';
+import '../../types/glass_surface_style.dart';
+import '../shared/glass_solid_surface.dart';
 import 'glass_container.dart';
 import 'glass_divider.dart';
 import 'glass_list_tile.dart';
@@ -76,10 +78,13 @@ class GlassDisclosureGroup extends StatefulWidget {
     this.headerBuilder,
   })  : _useOwnLayer = false,
         _settings = null,
-        _quality = null;
+        _quality = null,
+        surfaceStyle = null,
+        color = null,
+        shape = null;
 
   /// Creates a standalone [GlassDisclosureGroup] that renders inside its
-  /// own independent [GlassContainer].
+  /// own independent [GlassContainer.card].
   const GlassDisclosureGroup.standalone({
     super.key,
     required this.title,
@@ -106,6 +111,9 @@ class GlassDisclosureGroup extends StatefulWidget {
     this.headerBuilder,
     LiquidGlassSettings? settings,
     GlassQuality? quality,
+    this.surfaceStyle,
+    this.color,
+    this.shape,
   })  : _useOwnLayer = true,
         _settings = settings,
         _quality = quality;
@@ -192,6 +200,27 @@ class GlassDisclosureGroup extends StatefulWidget {
     bool isExpanded,
     VoidCallback toggle,
   )? headerBuilder;
+
+  /// How the standalone card is painted ([GlassDisclosureGroup.standalone] only).
+  ///
+  /// If null, inherits from the nearest ancestor [InheritedGlassSurfaceStyle],
+  /// falling back to [GlassSurfaceStyle.glass].
+  ///
+  /// - [GlassSurfaceStyle.glass]: Renders a 12pt superellipse glass card.
+  /// - [GlassSurfaceStyle.solid]: Renders a flat opaque 26pt superellipse card
+  ///   matching native iOS inset-grouped lists, and clips children to the
+  ///   card's corners.
+  final GlassSurfaceStyle? surfaceStyle;
+
+  /// Explicit fill color override for a solid standalone card
+  /// ([GlassDisclosureGroup.standalone] only).
+  final Color? color;
+
+  /// Custom shape for the standalone card ([GlassDisclosureGroup.standalone] only).
+  ///
+  /// If null, uses [GlassContainer.card]'s default shape: a 12pt superellipse
+  /// for [GlassSurfaceStyle.glass], 26pt for [GlassSurfaceStyle.solid].
+  final LiquidShape? shape;
 
   final bool _useOwnLayer;
   final LiquidGlassSettings? _settings;
@@ -328,7 +357,11 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       child: header,
     );
 
-    final childrenWidgets = _buildChildren(context);
+    final effectiveSurfaceStyle = widget.surfaceStyle ??
+        InheritedGlassSurfaceStyle.maybeOf(context) ??
+        GlassSurfaceStyle.glass;
+
+    final childrenWidgets = _buildChildren(context, effectiveSurfaceStyle);
 
     final expandedContent = AnimatedBuilder(
       animation: _controller.view,
@@ -354,10 +387,16 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
     );
 
     if (widget._useOwnLayer) {
-      group = GlassContainer(
-        shape: const LiquidRoundedSuperellipse(borderRadius: 12),
+      group = GlassContainer.card(
+        shape: widget.shape,
         settings: widget._settings,
         quality: widget._quality,
+        useOwnLayer: widget._settings != null,
+        surfaceStyle: effectiveSurfaceStyle,
+        color: widget.color,
+        clipBehavior: effectiveSurfaceStyle == GlassSurfaceStyle.solid
+            ? Clip.antiAlias
+            : Clip.none,
         padding: EdgeInsets.zero,
         child: group,
       );
@@ -473,11 +512,16 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
     );
   }
 
-  Widget _buildChildren(BuildContext context) {
+  Widget _buildChildren(
+    BuildContext context,
+    GlassSurfaceStyle effectiveSurfaceStyle,
+  ) {
     if (widget.children.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final double endIndent =
+        effectiveSurfaceStyle == GlassSurfaceStyle.solid ? 16.0 : 0.0;
     final processedChildren = <Widget>[];
 
     for (var i = 0; i < widget.children.length; i++) {
@@ -497,7 +541,9 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
           indent = 52.0;
         }
 
-        processedChildren.add(GlassDivider(indent: indent));
+        processedChildren.add(
+          GlassDivider(indent: indent, endIndent: endIndent),
+        );
       }
     }
 
@@ -519,7 +565,10 @@ class GlassDisclosureGroupState extends State<GlassDisclosureGroup>
       rows = Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [GlassDivider(indent: headerDividerIndent), rows],
+        children: [
+          GlassDivider(indent: headerDividerIndent, endIndent: endIndent),
+          rows,
+        ],
       );
     }
 
