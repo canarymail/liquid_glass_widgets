@@ -15,6 +15,7 @@ export 'src/renderer/liquid_glass_renderer.dart'
         LiquidGlassLayer,
         LiquidGlassBlendGroup,
         GlassGlow,
+        GlassMaterializeScope,
         debugPaintLiquidGlassGeometry;
 export 'src/renderer/glass_backdrop_group.dart'; // GlassBackdropGroup
 export 'src/engine/liquid_shape.dart'; // all shapes are public
@@ -110,6 +111,7 @@ export 'widgets/overlays/glass_context_menu.dart';
 export 'widgets/overlays/glass_dialog.dart';
 export 'widgets/overlays/glass_full_screen_cover.dart';
 export 'widgets/overlays/glass_menu.dart';
+export 'widgets/overlays/glass_menu_anchor.dart';
 export 'widgets/overlays/glass_menu_item.dart';
 export 'widgets/overlays/glass_sheet.dart';
 export 'widgets/overlays/glass_modal_sheet.dart'

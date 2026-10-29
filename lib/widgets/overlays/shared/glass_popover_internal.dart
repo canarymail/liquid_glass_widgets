@@ -391,18 +391,19 @@ class _GlassPopoverState extends State<GlassPopover>
         final th = _triggerSize?.height ?? 44.0;
         final dxMag = (widget.popoverWidth - tw) / 2.0;
         final dyMag = (_effectivePopoverHeight() - th) / 2.0;
-        final double pushDx = isHandoff
+        final double pushDx = isHandoff && glass_config.triggerImpact
             ? (-_morphAlignment.x * dxMag + _horizontalOffset) * rawValue
             : 0.0;
-        final double pushDy = isHandoff
+        final double pushDy = isHandoff && glass_config.triggerImpact
             ? (-_morphAlignment.y * dyMag + _verticalOffset) * rawValue
             : 0.0;
 
         // Underdamped bounce impact squash: as the droplet slams into the trigger,
         // the button compresses slightly and rebounds to rest, giving a visceral
         // tactile sensation of liquid absorption.
-        final double impactScale =
-            isHandoff ? (1.0 + rawValue * 0.35).clamp(0.88, 1.0) : 1.0;
+        final double impactScale = isHandoff && glass_config.triggerImpact
+            ? (1.0 + rawValue * 0.35).clamp(0.88, 1.0)
+            : 1.0;
 
         final outer = GlassMaterializeScope.maybeOf(context);
 

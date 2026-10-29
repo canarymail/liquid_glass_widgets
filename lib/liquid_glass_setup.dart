@@ -71,6 +71,19 @@ class LiquidGlassWidgets {
   static set solidSurfaceBorder(bool value) =>
       glass_config.solidSurfaceBorder = value;
 
+  /// Whether a closing [GlassMenu] / [GlassPopover] slams into its trigger.
+  ///
+  /// Defaults to `true`: the trigger is pushed along the droplet's path and
+  /// squashes and rebounds, and the overlay hands off to it in one frame.
+  ///
+  /// Turn it off when the trigger sits inside a larger glass surface (one
+  /// button of a group): pushing it moves the icon away from the glass it
+  /// sits in. Off, a [GlassMenu] droplet also settles onto the trigger's
+  /// center before it lands and dissolves into the trigger over the last
+  /// stretch of the close instead of cutting to it.
+  static bool get triggerImpact => glass_config.triggerImpact;
+  static set triggerImpact(bool value) => glass_config.triggerImpact = value;
+
   /// Global [LiquidGlassSettings] override for the entire application.
   ///
   /// When set, these settings are used as the base for all glass widgets

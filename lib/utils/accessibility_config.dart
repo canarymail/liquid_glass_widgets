@@ -32,3 +32,10 @@ bool shadowInDarkMode = false;
 ///
 /// Set by [LiquidGlassWidgets.solidSurfaceBorder].
 bool solidSurfaceBorder = false;
+
+/// Whether a closing menu or popover slams into its trigger: the trigger is
+/// pushed and squashed by the droplet's momentum, and the overlay cuts to the
+/// trigger in one frame. Off gives a soft landing instead.
+///
+/// On by default. Set by [LiquidGlassWidgets.triggerImpact].
+bool triggerImpact = true;

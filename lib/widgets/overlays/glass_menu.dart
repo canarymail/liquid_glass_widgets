@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../../src/utils/glass_localizations.dart';
 import '../../utils/glass_morph_controller.dart';
+import 'glass_menu_anchor.dart';
 import '../../src/renderer/liquid_glass_renderer.dart';
 import '../../src/widgets/surfaces/vertical_bar_presentation.dart';
 
@@ -18,6 +19,7 @@ import 'glass_menu_item.dart';
 import '../../theme/glass_theme_helpers.dart';
 import '../../theme/glass_theme.dart';
 import '../shared/glass_accessibility_scope.dart';
+import '../../utils/accessibility_config.dart' as glass_config;
 
 part 'shared/glass_menu_internal.dart';
 
@@ -270,6 +272,13 @@ class GlassMenu extends StatefulWidget {
   /// zero-sized trigger reads as a point bloom rather than an 8px glass dot.
   final bool morphFromZero;
 
+  /// Morph out of and back into the nearest [GlassMenuAnchor] above the
+  /// trigger instead of the trigger alone: the menu takes the anchor's bounds
+  /// as its start and end shape and hides the whole anchor while open, as a
+  /// native toolbar menu does with its button's capsule. Without an anchor
+  /// above it, the menu morphs from its trigger as usual.
+  final bool morphFromAnchor;
+
   /// When true (typically for iOS PlatformViews), forces the BackdropFilter
   /// fallback render path instead of the Impeller-native shader. Forwarded to
   /// the underlying [AdaptiveLiquidGlassLayer].
@@ -358,6 +367,7 @@ class GlassMenu extends StatefulWidget {
     this.controller,
     this.showDismissBarrier = true,
     this.morphFromZero = false,
+    this.morphFromAnchor = false,
     this.platformViewBackdrop = false,
     this.morphSpeed = MorphSpeed.normal,
     this.enableContinuousSwipe = false,
