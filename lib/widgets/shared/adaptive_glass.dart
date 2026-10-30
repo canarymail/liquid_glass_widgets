@@ -1044,10 +1044,17 @@ class _FrostedFallback extends StatelessWidget {
         // Text and contents MUST be strictly clipped to corner radii.
         // Same ClipRRect-over-ClipPath rationale as the blur body
         // above — see the [_ShapeClip] doc comment.
+        // [Dove] Fades with visibility like the premium and lightweight
+        // paths, so content doesn't stay opaque while the surface dissolves.
         _ShapeClip(
           shape: shape,
           platformViewBackdrop: platformViewBackdrop,
-          child: child,
+          child: settings.visibility >= 1.0
+              ? child
+              : Opacity(
+                  opacity: settings.visibility.clamp(0.0, 1.0),
+                  child: child,
+                ),
         ),
 
         // Specular Rim: drawn as a pure native overlay vector perfectly on top.
